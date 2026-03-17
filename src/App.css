@@ -1,0 +1,67 @@
+#root {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+body {
+  background-color: #0a1020;
+  color: #e2e8f0;
+}
+
+/* Recharts dark theme overrides */
+.recharts-cartesian-axis-tick-value {
+  fill: #64748b !important;
+}
+
+.recharts-label {
+  fill: #94a3b8 !important;
+}
+
+.recharts-legend-item-text {
+  color: #94a3b8 !important;
+}
+
+.recharts-default-tooltip {
+  background-color: #111a2e !important;
+  border: 1px solid #1c2a42 !important;
+  border-radius: 8px !important;
+}
+
+.recharts-tooltip-label {
+  color: #e2e8f0 !important;
+}
+
+.recharts-tooltip-item {
+  color: #94a3b8 !important;
+}
+
+/* Pie chart label text */
+.recharts-pie-label-text {
+  fill: #e2e8f0 !important;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a1020;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1c2a42;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3a55;
+}
+
+/* Input placeholder color */
+input::placeholder {
+  color: #475569 !important;
+}
