@@ -23,15 +23,8 @@ export interface FieldAccessResult {
 
 /** In-memory policy store */
 const policies: Policy[] = [
-  // Default deny-by-default policy
-  {
-    id: 'policy-deny-default',
-    name: 'Deny by Default',
-    description: 'All access is denied unless explicitly allowed',
-    effect: 'deny',
-    roles: [],
-    permissions: ['*'],
-  },
+  // Note: deny-by-default is enforced by the fallthrough at the end of checkPermission()
+  // No wildcard deny policy needed — it would block all users before reaching allow checks
   // Manager policies
   {
     id: 'policy-manager-cost',
@@ -101,8 +94,8 @@ export class AuthorizationService {
     for (const policy of policies) {
       if (policy.effect === 'deny' && this.policyAppliesToUser(policy, user)) {
         if (policy.permissions.includes(permission) || policy.permissions.includes('*')) {
-          // Check if there's a more specific allow for admin
-          if (user.roles.includes('admin') && policy.id !== 'policy-deny-default') continue
+          // Admin users bypass all deny policies
+          if (user.roles.includes('admin')) continue
 
           recordAudit(
             'authorization',
