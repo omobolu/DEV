@@ -16,6 +16,8 @@ import AppDetailPage from '@/features/cmdb/pages/AppDetailPage'
 import StubPage from '@/pages/stubs/StubPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
 import IntegrationsPage from '@/pages/integrations/IntegrationsPage'
+import MaturityPage from '@/pages/maturity/MaturityPage'
+import MaturityDomainDetail from '@/pages/maturity/MaturityDomainDetail'
 import { CMDBProvider } from '@/context/CMDBContext'
 
 export default function App() {
@@ -58,6 +60,8 @@ export default function App() {
             </Route>
             <Route path="documents" element={<DocumentsPage />} />
             <Route path="integrations" element={<IntegrationsPage />} />
+            <Route path="maturity" element={<MaturityPage />} />
+            <Route path="maturity/domains/:domainId" element={<MaturityDomainDetail />} />
             <Route path="my-account" element={<StubPage title="My Account" />} />
             <Route path="users" element={<StubPage title="Users" />} />
             <Route path="admin" element={<StubPage title="Admin" />} />

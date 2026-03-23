@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, User, BarChart2, AppWindow, Users,
-  ShieldCheck, Settings, Lock, ShieldAlert, UserCheck, Database, FileText, Plug,
+  ShieldCheck, Settings, Lock, ShieldAlert, UserCheck, Database, FileText, Plug, Award,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -23,6 +23,7 @@ const DASHBOARD_ITEMS = [
   { icon: Database,    label: 'CMDB',   path: '/cmdb',               color: '#8b5cf6' },
   { icon: FileText,    label: 'Docs',   path: '/documents',          color: '#10b981' },
   { icon: Plug,        label: 'Integrations', path: '/integrations',   color: '#f97316' },
+  { icon: Award,       label: 'Maturity',     path: '/maturity',        color: '#a855f7' },
 ]
 
 export default function Sidebar() {

@@ -15,6 +15,7 @@ import integrationController from './modules/integration/integration.controller'
 import costController from './modules/cost/cost.controller';
 import securityController from './modules/security/security.controller';
 import documentController from './modules/document/document.controller';
+import maturityController from './modules/maturity/maturity.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
 import gapsRouter from './routes/gaps';
@@ -56,6 +57,7 @@ app.get('/health', (_req, res) => {
       'Cost & Vendor Intelligence': 'active',
       'Security & Identity Governance': 'active',
       'Document Registry': 'active',
+      'Program Maturity':  'active',
     },
     integrations: {
       entraId: process.env.ENTRA_TENANT_ID ? 'configured' : 'mock',
@@ -75,6 +77,7 @@ app.use('/integrations', integrationController);
 app.use('/cost', costController);
 app.use('/security', securityController);
 app.use('/documents', documentController);
+app.use('/maturity',  maturityController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
 app.use('/api/gaps', gapsRouter);
