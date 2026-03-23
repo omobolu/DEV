@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   ArrowLeft, Clock, CheckCircle, XCircle, Send, Globe, Archive,
-  ChevronDown, ChevronUp, User, FileText,
+  ChevronDown, ChevronUp, User,
 } from 'lucide-react'
 import Badge from '@/components/common/Badge'
 
@@ -115,10 +115,8 @@ export default function DocumentDetail({ documentId, onBack }: {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'reviews'>('content')
   const [reviewingVersion, setReviewingVersion] = useState<number | null>(null)
-  const [showVersions, setShowVersions] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
-  const [reviewForm, setReviewForm] = useState({ outcome: 'approved', comments: '' })
 
   const token = () => localStorage.getItem('idvize_token') ?? ''
 

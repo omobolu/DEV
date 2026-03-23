@@ -24,7 +24,7 @@ export interface TokenResponse {
   scope: string;
 }
 
-const TOKEN_TTL_SECONDS = 3600; // 1 hour
+const TOKEN_TTL_SECONDS = 28800; // 8 hours (dev-friendly)
 
 class OidcAdapter {
   private signingSecret: string | null = null;

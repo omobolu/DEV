@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Info } from 'lucide-react'
+import { apiFetch } from '@/lib/apiClient'
 
-const API = 'http://localhost:3001'
-const API_KEY = 'idvize-dev-key-change-me'
-
-type MaturityLevel = 'Initial' | 'Developing' | 'Defined' | 'Managed' | 'Optimized'
+type MaturityLevel = string  // 'Level 1 - Initial' ... 'Level 5 - Optimized'
 
 interface DomainSummary {
   domainId: string; name: string; score: number
@@ -22,12 +20,18 @@ interface Summary {
   topRecommendations: Recommendation[]; aiNarrative?: string
 }
 
-const LEVEL_COLOR: Record<MaturityLevel, string> = {
-  Initial:    '#ef4444',
-  Developing: '#f97316',
-  Defined:    '#eab308',
-  Managed:    '#22c55e',
-  Optimized:  '#6366f1',
+function levelColor(score: number): string {
+  if (score >= 81) return '#6366f1'
+  if (score >= 61) return '#22c55e'
+  if (score >= 41) return '#eab308'
+  if (score >= 21) return '#f97316'
+  return '#ef4444'
+}
+function levelNumber(level: string): number {
+  const m = level.match(/Level (\d)/); return m ? parseInt(m[1]) : 0
+}
+function levelShort(level: string): string {
+  return level.replace('Level ', 'L').replace(' - ', ' · ')
 }
 const PRIORITY_COLOR = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#6366f1' }
 const EFFORT_LABEL = { quick_win: 'Quick Win', medium_term: 'Medium Term', strategic: 'Strategic' }
@@ -39,7 +43,7 @@ function ConfidencePill({ value }: { value: number }) {
 }
 
 function ScoreGauge({ score, level }: { score: number; level: MaturityLevel }) {
-  const color = LEVEL_COLOR[level]
+  const color = levelColor(score)
   const circumference = 2 * Math.PI * 54
   const filled = circumference * (score / 100)
   return (
@@ -51,26 +55,38 @@ function ScoreGauge({ score, level }: { score: number; level: MaturityLevel }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-bold text-slate-100">{score}</span>
-        <span className="text-xs font-medium mt-0.5" style={{ color }}>{level}</span>
+        <span className="text-xs font-medium mt-0.5" style={{ color }}>{levelShort(level)}</span>
       </div>
     </div>
   )
 }
 
 function DomainCard({ domain, onClick }: { domain: DomainSummary; onClick: () => void }) {
-  const color = LEVEL_COLOR[domain.level]
+  const color = levelColor(domain.score)
+  const lnum  = levelNumber(domain.level)
   return (
     <button onClick={onClick}
       className="text-left rounded-xl border border-surface-600 bg-surface-800 p-4 hover:border-indigo-500/50 transition-all group">
       <div className="flex items-start justify-between gap-2 mb-3">
         <span className="text-sm font-medium text-slate-200 leading-tight">{domain.name}</span>
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
-          style={{ backgroundColor: color + '25', color }}>{domain.level}</span>
+          style={{ backgroundColor: color + '25', color }}>{levelShort(domain.level)}</span>
       </div>
       {/* Score bar */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-2xl font-bold" style={{ color }}>{domain.score}</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold" style={{ color }}>{domain.score}</span>
+            <span className="text-xs text-slate-500">/100</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            {[1,2,3,4,5].map(n => (
+              <div key={n} className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: n <= lnum ? color : '#334155' }} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between mb-1">
           <ConfidencePill value={domain.confidence} />
         </div>
         <div className="h-1.5 rounded-full bg-surface-700">
@@ -91,18 +107,10 @@ export default function MaturityPage() {
   const [loading, setLoading] = useState(true)
   const [recalculating, setRecalculating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const token = localStorage.getItem('idvize_token') ?? ''
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-api-key': API_KEY,
-    Authorization: `Bearer ${token}`,
-  }
-
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res  = await fetch(`${API}/maturity/summary`, { headers })
+      const res  = await apiFetch('/maturity/summary')
       const json = await res.json()
       if (json.success) setSummary(json.data)
       else setError(json.error)
@@ -115,7 +123,7 @@ export default function MaturityPage() {
   const recalculate = async () => {
     setRecalculating(true)
     try {
-      const res  = await fetch(`${API}/maturity/recalculate`, { method: 'POST', headers })
+      const res  = await apiFetch('/maturity/recalculate', { method: 'POST' })
       const json = await res.json()
       if (json.success) setSummary(json.data)
     } finally { setRecalculating(false) }

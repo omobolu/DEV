@@ -172,11 +172,11 @@ export const DOMAIN_MAP: Record<string, MaturityDomainDefinition> = Object.fromE
   MATURITY_DOMAINS.map(d => [d.domainId, d])
 );
 
-/** Score band → MaturityLevel */
+/** Score band → MaturityLevel (CMMI/NIST/ISACA 1-5 scale) */
 export function scoreToLevel(score: number): import('./maturity.types').MaturityLevel {
-  if (score >= 81) return 'Optimized';
-  if (score >= 61) return 'Managed';
-  if (score >= 41) return 'Defined';
-  if (score >= 21) return 'Developing';
-  return 'Initial';
+  if (score >= 81) return 'Level 5 - Optimized';
+  if (score >= 61) return 'Level 4 - Managed';
+  if (score >= 41) return 'Level 3 - Defined';
+  if (score >= 21) return 'Level 2 - Developing';
+  return 'Level 1 - Initial';
 }

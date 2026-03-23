@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { apiFetch } from '@/lib/apiClient'
 
-const API = 'http://localhost:3001'
-const API_KEY = 'idvize-dev-key-change-me'
-
-type MaturityLevel = 'Initial' | 'Developing' | 'Defined' | 'Managed' | 'Optimized'
+type MaturityLevel = string  // 'Level 1 - Initial' ... 'Level 5 - Optimized'
 
 interface EvidenceItem {
   evidenceId: string; source: string; quality: string
@@ -28,9 +26,18 @@ interface Recommendation {
   priority: string; title: string; description: string; effort: string; impact: number
 }
 
-const LEVEL_COLOR: Record<MaturityLevel, string> = {
-  Initial: '#ef4444', Developing: '#f97316',
-  Defined: '#eab308', Managed: '#22c55e', Optimized: '#6366f1',
+function levelColor(score: number): string {
+  if (score >= 81) return '#6366f1'
+  if (score >= 61) return '#22c55e'
+  if (score >= 41) return '#eab308'
+  if (score >= 21) return '#f97316'
+  return '#ef4444'
+}
+function levelNumber(level: string): number {
+  const m = level.match(/Level (\d)/); return m ? parseInt(m[1]) : 0
+}
+function levelShort(level: string): string {
+  return level.replace('Level ', 'L').replace(' - ', ' · ')
 }
 const QUALITY_COLOR: Record<string, string> = {
   live: 'text-green-400 bg-green-500/10', mock: 'text-amber-400 bg-amber-500/10',
@@ -99,14 +106,10 @@ export default function MaturityDomainDetail() {
   const [explanation, setExplanation] = useState<Explanation | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [loading, setLoading] = useState(true)
-  const token = localStorage.getItem('idvize_token') ?? ''
-
-  const headers = { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` }
-
   useEffect(() => {
     if (!domainId) return
     setLoading(true)
-    fetch(`${API}/maturity/domains/${domainId}`, { headers })
+    apiFetch(`/maturity/domains/${domainId}`)
       .then(r => r.json())
       .then(j => {
         if (j.success) {
@@ -121,7 +124,8 @@ export default function MaturityDomainDetail() {
   if (loading) return <div className="p-6 text-slate-400 text-sm">Loading domain…</div>
   if (!domain)  return <div className="p-6 text-red-400 text-sm">Domain not found</div>
 
-  const color   = LEVEL_COLOR[domain.level]
+  const color   = levelColor(domain.score)
+  const lnum    = levelNumber(domain.level)
   const sortedIndicators = [...domain.indicators].sort((a, b) => a.score - b.score)
 
   return (
@@ -136,10 +140,20 @@ export default function MaturityDomainDetail() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-slate-100">{domain.name}</h1>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-3xl font-bold" style={{ color }}>{domain.score}</span>
+              <span className="text-xs text-slate-500">/100</span>
               <span className="text-sm px-2 py-0.5 rounded-full font-medium"
-                style={{ backgroundColor: color + '25', color }}>{domain.level}</span>
+                style={{ backgroundColor: color + '25', color }}>{levelShort(domain.level)}</span>
+              {/* 5-level dots */}
+              <div className="flex items-center gap-1">
+                {[1,2,3,4,5].map(n => (
+                  <div key={n} className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center"
+                    style={{ borderColor: color, backgroundColor: n <= lnum ? color : 'transparent' }}>
+                    {n <= lnum && <div className="w-1.5 h-1.5 rounded-full bg-white/60" />}
+                  </div>
+                ))}
+              </div>
               <span className={`text-xs px-2 py-0.5 rounded-full ${Math.round(domain.confidence * 100) >= 70 ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
                 {Math.round(domain.confidence * 100)}% confidence
               </span>

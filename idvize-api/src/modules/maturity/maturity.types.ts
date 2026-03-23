@@ -12,7 +12,29 @@
  *   81–100 = Optimized   (continuously improved, automated)
  */
 
-export type MaturityLevel = 'Initial' | 'Developing' | 'Defined' | 'Managed' | 'Optimized';
+/** Industry-standard 1–5 maturity levels (CMMI / NIST / ISACA) */
+export type MaturityLevel =
+  | 'Level 1 - Initial'
+  | 'Level 2 - Developing'
+  | 'Level 3 - Defined'
+  | 'Level 4 - Managed'
+  | 'Level 5 - Optimized';
+
+export const MATURITY_LEVEL_NUMBER: Record<MaturityLevel, number> = {
+  'Level 1 - Initial':    1,
+  'Level 2 - Developing': 2,
+  'Level 3 - Defined':    3,
+  'Level 4 - Managed':    4,
+  'Level 5 - Optimized':  5,
+};
+
+export const MATURITY_LEVEL_SHORT: Record<MaturityLevel, string> = {
+  'Level 1 - Initial':    'L1 · Initial',
+  'Level 2 - Developing': 'L2 · Developing',
+  'Level 3 - Defined':    'L3 · Defined',
+  'Level 4 - Managed':    'L4 · Managed',
+  'Level 5 - Optimized':  'L5 · Optimized',
+};
 
 export type EvidenceSource =
   | 'document_module'
