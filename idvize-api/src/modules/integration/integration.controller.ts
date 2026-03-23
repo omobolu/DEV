@@ -3,6 +3,7 @@ import { entraAdapter } from './adapters/entra.adapter';
 import { sailpointAdapter } from './adapters/sailpoint.adapter';
 import { cyberarkAdapter } from './adapters/cyberark.adapter';
 import { oktaAdapter } from './adapters/okta.adapter';
+import { integrationConfigService, PlatformKey } from './integration.config.service';
 
 const router = Router();
 
@@ -51,6 +52,57 @@ router.post('/correlate/:appName', async (req: Request, res: Response) => {
     oktaAdapter.correlateApp(appName),
   ]);
   res.json({ success: true, data: { appName, correlations: { entra, sailpoint, cyberark, okta } }, timestamp: new Date().toISOString() });
+});
+
+// GET /integrations/config — current config (masked secrets) + statuses
+router.get('/config', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      statuses: integrationConfigService.getStatuses(),
+      config:   integrationConfigService.getMaskedConfig(),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /integrations/configure — save credentials for one or more platforms
+router.post('/configure', (req: Request, res: Response) => {
+  try {
+    const actorId   = req.user?.sub  ?? 'anonymous';
+    const actorName = req.user?.name ?? 'Anonymous';
+    integrationConfigService.save(req.body, actorId, actorName);
+    res.json({
+      success: true,
+      data: { statuses: integrationConfigService.getStatuses() },
+      message: 'Credentials saved',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e: unknown) {
+    res.status(500).json({ success: false, error: e instanceof Error ? e.message : 'Save failed', timestamp: new Date().toISOString() });
+  }
+});
+
+// POST /integrations/test/:platform — test live connection using credentials in request body
+// The body must contain the platform credentials to test — we NEVER use previously saved values
+// so that entering wrong credentials always fails, even if correct ones are already saved.
+router.post('/test/:platform', async (req: Request, res: Response) => {
+  const platform  = String(req.params.platform) as PlatformKey;
+  const actorId   = req.user?.sub  ?? 'anonymous';
+  const actorName = req.user?.name ?? 'Anonymous';
+
+  // req.body must be: { entra: {...} } or { sailpoint: {...} } etc.
+  if (!req.body || !req.body[platform]) {
+    res.status(400).json({
+      success: false,
+      error:   `Request body must contain a "${platform}" credentials object`,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const result = await integrationConfigService.testConnection(platform, req.body, actorId, actorName);
+  res.json({ success: true, data: result, timestamp: new Date().toISOString() });
 });
 
 export default router;

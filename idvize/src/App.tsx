@@ -15,6 +15,7 @@ import CMDBPage from '@/pages/cmdb/CMDBPage'
 import AppDetailPage from '@/features/cmdb/pages/AppDetailPage'
 import StubPage from '@/pages/stubs/StubPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
+import IntegrationsPage from '@/pages/integrations/IntegrationsPage'
 import { CMDBProvider } from '@/context/CMDBContext'
 
 export default function App() {
@@ -56,6 +57,7 @@ export default function App() {
               <Route path=":appId" element={<AppDetailPage />} />
             </Route>
             <Route path="documents" element={<DocumentsPage />} />
+            <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="my-account" element={<StubPage title="My Account" />} />
             <Route path="users" element={<StubPage title="Users" />} />
             <Route path="admin" element={<StubPage title="Admin" />} />
