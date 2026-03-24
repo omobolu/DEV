@@ -82,6 +82,78 @@ function detectStatus(controlId: string, posture: IamPosture | undefined): 'dete
   return result ? 'detected' : 'gap';
 }
 
+// ── GET /controls/coverage — per-control coverage across all apps ──────────
+router.get('/coverage', (_req: Request, res: Response) => {
+  const apps = applicationRepository.findAll();
+  const total = apps.length;
+
+  const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  const controls = CONTROLS_CATALOG.map(ctrl => {
+    let implemented = 0, gap = 0, notApplicable = 0;
+
+    for (const app of apps) {
+      const override = controlOverridesStore.get(app.appId, ctrl.controlId);
+      if (override?.notApplicable) { notApplicable++; continue; }
+      const status = detectStatus(ctrl.controlId, app.iamPosture);
+      if (status === 'detected') implemented++;
+      else if (status === 'gap') gap++;
+    }
+
+    const detectable = implemented + gap;
+    const effectiveTotal = total - notApplicable;
+    const pct = detectable > 0 ? Math.round((implemented / detectable) * 100) : null;
+
+    return {
+      controlId: ctrl.controlId,
+      name: ctrl.name,
+      pillar: ctrl.pillar,
+      riskReduction: ctrl.riskReduction,
+      implemented,
+      gap,
+      undetected: effectiveTotal - implemented - gap,
+      notApplicable,
+      detectable,
+      total,
+      pct,
+    };
+  });
+
+  res.json({ success: true, data: { controls, total }, timestamp: new Date().toISOString() });
+});
+
+// ── GET /controls/gaps/:controlId — apps where control is a confirmed gap ──
+router.get('/gaps/:controlId', (req: Request, res: Response) => {
+  const controlId = req.params.controlId as string;
+
+  const catalogControl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
+  if (!catalogControl) {
+    res.status(404).json({ success: false, error: `Control ${controlId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  const apps = applicationRepository.findAll();
+  const gaps: Array<{ appId: string; appName: string; riskTier: string; department: string; status: string }> = [];
+
+  for (const app of apps) {
+    const override = controlOverridesStore.get(app.appId, controlId);
+    if (override?.notApplicable) continue;
+    const status = detectStatus(controlId, app.iamPosture);
+    if (status === 'gap') {
+      gaps.push({ appId: app.appId, appName: app.name, riskTier: app.riskTier, department: app.department, status: 'gap' });
+    }
+  }
+
+  gaps.sort((a, b) => (tierOrder[a.riskTier] ?? 4) - (tierOrder[b.riskTier] ?? 4));
+
+  res.json({
+    success: true,
+    data: { controlId, control: catalogControl, gaps, summary: { total: gaps.length } },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ── GET /controls/catalog ──────────────────────────────────────────────────
 router.get('/catalog', (req: Request, res: Response) => {
   const pillar   = req.query.pillar   as IamPillar | undefined;

@@ -6,15 +6,20 @@
  *   IGA  — Identity Governance & Administration
  *   PAM  — Privileged Access Management
  *   CIAM — Customer Identity & Access Management
+ *
+ * Each control shows live coverage across all apps and links to a
+ * gap drill-down listing every app where the control is missing.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Shield, ShieldCheck, ShieldAlert, UserCheck,
   Search, Tag, ChevronDown, ChevronUp, BookOpen,
-  AlertTriangle, Info, Layers,
+  AlertTriangle, Info, Layers, X, ExternalLink,
+  BarChart2, ArrowRight,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
+import { useNavigate } from 'react-router-dom'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type IamPillar = 'AM' | 'IGA' | 'PAM' | 'CIAM'
@@ -33,15 +38,23 @@ interface CatalogControl {
   tags: string[]
 }
 
-interface CatalogData {
-  summary: {
-    total: number
-    filtered: number
-    byPillar: Record<IamPillar, number>
-    byRiskReduction: Record<string, number>
-  }
-  byPillar: Record<IamPillar, CatalogControl[]>
-  controls: CatalogControl[]
+interface ControlCoverage {
+  controlId: string
+  implemented: number
+  gap: number
+  undetected: number
+  notApplicable: number
+  detectable: number
+  total: number
+  pct: number | null
+}
+
+interface GapApp {
+  appId: string
+  appName: string
+  riskTier: string
+  department: string
+  status: string
 }
 
 // ── Pillar config ─────────────────────────────────────────────────────────
@@ -49,36 +62,20 @@ const PILLAR_CONFIG: Record<IamPillar, {
   label: string; fullName: string; icon: React.ElementType; color: string; bg: string; border: string
 }> = {
   AM: {
-    label: 'AM',
-    fullName: 'Access Management',
-    icon: ShieldCheck,
-    color: 'text-cyan-400',
-    bg: 'bg-cyan-900/20',
-    border: 'border-cyan-800/40',
+    label: 'AM', fullName: 'Access Management', icon: ShieldCheck,
+    color: 'text-cyan-400', bg: 'bg-cyan-900/20', border: 'border-cyan-800/40',
   },
   IGA: {
-    label: 'IGA',
-    fullName: 'Identity Governance & Administration',
-    icon: Shield,
-    color: 'text-indigo-400',
-    bg: 'bg-indigo-900/20',
-    border: 'border-indigo-800/40',
+    label: 'IGA', fullName: 'Identity Governance & Administration', icon: Shield,
+    color: 'text-indigo-400', bg: 'bg-indigo-900/20', border: 'border-indigo-800/40',
   },
   PAM: {
-    label: 'PAM',
-    fullName: 'Privileged Access Management',
-    icon: ShieldAlert,
-    color: 'text-amber-400',
-    bg: 'bg-amber-900/20',
-    border: 'border-amber-800/40',
+    label: 'PAM', fullName: 'Privileged Access Management', icon: ShieldAlert,
+    color: 'text-amber-400', bg: 'bg-amber-900/20', border: 'border-amber-800/40',
   },
   CIAM: {
-    label: 'CIAM',
-    fullName: 'Customer Identity & Access Management',
-    icon: UserCheck,
-    color: 'text-green-400',
-    bg: 'bg-green-900/20',
-    border: 'border-green-800/40',
+    label: 'CIAM', fullName: 'Customer Identity & Access Management', icon: UserCheck,
+    color: 'text-green-400', bg: 'bg-green-900/20', border: 'border-green-800/40',
   },
 }
 
@@ -89,17 +86,175 @@ const RISK_COLOR: Record<string, string> = {
   low:      'text-slate-400 bg-slate-800/40 border-slate-700',
 }
 
+const TIER_COLOR: Record<string, string> = {
+  critical: 'text-red-300 bg-red-900/30 border-red-800/50',
+  high:     'text-amber-300 bg-amber-900/30 border-amber-800/50',
+  medium:   'text-yellow-300 bg-yellow-900/30 border-yellow-800/50',
+  low:      'text-slate-400 bg-slate-800/40 border-slate-700',
+}
+
 const COMPLEXITY_COLOR: Record<string, string> = {
-  low:    'text-green-400',
-  medium: 'text-amber-400',
-  high:   'text-red-400',
+  low: 'text-green-400', medium: 'text-amber-400', high: 'text-red-400',
+}
+
+// ── Coverage bar ───────────────────────────────────────────────────────────
+function CoverageBar({ cov, onViewGaps }: { cov: ControlCoverage; onViewGaps: () => void }) {
+  const pct = cov.pct ?? 0
+  const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
+
+  return (
+    <div className="flex items-center gap-3 mt-2 pt-2 border-t border-surface-700/50">
+      {/* Coverage stat */}
+      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <BarChart2 size={12} />
+        {cov.pct !== null
+          ? <span><span className="font-semibold text-slate-200">{cov.implemented}</span> / {cov.detectable} apps ({cov.pct}%)</span>
+          : <span className="italic text-slate-600">No posture data</span>
+        }
+      </div>
+
+      {/* Progress bar */}
+      {cov.pct !== null && (
+        <div className="flex-1 h-1.5 bg-surface-700 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+
+      {/* Gap drill-down button */}
+      {cov.gap > 0 && (
+        <button
+          onClick={e => { e.stopPropagation(); onViewGaps() }}
+          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-800/40
+                     hover:border-red-700/60 bg-red-900/10 hover:bg-red-900/20 px-2 py-0.5 rounded transition-colors"
+        >
+          <AlertTriangle size={10} />
+          {cov.gap} {cov.gap === 1 ? 'app' : 'apps'} with gap
+          <ArrowRight size={10} />
+        </button>
+      )}
+
+      {cov.notApplicable > 0 && (
+        <span className="text-xs text-slate-600">{cov.notApplicable} N/A</span>
+      )}
+    </div>
+  )
+}
+
+// ── Gap Drill-Down Modal ───────────────────────────────────────────────────
+function GapsModal({
+  controlId, controlName, pillar, onClose,
+}: {
+  controlId: string; controlName: string; pillar: IamPillar; onClose: () => void
+}) {
+  const [gaps, setGaps] = useState<GapApp[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const cfg = PILLAR_CONFIG[pillar]
+
+  useEffect(() => {
+    apiFetch(`/controls/gaps/${controlId}`)
+      .then(r => r.json())
+      .then(j => { if (j.success) setGaps(j.data.gaps) })
+      .finally(() => setLoading(false))
+  }, [controlId])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+        {/* Header */}
+        <div className={`flex items-start justify-between p-5 border-b border-surface-700 ${cfg.bg} rounded-t-2xl`}>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${cfg.color} ${cfg.border}`}>
+                {pillar}
+              </span>
+              <span className="text-xs text-slate-500">{controlId}</span>
+            </div>
+            <h2 className="text-base font-bold text-white mt-1">{controlName}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Apps where this control is confirmed missing</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 p-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-32 text-slate-500 text-sm">Loading…</div>
+          ) : !gaps || gaps.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+              <Info size={20} />
+              <p className="text-sm">No confirmed gaps — control either implemented or undetectable</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {gaps.map(app => (
+                <div
+                  key={app.appId}
+                  className="flex items-center gap-3 p-3 bg-surface-800 border border-surface-700 rounded-xl
+                             hover:border-surface-600 transition-colors group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white truncate">{app.appName}</span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize flex-shrink-0
+                        ${TIER_COLOR[app.riskTier] ?? 'text-slate-400 bg-slate-800/40 border-slate-700'}`}>
+                        {app.riskTier}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-500">{app.appId}</span>
+                      <span className="text-xs text-slate-600">·</span>
+                      <span className="text-xs text-slate-500">{app.department}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { onClose(); navigate(`/cmdb/${app.appId}`) }}
+                    className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300
+                               opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  >
+                    View app <ExternalLink size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-surface-700 flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            {gaps ? `${gaps.length} app${gaps.length !== 1 ? 's' : ''} with confirmed gap` : ''}
+          </p>
+          <button
+            onClick={onClose}
+            className="text-sm text-slate-400 hover:text-slate-200 border border-surface-700 hover:border-surface-600
+                       px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Control Card ──────────────────────────────────────────────────────────
-function ControlCard({ control }: { control: CatalogControl }) {
+function ControlCard({
+  control, coverage, onViewGaps,
+}: {
+  control: CatalogControl
+  coverage: ControlCoverage | undefined
+  onViewGaps: (controlId: string, name: string, pillar: IamPillar) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const pillar = PILLAR_CONFIG[control.pillar]
   const PillarIcon = pillar.icon
+
+  const handleViewGaps = useCallback(() => {
+    onViewGaps(control.controlId, control.name, control.pillar)
+  }, [control, onViewGaps])
 
   return (
     <div className={`border rounded-xl transition-colors ${pillar.border} ${expanded ? pillar.bg : 'bg-surface-800 hover:bg-surface-750'}`}>
@@ -130,6 +285,9 @@ function ControlCard({ control }: { control: CatalogControl }) {
               {control.implementationComplexity} complexity
             </span>
           </div>
+
+          {/* Inline coverage bar (always visible) */}
+          {coverage && <CoverageBar cov={coverage} onViewGaps={handleViewGaps} />}
         </div>
         <div className="flex-shrink-0 text-slate-500 mt-0.5">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -141,7 +299,6 @@ function ControlCard({ control }: { control: CatalogControl }) {
         <div className="px-4 pb-4 border-t border-surface-700/60 space-y-4 pt-3">
           <p className="text-sm text-slate-300 leading-relaxed">{control.description}</p>
 
-          {/* Capabilities */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Capabilities</p>
             <div className="flex flex-wrap gap-1.5">
@@ -154,7 +311,6 @@ function ControlCard({ control }: { control: CatalogControl }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Policy Drivers */}
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Policy Drivers</p>
               <div className="flex flex-wrap gap-1">
@@ -165,23 +321,16 @@ function ControlCard({ control }: { control: CatalogControl }) {
                 ))}
               </div>
             </div>
-
-            {/* Applicable Tiers */}
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Applicable Tiers</p>
               <div className="flex flex-wrap gap-1">
                 {control.applicableTiers.map(t => (
-                  <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded border capitalize ${
-                    t === 'critical' ? 'text-red-300 bg-red-900/20 border-red-800/40' :
-                    t === 'high'     ? 'text-amber-300 bg-amber-900/20 border-amber-800/40' :
-                    t === 'medium'   ? 'text-yellow-300 bg-yellow-900/20 border-yellow-800/40' :
-                    'text-slate-400 bg-slate-800/40 border-slate-700'
-                  }`}>{t}</span>
+                  <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded border capitalize ${TIER_COLOR[t] ?? 'text-slate-400 bg-slate-800/40 border-slate-700'}`}>
+                    {t}
+                  </span>
                 ))}
               </div>
             </div>
-
-            {/* Tags */}
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Tags</p>
               <div className="flex flex-wrap gap-1">
@@ -200,9 +349,25 @@ function ControlCard({ control }: { control: CatalogControl }) {
 }
 
 // ── Pillar Section ─────────────────────────────────────────────────────────
-function PillarSection({ pillar, controls }: { pillar: IamPillar; controls: CatalogControl[] }) {
+function PillarSection({
+  pillar, controls, coverageMap, onViewGaps,
+}: {
+  pillar: IamPillar
+  controls: CatalogControl[]
+  coverageMap: Record<string, ControlCoverage>
+  onViewGaps: (controlId: string, name: string, pillar: IamPillar) => void
+}) {
   const cfg = PILLAR_CONFIG[pillar]
   const Icon = cfg.icon
+
+  // Pillar-level aggregation
+  const pillarControls = controls
+  const totalGaps = pillarControls.reduce((s, c) => s + (coverageMap[c.controlId]?.gap ?? 0), 0)
+  const avgPct = (() => {
+    const detectable = pillarControls.filter(c => coverageMap[c.controlId]?.pct !== null)
+    if (detectable.length === 0) return null
+    return Math.round(detectable.reduce((s, c) => s + (coverageMap[c.controlId]?.pct ?? 0), 0) / detectable.length)
+  })()
 
   if (controls.length === 0) return null
 
@@ -214,10 +379,25 @@ function PillarSection({ pillar, controls }: { pillar: IamPillar; controls: Cata
           <span className={`text-sm font-bold ${cfg.color}`}>{cfg.label}</span>
           <span className="text-slate-400 text-sm ml-2">— {cfg.fullName}</span>
         </div>
-        <span className="text-xs text-slate-500">{controls.length} controls</span>
+        <div className="flex items-center gap-3 text-xs">
+          {avgPct !== null && (
+            <span className="text-slate-400">{avgPct}% avg coverage</span>
+          )}
+          {totalGaps > 0 && (
+            <span className="text-red-400">{totalGaps} gaps</span>
+          )}
+          <span className="text-slate-500">{controls.length} controls</span>
+        </div>
       </div>
-      <div className="space-y-2 ml-0">
-        {controls.map(c => <ControlCard key={c.controlId} control={c} />)}
+      <div className="space-y-2">
+        {controls.map(c => (
+          <ControlCard
+            key={c.controlId}
+            control={c}
+            coverage={coverageMap[c.controlId]}
+            onViewGaps={onViewGaps}
+          />
+        ))}
       </div>
     </div>
   )
@@ -225,21 +405,34 @@ function PillarSection({ pillar, controls }: { pillar: IamPillar; controls: Cata
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function ControlsLibrary() {
-  const [data, setData] = useState<CatalogData | null>(null)
+  const [controls, setControls] = useState<CatalogControl[]>([])
+  const [coverageMap, setCoverageMap] = useState<Record<string, ControlCoverage>>({})
+  const [summary, setSummary] = useState<{ total: number; byPillar: Record<IamPillar, number>; byRiskReduction: Record<string, number> } | null>(null)
   const [loading, setLoading] = useState(true)
   const [activePillar, setActivePillar] = useState<IamPillar | 'ALL'>('ALL')
   const [search, setSearch] = useState('')
+  const [gapsModal, setGapsModal] = useState<{ controlId: string; name: string; pillar: IamPillar } | null>(null)
 
   useEffect(() => {
-    apiFetch('/controls/catalog')
-      .then(r => r.json())
-      .then(j => { if (j.success) setData(j.data) })
-      .finally(() => setLoading(false))
+    Promise.all([
+      apiFetch('/controls/catalog').then(r => r.json()),
+      apiFetch('/controls/coverage').then(r => r.json()),
+    ]).then(([catalog, coverage]) => {
+      if (catalog.success) {
+        setControls(catalog.data.controls)
+        setSummary(catalog.data.summary)
+      }
+      if (coverage.success) {
+        const map: Record<string, ControlCoverage> = {}
+        for (const c of coverage.data.controls) map[c.controlId] = c
+        setCoverageMap(map)
+      }
+    }).finally(() => setLoading(false))
   }, [])
 
   const pillars: IamPillar[] = ['AM', 'IGA', 'PAM', 'CIAM']
 
-  const filtered = data?.controls.filter(c => {
+  const filtered = controls.filter(c => {
     const matchesPillar = activePillar === 'ALL' || c.pillar === activePillar
     const q = search.toLowerCase()
     const matchesSearch = !q || c.name.toLowerCase().includes(q) ||
@@ -247,44 +440,65 @@ export default function ControlsLibrary() {
       c.category.toLowerCase().includes(q) ||
       c.tags.some(t => t.includes(q))
     return matchesPillar && matchesSearch
-  }) ?? []
+  })
 
   const byPillar: Partial<Record<IamPillar, CatalogControl[]>> = {}
-  for (const p of pillars) {
-    byPillar[p] = filtered.filter(c => c.pillar === p)
-  }
+  for (const p of pillars) byPillar[p] = filtered.filter(c => c.pillar === p)
+
+  const handleViewGaps = useCallback((controlId: string, name: string, pillar: IamPillar) => {
+    setGapsModal({ controlId, name, pillar })
+  }, [])
+
+  // Aggregate coverage stats for the header
+  const totalGaps = Object.values(coverageMap).reduce((s, c) => s + c.gap, 0)
+  const overallPct = (() => {
+    const detectables = Object.values(coverageMap).filter(c => c.pct !== null)
+    if (detectables.length === 0) return null
+    return Math.round(detectables.reduce((s, c) => s + (c.pct ?? 0), 0) / detectables.length)
+  })()
 
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
-          <BookOpen size={22} className="text-indigo-400" />
-          <h1 className="text-2xl font-bold text-white">Controls Library</h1>
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <BookOpen size={22} className="text-indigo-400" />
+            <h1 className="text-2xl font-bold text-white">Controls Library</h1>
+          </div>
+          <p className="text-slate-500 mt-1 text-sm">
+            {summary?.total ?? '…'} IAM controls across AM, IGA, PAM & CIAM — with live coverage across all applications
+          </p>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">
-          Comprehensive IAM controls catalog — {data?.summary.total ?? '…'} controls across AM, IGA, PAM & CIAM
-        </p>
+        {overallPct !== null && (
+          <div className="text-right">
+            <div className="text-2xl font-bold text-white">{overallPct}%</div>
+            <div className="text-xs text-slate-500">avg control coverage</div>
+            {totalGaps > 0 && <div className="text-xs text-red-400 mt-0.5">{totalGaps} total gaps</div>}
+          </div>
+        )}
       </div>
 
-      {/* Summary tiles */}
-      {data && (
+      {/* Pillar summary tiles */}
+      {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {pillars.map(p => {
             const cfg = PILLAR_CONFIG[p]
             const Icon = cfg.icon
-            const count = data.summary.byPillar[p]
+            const count = summary.byPillar[p]
+            const pillarGaps = controls.filter(c => c.pillar === p).reduce((s, c) => s + (coverageMap[c.controlId]?.gap ?? 0), 0)
             return (
               <button
                 key={p}
                 onClick={() => setActivePillar(activePillar === p ? 'ALL' : p)}
-                className={`flex items-center gap-3 p-4 rounded-xl border transition-colors text-left
+                className={`flex items-start gap-3 p-4 rounded-xl border transition-colors text-left
                   ${activePillar === p ? `${cfg.bg} ${cfg.border}` : 'bg-surface-800 border-surface-700 hover:border-surface-600'}`}
               >
-                <Icon size={20} className={cfg.color} />
+                <Icon size={20} className={`${cfg.color} mt-0.5 flex-shrink-0`} />
                 <div>
                   <div className={`text-lg font-bold ${cfg.color}`}>{count}</div>
                   <div className="text-xs text-slate-500">{cfg.fullName}</div>
+                  {pillarGaps > 0 && <div className="text-[10px] text-red-400 mt-1">{pillarGaps} gaps</div>}
                 </div>
               </button>
             )
@@ -293,14 +507,14 @@ export default function ControlsLibrary() {
       )}
 
       {/* Risk reduction summary */}
-      {data && (
+      {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(['critical','high','medium','low'] as const).map(r => (
             <div key={r} className={`flex items-center gap-3 p-3 rounded-xl border ${RISK_COLOR[r]}`}>
               <AlertTriangle size={14} />
               <div>
-                <div className="text-sm font-bold capitalize">{data.summary.byRiskReduction[r]}</div>
-                <div className="text-xs opacity-70 capitalize">{r} risk-reduction controls</div>
+                <div className="text-sm font-bold">{summary.byRiskReduction[r]}</div>
+                <div className="text-xs opacity-70 capitalize">{r} risk-reduction</div>
               </div>
             </div>
           ))}
@@ -347,10 +561,10 @@ export default function ControlsLibrary() {
             )
           })}
         </div>
-        {filtered.length !== (data?.summary.total ?? 0) && (
+        {filtered.length !== (summary?.total ?? 0) && (
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <Tag size={12} />
-            {filtered.length} of {data?.summary.total} controls
+            {filtered.length} of {summary?.total} controls
           </div>
         )}
       </div>
@@ -366,13 +580,36 @@ export default function ControlsLibrary() {
       ) : activePillar === 'ALL' ? (
         <div className="space-y-8">
           {pillars.map(p => (
-            <PillarSection key={p} pillar={p} controls={byPillar[p] ?? []} />
+            <PillarSection
+              key={p}
+              pillar={p}
+              controls={byPillar[p] ?? []}
+              coverageMap={coverageMap}
+              onViewGaps={handleViewGaps}
+            />
           ))}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(c => <ControlCard key={c.controlId} control={c} />)}
+          {filtered.map(c => (
+            <ControlCard
+              key={c.controlId}
+              control={c}
+              coverage={coverageMap[c.controlId]}
+              onViewGaps={handleViewGaps}
+            />
+          ))}
         </div>
+      )}
+
+      {/* Gap drill-down modal */}
+      {gapsModal && (
+        <GapsModal
+          controlId={gapsModal.controlId}
+          controlName={gapsModal.name}
+          pillar={gapsModal.pillar}
+          onClose={() => setGapsModal(null)}
+        />
       )}
     </div>
   )
