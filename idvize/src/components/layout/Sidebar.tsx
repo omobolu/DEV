@@ -1,87 +1,117 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, User, BarChart2, AppWindow, Users,
-  ShieldCheck, Settings, Lock, ShieldAlert, UserCheck, Database, FileText, Plug, Award,
+  MonitorDot, Plug, ScrollText, BarChart2, ShieldCheck,
+  ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
+  LayoutDashboard,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',   path: '/dashboard' },
-  { icon: User,            label: 'My Account',  path: '/my-account' },
-  { icon: BarChart2,       label: 'Insights',    path: '/insights/program-maturity' },
-  { icon: AppWindow,       label: 'Applications',path: '/applications/onboarding' },
-  { icon: Users,           label: 'Users',       path: '/users' },
-  { icon: ShieldCheck,     label: 'Admin',        path: '/admin' },
-  { icon: Settings,        label: 'Setup',        path: '/setup' },
-  { icon: Lock,            label: 'Security',     path: '/security' },
+const SECTION_SYSTEM = [
+  { icon: Plug,        label: 'Driver Manager', path: '/integrations' },
+  { icon: ScrollText,  label: 'Audit Log',      path: '/os?tab=monitor' },
 ]
 
-const DASHBOARD_ITEMS = [
-  { icon: BarChart2,   label: 'IGA',    path: '/iga',                color: '#6366f1' },
-  { icon: ShieldCheck, label: 'AM',     path: '/access-management',  color: '#06b6d4' },
-  { icon: ShieldAlert, label: 'PAM',    path: '/pam',                color: '#f59e0b' },
-  { icon: UserCheck,   label: 'CIAM',   path: '/ciam',               color: '#22c55e' },
-  { icon: Database,    label: 'CMDB',   path: '/cmdb',               color: '#8b5cf6' },
-  { icon: FileText,    label: 'Docs',   path: '/documents',          color: '#10b981' },
-  { icon: Plug,        label: 'Integrations', path: '/integrations',   color: '#f97316' },
-  { icon: Award,       label: 'Maturity',     path: '/maturity',        color: '#a855f7' },
+const SECTION_IAM = [
+  { icon: BarChart2,   label: 'IGA',           path: '/iga',                color: '#6366f1' },
+  { icon: ShieldCheck, label: 'Access Mgmt',   path: '/access-management',  color: '#06b6d4' },
+  { icon: ShieldAlert, label: 'PAM',           path: '/pam',                color: '#f59e0b' },
+  { icon: UserCheck,   label: 'CIAM',          path: '/ciam',               color: '#22c55e' },
 ]
+
+const SECTION_DATA = [
+  { icon: Database,    label: 'Identity CMDB', path: '/cmdb',      color: '#8b5cf6' },
+  { icon: FileText,    label: 'Policy & Docs', path: '/documents', color: '#10b981' },
+  { icon: LayoutDashboard, label: 'IAM Overview', path: '/dashboard', color: '#64748b' },
+]
+
+const SECTION_INTEL = [
+  { icon: Award,       label: 'Maturity',    path: '/maturity',                color: '#a855f7' },
+  { icon: DollarSign,  label: 'Cost Intel',  path: '/insights/program-maturity', color: '#f97316' },
+]
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-3 pb-1">
+      <span className="text-[10px] font-semibold tracking-widest text-slate-600 uppercase">{label}</span>
+    </div>
+  )
+}
+
+function NavItem({ icon: Icon, label, path, color }: {
+  icon: React.ElementType; label: string; path: string; color?: string
+}) {
+  return (
+    <NavLink
+      to={path}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors text-sm
+         ${isActive
+           ? 'bg-indigo-600/20 text-white'
+           : 'text-slate-400 hover:bg-surface-700 hover:text-slate-200'}`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon size={16} style={{ color: isActive && color ? color : isActive ? '#818cf8' : undefined }} className="flex-shrink-0" />
+          <span className="truncate text-xs font-medium">{label}</span>
+        </>
+      )}
+    </NavLink>
+  )
+}
 
 export default function Sidebar() {
   return (
-    <aside className="flex flex-col w-16 bg-surface-800 border-r border-surface-700 h-screen flex-shrink-0">
-      {/* Logo */}
-      <div className="flex items-center justify-center h-14 border-b border-surface-700">
-        <span className="text-indigo-400 font-bold text-xs tracking-widest">ID</span>
+    <aside className="flex flex-col w-52 bg-surface-800 border-r border-surface-700 h-screen flex-shrink-0 overflow-y-auto">
+      {/* Wordmark */}
+      <div className="flex items-center gap-2 px-4 h-14 border-b border-surface-700 flex-shrink-0">
+        <span className="text-white font-bold text-base tracking-tight">
+          id<span className="text-indigo-400">vize</span>
+        </span>
+        <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded">
+          OS
+        </span>
       </div>
 
-      {/* Main nav */}
-      <nav className="flex flex-col items-center gap-1 py-3 flex-1">
-        {NAV_ITEMS.map(({ icon: Icon, label, path }) => (
-          <NavLink
-            key={path}
-            to={path}
-            title={label}
-            className={({ isActive }) =>
-              `group relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors
-               ${isActive
-                 ? 'bg-indigo-600 text-white'
-                 : 'text-slate-400 hover:bg-surface-700 hover:text-slate-200'}`
-            }
-          >
-            <Icon size={18} />
-            <span className="absolute left-14 bg-surface-700 text-slate-200 text-xs px-2 py-1 rounded
-                             opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 border border-surface-600">
-              {label}
-            </span>
-          </NavLink>
-        ))}
+      {/* Control Panel — home */}
+      <div className="pt-2 pb-1">
+        <NavLink
+          to="/os"
+          end
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors
+             ${isActive
+               ? 'bg-indigo-600 text-white'
+               : 'text-slate-300 hover:bg-surface-700 hover:text-white'}`
+          }
+        >
+          <MonitorDot size={16} className="flex-shrink-0" />
+          <span className="text-xs font-semibold">Control Panel</span>
+        </NavLink>
+      </div>
 
-        <div className="w-8 border-t border-surface-700 my-2" />
+      <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
 
-        {/* Dashboard shortcuts */}
-        {DASHBOARD_ITEMS.map(({ icon: Icon, label, path, color }) => (
-          <NavLink
-            key={path}
-            to={path}
-            title={label}
-            className={({ isActive }) =>
-              `group relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors
-               ${isActive ? 'bg-surface-700 ring-1 ring-inset' : 'text-slate-500 hover:bg-surface-700 hover:text-slate-200'}`
-            }
-            style={({ isActive }) => isActive ? { color, ringColor: color } : {}}
-          >
-            {({ isActive }) => (
-              <>
-                <Icon size={16} style={{ color: isActive ? color : undefined }} />
-                <span className="absolute left-14 bg-surface-700 text-slate-200 text-xs px-2 py-1 rounded
-                                 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 border border-surface-600">
-                  {label}
-                </span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      {/* SYSTEM */}
+      <SectionLabel label="System" />
+      {SECTION_SYSTEM.map(item => <NavItem key={item.path} {...item} />)}
+
+      <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
+
+      {/* IAM APPLICATIONS */}
+      <SectionLabel label="IAM Applications" />
+      {SECTION_IAM.map(item => <NavItem key={item.path} {...item} />)}
+
+      <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
+
+      {/* DATA PLANE */}
+      <SectionLabel label="Data Plane" />
+      {SECTION_DATA.map(item => <NavItem key={item.path} {...item} />)}
+
+      <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
+
+      {/* INTELLIGENCE */}
+      <SectionLabel label="Intelligence" />
+      {SECTION_INTEL.map(item => <NavItem key={item.path} {...item} />)}
     </aside>
   )
 }

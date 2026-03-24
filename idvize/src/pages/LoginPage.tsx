@@ -55,10 +55,15 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 mb-4">
             <ShieldCheck size={28} className="text-indigo-400" />
           </div>
-          <h1 className="text-2xl font-bold text-white">
-            id<span className="text-indigo-400">vize</span>
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">Enterprise IAM Orchestration Platform</p>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-bold text-white">
+              id<span className="text-indigo-400">vize</span>
+            </h1>
+            <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded">
+              OS
+            </span>
+          </div>
+          <p className="text-slate-500 text-sm mt-1">Sign in to your IAM Operating System</p>
         </div>
 
         {/* Card */}

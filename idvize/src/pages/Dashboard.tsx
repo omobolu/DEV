@@ -176,8 +176,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-slate-500 mt-1 text-sm">Identity & Access Management analytics overview</p>
+        <h1 className="text-2xl font-bold text-white">IAM Overview</h1>
+        <p className="text-slate-500 mt-1 text-sm">Identity posture across all OS modules</p>
       </div>
 
       {/* Overall Maturity Strip */}

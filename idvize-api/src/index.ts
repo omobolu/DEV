@@ -16,6 +16,7 @@ import costController from './modules/cost/cost.controller';
 import securityController from './modules/security/security.controller';
 import documentController from './modules/document/document.controller';
 import maturityController from './modules/maturity/maturity.controller';
+import osController       from './modules/os/os.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
 import gapsRouter from './routes/gaps';
@@ -46,7 +47,8 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     service: 'idvize-api',
     version: '2.0.0',
-    platform: 'IDVIZE Enterprise IAM Orchestration',
+    platform: 'IDVIZE IAM OS',
+    kernel:   'iam-coverage-intelligence-engine',
     environment: process.env.NODE_ENV ?? 'development',
     modules: {
       'Application Governance': 'active',
@@ -78,6 +80,7 @@ app.use('/cost', costController);
 app.use('/security', securityController);
 app.use('/documents', documentController);
 app.use('/maturity',  maturityController);
+app.use('/os',        osController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
 app.use('/api/gaps', gapsRouter);
@@ -95,8 +98,8 @@ app.use(errorHandler);
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n========================================================`);
-  console.log(`  IDVIZE — Enterprise IAM Orchestration Platform`);
-  console.log(`  API Server v2.0.0`);
+  console.log(`  IDVIZE IAM Operating System`);
+  console.log(`  Kernel: iam-coverage-intelligence-engine  v2.0.0`);
   console.log(`========================================================`);
   console.log(`  URL         : http://localhost:${PORT}`);
   console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
@@ -170,6 +173,17 @@ app.listen(PORT, () => {
   console.log(`    POST /cost/analyze/ai`);
   console.log(`    GET  /security/posture`);
   console.log(`    POST /security/posture/ai`);
+  console.log(`\n  IAM OS Kernel`);
+  console.log(`    GET  /os/status`);
+  console.log(`    GET  /os/coverage`);
+  console.log(`    GET  /os/gaps`);
+  console.log(`    POST /os/gaps/:gapId/action`);
+  console.log(`    GET  /os/identity-plane`);
+  console.log(`    GET  /os/drivers`);
+  console.log(`    GET  /os/processes`);
+  console.log(`    GET  /os/modules`);
+  console.log(`    GET  /os/events`);
+  console.log(`    GET  /os/alerts`);
   console.log(`========================================================\n`);
 });
 
