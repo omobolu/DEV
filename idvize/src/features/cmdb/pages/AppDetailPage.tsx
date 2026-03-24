@@ -6,6 +6,7 @@ import PostureChartCard from '../components/PostureChartCard'
 import ControlStatusList from '../components/ControlStatusList'
 import RecommendationsCard from '../components/RecommendationsCard'
 import AppMetadataCard from '../components/AppMetadataCard'
+import FullControlsPanel from '../components/FullControlsPanel'
 import { AlertTriangle } from 'lucide-react'
 
 export default function AppDetailPage() {
@@ -82,6 +83,14 @@ export default function AppDetailPage() {
 
       {/* ── Metadata section ── */}
       <AppMetadataCard metadata={app.metadata} />
+
+      {/* ── Full IAM Controls Assessment ── */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+          IAM Controls Assessment
+        </h2>
+        <FullControlsPanel appId={app.appId} />
+      </div>
     </div>
   )
 }

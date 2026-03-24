@@ -29,6 +29,9 @@ import { approvalService }                  from '../security/approval/approval.
 import { credentialRotationMonitorService } from '../security/credentials/credential-rotation-monitor.service';
 import { auditService }                     from '../security/audit/audit.service';
 import { requireAuth }                      from '../../middleware/requireAuth';
+import { CONTROLS_CATALOG }                 from '../control/control.catalog';
+import { controlOverridesStore }            from '../control/control.overrides.store';
+import { IamPosture }                       from '../application/application.types';
 
 const router = Router();
 
@@ -422,14 +425,98 @@ router.get('/status', requireAuth, (_req: Request, res: Response) => {
   });
 });
 
+// ── Posture detector map (mirrors control.controller.ts) ─────────────────────
+type PostureFn = (p: IamPosture) => boolean | null;
+const POSTURE_DETECT: Record<string, PostureFn> = {
+  'AM-001': p => p.ssoEnabled,
+  'AM-002': p => p.mfaEnforced,
+  'AM-003': _ => null,
+  'AM-004': _ => null,
+  'AM-005': p => p.platforms.some(pl => pl.platform === 'AM' && pl.onboarded) || null,
+  'AM-006': _ => null,
+  'AM-007': _ => null,
+  'AM-008': p => p.platforms.some(pl => pl.platform === 'IGA' && pl.onboarded) || null,
+  'AM-009': _ => null,
+  'AM-010': p => p.ssoEnabled,
+  'AM-011': _ => null,
+  'AM-012': p => (p.ssoEnabled && p.mfaEnforced) ? true : null,
+  'AM-013': p => p.mfaEnforced ? true : null,
+  'AM-014': _ => null,
+  'AM-015': p => p.platforms.some(pl => pl.platform === 'AM' && pl.onboarded) || null,
+  'IGA-001': p => p.jmlAutomated,
+  'IGA-002': p => p.scimEnabled,
+  'IGA-003': p => p.scimEnabled ? true : null,
+  'IGA-004': _ => null,
+  'IGA-005': p => p.certificationsConfigured,
+  'IGA-006': _ => null,
+  'IGA-007': _ => null,
+  'IGA-008': _ => null,
+  'IGA-009': _ => null,
+  'IGA-010': p => p.certificationsConfigured,
+  'IGA-011': _ => null,
+  'IGA-012': _ => null,
+  'IGA-013': _ => null,
+  'IGA-014': p => p.platforms.some(pl => pl.platform === 'IGA' && pl.onboarded) || null,
+  'IGA-015': _ => null,
+  'PAM-001': p => p.privilegedAccountsVaulted,
+  'PAM-002': p => p.privilegedAccountsVaulted,
+  'PAM-003': _ => null,
+  'PAM-004': p => p.platforms.some(pl => pl.platform === 'PAM' && pl.onboarded) || null,
+  'PAM-005': _ => null,
+  'PAM-006': _ => null,
+  'PAM-007': _ => null,
+  'PAM-008': _ => null,
+  'PAM-009': _ => null,
+  'PAM-010': p => p.privilegedAccountsVaulted ? true : null,
+  'CIAM-001': p => p.platforms.some(pl => pl.platform === 'CIAM' && pl.onboarded) || null,
+  'CIAM-002': p => p.platforms.some(pl => pl.platform === 'CIAM' && pl.onboarded) || null,
+  'CIAM-003': p => p.mfaEnforced ? true : null,
+  'CIAM-004': _ => null,
+  'CIAM-005': _ => null,
+  'CIAM-006': _ => null,
+  'CIAM-007': _ => null,
+  'CIAM-008': _ => null,
+  'CIAM-009': _ => null,
+};
+
 // ── GET /os/coverage ─────────────────────────────────────────────────────────
 router.get('/coverage', requireAuth, (_req: Request, res: Response) => {
   const { apps, byTier } = computeCoverage();
-  const total   = apps.length;
-  const postures = apps.map(a => a.iamPosture).filter(Boolean);
+  const total    = apps.length;
+  const postures = apps.map(a => ({ appId: a.appId, posture: a.iamPosture }));
 
-  const count = (fn: (p: NonNullable<typeof postures[0]>) => boolean) =>
-    postures.filter(p => fn(p!)).length;
+  // Build per-control coverage across all apps (respecting N/A overrides)
+  const byControlType = CONTROLS_CATALOG.map(ctrl => {
+    const detect = POSTURE_DETECT[ctrl.controlId];
+    let implemented = 0;
+    let notApplicable = 0;
+    let detectable  = 0;
+
+    for (const { appId, posture } of postures) {
+      const override = controlOverridesStore.get(appId, ctrl.controlId);
+      if (override?.notApplicable) { notApplicable++; continue; }
+      if (!posture || !detect) continue;
+      const result = detect(posture);
+      if (result === null) continue;   // not detectable for this app
+      detectable++;
+      if (result) implemented++;
+    }
+
+    const effectiveTotal = total - notApplicable;
+    return {
+      controlId:      ctrl.controlId,
+      control:        ctrl.name,
+      pillar:         ctrl.pillar,
+      category:       ctrl.category,
+      apps:           implemented,
+      notApplicable,
+      detectable,
+      pct:            effectiveTotal > 0 && detectable > 0
+                        ? Math.round((implemented / detectable) * 100)
+                        : null,   // null = not measurable
+      riskReduction:  ctrl.riskReduction,
+    };
+  });
 
   res.json({
     success: true,
@@ -441,13 +528,13 @@ router.get('/coverage', requireAuth, (_req: Request, res: Response) => {
         pct:     d.total ? Math.round((d.covered / d.total) * 100) : 100,
         gaps:    d.total - d.covered,
       })),
-      byControlType: [
-        { control: 'SSO',          apps: count(p => p.ssoEnabled),                pct: total ? Math.round(count(p => p.ssoEnabled)                / total * 100) : 0 },
-        { control: 'MFA',          apps: count(p => p.mfaEnforced),               pct: total ? Math.round(count(p => p.mfaEnforced)               / total * 100) : 0 },
-        { control: 'PAM',          apps: count(p => p.privilegedAccountsVaulted), pct: total ? Math.round(count(p => p.privilegedAccountsVaulted)  / total * 100) : 0 },
-        { control: 'SCIM',         apps: count(p => p.scimEnabled),               pct: total ? Math.round(count(p => p.scimEnabled)                / total * 100) : 0 },
-        { control: 'Access Review',apps: count(p => p.certificationsConfigured),  pct: total ? Math.round(count(p => p.certificationsConfigured)   / total * 100) : 0 },
-      ],
+      byControlType,
+      byPillar: {
+        AM:   byControlType.filter(c => c.pillar === 'AM'),
+        IGA:  byControlType.filter(c => c.pillar === 'IGA'),
+        PAM:  byControlType.filter(c => c.pillar === 'PAM'),
+        CIAM: byControlType.filter(c => c.pillar === 'CIAM'),
+      },
       byDriver: DRIVER_DEFS.map(d => ({ driver: d.driverId, name: d.name, appsCovered: d.appsCovered, identitiesManaged: d.identitiesManaged })),
     },
   });
