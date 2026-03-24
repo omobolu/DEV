@@ -1,85 +1,299 @@
-# IDVIZE — Enterprise IAM Orchestration & Governance Platform
+# IDVIZE IAM OS — The IAM Operating System
 
 > **Branch:** `prototype` | **Version:** 2.0.0 | **Status:** Active Development
+> **URL:** http://localhost:5174 (frontend) · http://localhost:3001 (API)
 
-IDVIZE is a full-stack Enterprise Identity & Access Management (IAM) Orchestration and Governance Platform. It provides a unified control plane for managing, assessing, and improving an organisation's IAM program across multiple platforms (Entra ID, SailPoint, CyberArk, Okta), with AI-powered analysis via Claude (Anthropic) and an industry-standard 5-level maturity scoring model.
+IDVIZE is an **IAM Operating System** — the management layer that sits above all enterprise IAM platforms and below business applications. From a single control plane, a CISO or IAM leader can **Monitor** every application and identity for IAM control coverage, **Operate** on identified gaps with one-click remediation, and **Control** the drivers, policies, and modules that govern the IAM program.
+
+```
+IDVIZE IAM OS Kernel — IAM Coverage Intelligence Engine
+════════════════════════════════════════════════════════════════════
+
+Inputs                          Processing                   Output
+──────                          ──────────                   ──────
+Enterprise App Catalog (CMDB) ─→ Coverage evaluation      ─→ App Coverage Map
+IAM Platforms (4 drivers)     ─→ Identity reconciliation  ─→ Identity Protection Map
+3rd Party Risk                ─→ Risk contextualisation   ─→ Gap Priority Matrix
+Leadership Strategic Plans    ─→ Objective alignment      ─→ Strategic Gap List
+Audit Events                  ─→ Access intelligence      ─→ User Control Profile
+```
 
 ---
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Technology Stack](#technology-stack)
-3. [Prerequisites](#prerequisites)
-4. [Repository Structure](#repository-structure)
-5. [Backend — idvize-api](#backend--idvize-api)
-   - [Environment Variables](#environment-variables)
-   - [Installation & Running](#installation--running-backend)
-   - [API Reference](#api-reference)
-6. [Frontend — idvize](#frontend--idvize)
-   - [Installation & Running](#installation--running-frontend)
-   - [Application Routes](#application-routes)
-7. [Modules](#modules)
-   - [Module 1 — Application Governance](#module-1--application-governance)
-   - [Module 2 — Control Detection](#module-2--control-detection)
-   - [Module 4 — Build Execution](#module-4--build-execution)
-   - [Module 5 — Cost & Vendor Intelligence](#module-5--cost--vendor-intelligence)
-   - [Module 6 — IAM Platform Integrations](#module-6--iam-platform-integrations)
-   - [Module 7 — Security & Identity Governance](#module-7--security--identity-governance)
-   - [Document Registry](#document-registry)
-   - [Program Maturity Assessment](#program-maturity-assessment)
-8. [Authentication & Authorisation](#authentication--authorisation)
-9. [IAM Program Maturity Model](#iam-program-maturity-model)
-10. [AI Agent Layer](#ai-agent-layer)
-11. [Demo Users & Credentials](#demo-users--credentials)
-12. [Development Workflow](#development-workflow)
-13. [Git Repository](#git-repository)
-14. [Known Limitations & Roadmap](#known-limitations--roadmap)
+1. [Feature Status](#feature-status)
+2. [Architecture Overview](#architecture-overview)
+3. [Technology Stack](#technology-stack)
+4. [Prerequisites & Quick Start](#prerequisites--quick-start)
+5. [Repository Structure](#repository-structure)
+6. [API Reference](#api-reference)
+7. [IAM OS Kernel](#iam-os-kernel)
+8. [Controls Library](#controls-library)
+9. [All Modules](#all-modules)
+10. [IAM Program Maturity Model](#iam-program-maturity-model)
+11. [AI Agent Layer](#ai-agent-layer)
+12. [Authentication & Authorisation](#authentication--authorisation)
+13. [Demo Users](#demo-users)
+14. [Known Limitations](#known-limitations)
+
+---
+
+## Feature Status
+
+### ✅ Working — Implemented & Live
+
+#### IAM OS Layer
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| **OS Control Panel** | `/os` | 3-tab interface: MONITOR / OPERATE / CONTROL |
+| **MONITOR tab** | `/os` | Kernel status bar, 6 KPI tiles, coverage-by-risk-tier bars, driver health cards, control-type coverage grid, top unprotected apps, alert feed, live event stream |
+| **OPERATE tab** | `/os` | Gap remediation queue with action buttons, pending approvals with Approve/Deny, active processes table |
+| **CONTROL tab** | `/os` | Driver manager cards, coverage policies display, installed modules grid |
+| **Kernel heartbeat** | `GET /os/status` | Coverage %, identity protection %, critical gaps, driver health, process count |
+| **Coverage map** | `GET /os/coverage` | By risk tier (critical/high/medium/low), by control type (SSO/MFA/PAM/SCIM/Access Review), by driver |
+| **Gap list** | `GET /os/gaps` | Prioritised gaps with missing controls, risk scores, recommended actions |
+| **Identity plane** | `GET /os/identity-plane` | All identities + control coverage (mock cross-platform reconciliation) |
+| **Driver registry** | `GET /os/drivers` | 4 drivers: Entra (healthy), SailPoint (degraded), CyberArk (healthy), Okta (healthy) |
+| **Process aggregator** | `GET /os/processes` | Active builds + pending approvals + overdue rotations |
+| **Module registry** | `GET /os/modules` | 8 installed modules with health status |
+| **Event stream** | `GET /os/events` | Last 50 IAM events with severity and driver tags |
+| **Alert feed** | `GET /os/alerts` | Actionable alerts: critical gaps, expiring credentials, degraded drivers, low-maturity domains |
+| **Gap action** | `POST /os/gaps/:gapId/action` | Routes to build job (onboard-iam, request-sso) or approval (request-pam, schedule-review) |
+
+#### Controls Library
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| **Controls Library page** | `/controls/library` | Pillar filter tabs, search, risk-reduction summary, expandable control cards |
+| **AM controls (15)** | `GET /controls/catalog?pillar=AM` | SSO, MFA, Passwordless, Adaptive Auth, RBAC, ABAC, PBAC, Entitlement Mgmt, Dynamic Access, Zero Trust, Federation, API Security, Conditional Access, Temp Access, Cloud IAM |
+| **IGA controls (15)** | `GET /controls/catalog?pillar=IGA` | JML Lifecycle, Provisioning, Role Provisioning, JIT Prov, Access Review, SoD, Role Mining, Self-Service Requests, Approval Workflows, Certification, Password Mgmt, Audit/Compliance, AI Governance, Entitlement Reporting, Policy Enforcement |
+| **PAM controls (10)** | `GET /controls/catalog?pillar=PAM` | Privileged Session Mgmt, Credential Vault, JIT Privilege, Session Recording, Least Privilege, Remote Access, Threat Detection, Key Management, Secrets Management, PAM Audit |
+| **CIAM controls (9)** | `GET /controls/catalog?pillar=CIAM` | Registration, Social Login, Customer MFA/Passwordless, Self-Service Portal, Delegation, Consent/Privacy, Auto-Fulfilment, Fraud Detection, B2B Identity |
+| **Catalog filters** | `GET /controls/catalog` | Filter by `pillar`, `category`, `tag` query params |
+
+#### Module 1 — Application Governance
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Application CMDB | `GET /applications` | Full inventory with risk tiers, departments, platform tags |
+| Application detail | `GET /applications/:id` | Controls status, posture, IAM gap analysis |
+| Bulk import | `POST /applications/import` | CSV or JSON payload |
+| Create / upsert | `POST /applications` | Single application |
+| CMDB UI | `/cmdb` | Searchable, filterable application list |
+| App detail UI | `/cmdb/:appId` | Controls, posture score, cross-platform correlation |
+| App onboarding | `/applications/onboarding` | Step-by-step workflow |
+| App management | `/applications/management` | Lifecycle management |
+| Orphan accounts | `/applications/orphan-accounts` | Detection and remediation |
+
+#### Module 2 — Control Detection
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Control evaluation | `POST /controls/evaluate` | Per-app or all apps |
+| Cached results | `GET /controls/:appId` | IAM posture, gap scores, risk assessment |
+| Controls catalog | `GET /controls/catalog` | 49 controls across 4 pillars |
+
+#### Module 4 — Build Execution
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Start build | `POST /build/start` | Creates state-machine job |
+| Build list | `GET /build` | Filter by state, platform, appId |
+| Build detail | `GET /build/:id` | Full state and artifacts |
+| Advance | `POST /build/:id/advance` | Next state |
+| Transition | `POST /build/:id/transition` | Explicit state jump |
+| Submit data | `POST /build/:id/data` | Stage technical data |
+| Generate artifacts | `POST /build/:id/artifacts` | Config files, runbooks, test plans |
+
+**States:** `planning → design → review → approved → in_progress → testing → completed`
+
+#### Module 5 — Cost & Vendor Intelligence
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Cost analysis | `POST /cost/analyze` | Full cost engine |
+| AI cost narrative | `POST /cost/analyze/ai` | Claude-powered cost analysis |
+| Cost report | `GET /cost/report` | Last generated report |
+| Cost summary | `GET /cost/summary` | People + tech + partner aggregation |
+| Vendor analysis | `GET /cost/vendor-analysis` | Per-vendor cost impact |
+| Optimization | `GET /cost/optimization` | Opportunities with effort/impact ratings |
+| Vendor CRUD | `POST/GET /cost/vendors` | Vendor records |
+| Contract CRUD | `POST/GET /cost/contracts` | Contract management with renewal alerts |
+| People costs | `POST/GET /cost/people` | FTE and contractor cost records |
+
+#### Module 6 — IAM Platform Integrations
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Integration status | `GET /integrations/status` | All 4 platforms |
+| Test connection | `POST /integrations/test/:platform` | Uses submitted credentials, never saves |
+| Configure | `POST /integrations/configure` | Save credentials to runtime |
+| Entra apps | `GET /integrations/entra/apps` | Mock (live when credentials set) |
+| SailPoint sources | `GET /integrations/sailpoint/sources` | Mock |
+| CyberArk safes | `GET /integrations/cyberark/safes` | Mock |
+| Okta apps | `GET /integrations/okta/apps` | Mock |
+| Cross-platform correlation | `POST /integrations/correlate/:appName` | Links app across platforms |
+| Integrations UI | `/integrations` | Credentials, test & status |
+
+#### Module 7 — Security & Identity Governance
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| JWT authentication | `POST /security/auth/token` | HS256, 8-hour TTL |
+| Current user | `GET /security/auth/me` | Profile + roles |
+| Permission matrix | `GET /security/auth/matrix` | Full RBAC map |
+| RBAC/ABAC policy engine | `GET /security/authz/check` | Runtime permission checks |
+| My permissions | `GET /security/authz/my-permissions` | Effective permissions |
+| SCIM 2.0 users | `GET /security/scim/v2/Users` | Provisioned users |
+| SCIM 2.0 groups | `GET /security/scim/v2/Groups` | Provisioned groups |
+| Approval workflow | `POST /security/approvals` | Create approval request |
+| Resolve approval | `POST /security/approvals/:id/resolve` | Approve / deny |
+| Audit log | `GET /security/audit` | Immutable event log |
+| Security posture | `GET /security/posture` | Deterministic posture report |
+| AI posture analysis | `POST /security/posture/ai` | Claude-powered recommendations |
+| Field-level masking | `GET /security/masking/demo` | Role-based data masking demo |
+| Credential registry | `POST/GET /security/credentials` | Lifecycle management |
+| Credential rotation | `POST /security/credentials/:id/rotate` | Trigger rotation |
+| Credential revoke | `POST /security/credentials/:id/revoke` | Revoke |
+| Rotation report | `GET /security/credentials/rotation/report` | Overdue alerts |
+| Secret vault | `GET /security/vault/providers` | AWS SM, Azure KV, CyberArk, HashiCorp, Mock |
+| Vault status | `GET /security/vault/status` | Active provider status |
+| Vault events | `GET /security/vault/events` | Access event log |
+
+#### Document Registry
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Document list | `GET /documents` | Filtered by status, category |
+| Create document | `POST /documents` | Types: Policy, Procedure, Standard, Guideline, Runbook |
+| Document detail | `GET /documents/:id` | Full version history + reviews |
+| Update | `PATCH /documents/:id` | Metadata or content |
+| Submit for review | `POST /documents/:id/submit` | Draft → In Review |
+| Review | `POST /documents/:id/review` | Approve / reject with comments |
+| Publish | `POST /documents/:id/publish` | In Review (approved) → Published |
+| Archive | `POST /documents/:id/archive` | Published / Draft → Archived |
+| Document UI | `/documents` | List + document detail with workflow actions |
+
+#### Program Maturity Assessment
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Maturity summary | `GET /maturity/summary` | Overall score, level, top recommendations |
+| All domains | `GET /maturity/domains` | 13 domain scores with confidence |
+| Domain drill-down | `GET /maturity/domains/:domainId` | Indicators, evidence, explainability |
+| Recalculate | `POST /maturity/recalculate` | Fresh assessment with Claude narrative |
+| History | `GET /maturity/history` | Past assessment runs |
+| Maturity UI | `/maturity` | Full report with domain cards |
+| Domain detail UI | `/maturity/domains/:domainId` | Evidence and recommendations |
+
+#### Frontend UI (All Pages)
+| Page | Route | Status |
+|---|---|---|
+| Login | `/` | ✅ OS branding, demo quick-login |
+| OS Control Panel | `/os` | ✅ MONITOR / OPERATE / CONTROL tabs |
+| IAM Overview (Dashboard) | `/dashboard` | ✅ Maturity strip, domain cards |
+| Controls Library | `/controls/library` | ✅ 49 controls, pillar filter, search |
+| IGA | `/iga` | ✅ Identity governance analytics |
+| Access Management | `/access-management` | ✅ SSO & MFA overview |
+| PAM Dashboard | `/pam` | ✅ Privileged access dashboard |
+| CIAM Dashboard | `/ciam` | ✅ Customer identity dashboard |
+| App Onboarding | `/applications/onboarding` | ✅ Step-by-step workflow |
+| App Management | `/applications/management` | ✅ Lifecycle management |
+| Orphan Accounts | `/applications/orphan-accounts` | ✅ Detection & remediation |
+| CMDB | `/cmdb` | ✅ Searchable application inventory |
+| App Detail | `/cmdb/:appId` | ✅ Controls, posture, correlation |
+| Documents | `/documents` | ✅ Registry + approval workflow |
+| Integrations | `/integrations` | ✅ Platform credentials & testing |
+| Maturity | `/maturity` | ✅ Full programme maturity report |
+| Maturity Domain | `/maturity/domains/:domainId` | ✅ Evidence drill-down |
+
+---
+
+### 🔲 Pending — Not Yet Implemented
+
+#### Data Persistence
+| Item | Priority | Notes |
+|---|---|---|
+| Persistent database (PostgreSQL / MongoDB) | High | All data is currently in-memory; restarting the API resets all state |
+| Database migrations & seeding | High | Depends on persistence layer |
+| Session persistence across restarts | High | Builds, credentials, approvals all reset on restart |
+
+#### Live Platform Adapters
+| Item | Priority | Notes |
+|---|---|---|
+| Live Entra ID adapter (full) | High | Only test-connection performs a real OAuth2 call; all data reads are mock |
+| Live SailPoint IdentityNow adapter | High | Mock only |
+| Live CyberArk PAM adapter | High | Mock only |
+| Live Okta adapter | High | Mock only |
+| Real CMDB integration (ServiceNow, etc.) | Medium | CMDB currently uses seeded mock data |
+| Real 3rd party risk system feed | Medium | Risk scores currently deterministic from app metadata |
+
+#### IAM OS Kernel — Advanced Features
+| Item | Priority | Notes |
+|---|---|---|
+| Real cross-platform identity reconciliation | High | Identity plane currently uses mock identity records |
+| Leadership strategic plans intake | Medium | Documents module exists but not yet wired into kernel gap prioritisation |
+| OS gap action → full workflow tracking | Medium | Creates build/approval stubs; workflow completion not tracked in OS UI |
+| Driver configuration UI (editable) | Medium | Currently read-only display; no save from Control Panel |
+| Coverage trend history | Medium | Snapshot comparison over time |
+
+#### Security & Authentication
+| Item | Priority | Notes |
+|---|---|---|
+| Refresh token support | High | Current JWTs are 8-hour, no refresh; users must re-login |
+| Full SAML 2.0 SP implementation | Medium | Adapter scaffolded but not functional |
+| Per-client API key management | Medium | Single static key in `.env` |
+| MFA enforcement (login) | Medium | Evaluated per app but not enforced at login UI |
+
+#### Infrastructure & DevOps
+| Item | Priority | Notes |
+|---|---|---|
+| Docker Compose setup | Medium | One-command local launch |
+| Multi-tenancy | Low | Single-tenant only |
+| Code-split frontend bundle (~882 KB) | Low | Single JS chunk |
+| Unit and integration test suite | High | No tests currently |
+| CI/CD pipeline (GitHub Actions) | Medium | No automation |
+
+#### Reporting & Analytics
+| Item | Priority | Notes |
+|---|---|---|
+| Maturity trend charting (historical) | Medium | History endpoint exists; no UI chart |
+| PDF export for maturity reports | Medium | UI report exists; no export |
+| Executive PDF/PPTX dashboard export | Low | |
+| IAM programme roadmap view | Medium | Gap list exists; no timeline/roadmap view |
+| SoD policy violation report | Medium | SoD is in the controls catalog but not detected live |
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Browser (SPA)                           │
-│                  React 19 + Vite + Tailwind CSS                 │
-│                     http://localhost:5173                       │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ HTTP/JSON (JWT + API Key)
-                          │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                    idvize-api (Express 5)                        │
-│                TypeScript · Node.js · In-memory                 │
-│                     http://localhost:3001                       │
-│                                                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐ │
-│  │ Module 1 │ │ Module 2 │ │ Module 4 │ │     Module 5       │ │
-│  │  App Gov │ │ Controls │ │  Build   │ │  Cost & Vendor     │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘ │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐ │
-│  │ Module 7 │ │   Docs   │ │ Maturity │ │  Integrations      │ │
-│  │ Security │ │ Registry │ │  Engine  │ │  Config & Test     │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘ │
-│                                                                 │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │              AI Agent Layer (Claude / Anthropic)           │ │
-│  └────────────────────────────────────────────────────────────┘ │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ OAuth2 / REST / SCIM
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-   ┌────▼────┐      ┌──────▼─────┐    ┌──────▼──────┐
-   │Entra ID │      │ SailPoint  │    │  CyberArk   │
-   │(Azure AD│      │IdentityNow │    │    PAM      │
-   └─────────┘      └────────────┘    └─────────────┘
-                                              │
-                                       ┌──────▼──────┐
-                                       │    Okta     │
-                                       └─────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                     Browser (SPA)                                │
+│              React 19 + Vite + Tailwind CSS                      │
+│                   http://localhost:5174                          │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ HTTP/JSON (JWT + API Key)
+┌────────────────────────▼─────────────────────────────────────────┐
+│              IDVIZE IAM OS Kernel (Express 5 / TypeScript)       │
+│                     http://localhost:3001                        │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │            IAM Coverage Intelligence Engine  /os            │ │
+│  │   status · coverage · gaps · identity-plane · alerts        │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐  │
+│  │ App Gov  │ │ Controls │ │  Build   │ │  Cost & Vendor     │  │
+│  │ Module 1 │ │ Catalog  │ │ Module 4 │ │  Module 5          │  │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐  │
+│  │ Security │ │   Docs   │ │ Maturity │ │  Integrations      │  │
+│  │ Module 7 │ │ Registry │ │  Engine  │ │  Adapters          │  │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘  │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │               AI Agent Layer (Claude / Anthropic)           │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │ OAuth2 / REST / SCIM (mock in dev)
+          ┌─────────────────┼─────────────────┐
+     ┌────▼────┐      ┌─────▼──────┐    ┌─────▼──────┐  ┌──────┐
+     │Entra ID │      │ SailPoint  │    │  CyberArk  │  │ Okta │
+     └─────────┘      └────────────┘    └────────────┘  └──────┘
 ```
-
-All data is held **in-memory** at runtime (no database). The platform seeds realistic mock data on startup so that every module is demo-ready immediately.
 
 ---
 
@@ -93,11 +307,10 @@ All data is held **in-memory** at runtime (no database). The platform seeds real
 | Framework | Express 5.2.1 |
 | Language | TypeScript 5.9 (strict) |
 | Authentication | JWT (HS256, 8-hour TTL) |
-| AI Integration | Anthropic Claude via `@anthropic-ai/sdk` 0.80 |
+| AI Integration | Anthropic Claude via `@anthropic-ai/sdk` |
 | Security headers | Helmet 8 |
 | CORS | cors 2.8 |
 | Logging | Morgan (HTTP) + custom audit service |
-| ID generation | UUID v4 |
 | Environment | dotenv 17 |
 
 ### Frontend
@@ -109,18 +322,32 @@ All data is held **in-memory** at runtime (no database). The platform seeds real
 | Routing | React Router 7.13 |
 | Language | TypeScript 5.9 (strict) |
 | Styling | Tailwind CSS 3.4 (dark theme) |
-| Charts | Recharts 3.7 |
-| Icons | Lucide React 0.575 |
+| Icons | Lucide React |
 | HTTP client | Shared `apiFetch()` wrapper |
 
 ---
 
-## Prerequisites
+## Prerequisites & Quick Start
 
-- **Node.js** v18 or later
-- **npm** v9 or later
-- **Anthropic API key** (for AI agents — optional; platform works without it, AI narratives will be absent)
-- **Azure AD / SailPoint / CyberArk / Okta credentials** (optional; platform runs fully with mock data)
+**Requirements:** Node.js 18+, npm 9+
+
+```bash
+# Terminal 1 — Backend
+cd idvize-api
+npm install
+npm run build && node dist/index.js
+# API running at http://localhost:3001
+
+# Terminal 2 — Frontend
+cd idvize
+npm install
+npm run dev
+# UI running at http://localhost:5174 (or 5173 if free)
+```
+
+Login at **http://localhost:5174** with `admin@idvize.com` / `password123`
+
+The API key for all requests: `idvize-dev-key-change-me`
 
 ---
 
@@ -128,18 +355,16 @@ All data is held **in-memory** at runtime (no database). The platform seeds real
 
 ```
 IAM-Platform/
-├── idvize-api/          # Express API backend
+├── idvize-api/              # Express API backend
 │   ├── src/
-│   │   ├── agents/      # AI orchestration agents (Claude)
-│   │   ├── connectors/  # Legacy Phase 1 platform connectors
-│   │   ├── middleware/  # Auth, API key, error handling
-│   │   ├── modules/     # Core business modules
-│   │   │   ├── application/    # Module 1 — Application Governance
-│   │   │   ├── control/        # Module 2 — Control Detection
-│   │   │   ├── build/          # Module 4 — Build Execution
-│   │   │   ├── cost/           # Module 5 — Cost & Vendor Intelligence
-│   │   │   ├── integration/    # Platform adapters & config
-│   │   │   ├── security/       # Module 7 — Security & Identity Gov
+│   │   ├── middleware/      # Auth, API key, error handling
+│   │   ├── modules/
+│   │   │   ├── application/ # Module 1 — Application Governance
+│   │   │   ├── control/     # Module 2 — Control Detection + Catalog
+│   │   │   ├── build/       # Module 4 — Build Execution
+│   │   │   ├── cost/        # Module 5 — Cost & Vendor Intelligence
+│   │   │   ├── integration/ # Module 6 — Platform Adapters
+│   │   │   ├── security/    # Module 7 — Security & Identity Gov
 │   │   │   │   ├── auth/       # JWT authentication
 │   │   │   │   ├── authz/      # RBAC / ABAC policy engine
 │   │   │   │   ├── audit/      # Immutable audit log
@@ -148,30 +373,22 @@ IAM-Platform/
 │   │   │   │   ├── vault/      # Secret vault abstraction
 │   │   │   │   ├── approval/   # Approval workflows
 │   │   │   │   └── masking/    # Field-level data masking
-│   │   │   ├── document/       # Document registry
-│   │   │   └── maturity/       # IAM Program Maturity engine
-│   │   │       └── services/   # Evidence, scoring, explainability
-│   │   ├── routes/      # Legacy Phase 1 routes
-│   │   ├── services/    # Shared services (Claude, gap detection)
-│   │   └── types/       # Global type definitions
-│   ├── dist/            # Compiled output (generated)
-│   ├── tsconfig.json
+│   │   │   ├── document/    # Document registry & workflow
+│   │   │   ├── maturity/    # IAM Program Maturity engine
+│   │   │   └── os/          # IAM OS Kernel (Coverage Intelligence Engine)
+│   │   └── index.ts         # Express app, routes, startup banner
 │   └── package.json
 │
-├── idvize/              # React SPA frontend
+├── idvize/                  # React SPA frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/  # AppLayout, Header, Sidebar
-│   │   │   ├── common/  # Badge, DataTable, KpiCard, TabNav
-│   │   │   └── charts/  # Donut, Gauge, Bar, Trend, Combo charts
-│   │   ├── context/     # CMDBContext
-│   │   ├── data/        # Mock data files
-│   │   ├── features/
-│   │   │   └── cmdb/    # CMDB detail pages & components
-│   │   ├── lib/
-│   │   │   └── apiClient.ts  # Shared HTTP client
-│   │   ├── pages/       # Route-level page components
-│   │   │   ├── Dashboard.tsx
+│   │   │   ├── layout/      # AppLayout, Header (OS badge), Sidebar (OS sections)
+│   │   │   ├── common/      # Badge, DataTable, KpiCard, TabNav
+│   │   │   └── charts/      # Donut, Gauge, Bar, Trend charts
+│   │   ├── pages/
+│   │   │   ├── os/          # OS Control Panel (MONITOR/OPERATE/CONTROL)
+│   │   │   ├── controls/    # Controls Library (49 controls, 4 pillars)
+│   │   │   ├── Dashboard.tsx # IAM Overview
 │   │   │   ├── LoginPage.tsx
 │   │   │   ├── applications/
 │   │   │   ├── cmdb/
@@ -182,484 +399,241 @@ IAM-Platform/
 │   │   │   ├── access/
 │   │   │   ├── pam/
 │   │   │   └── ciam/
-│   │   └── types/       # Shared TypeScript interfaces
-│   ├── dist/            # Production build (generated)
-│   ├── vite.config.ts
-│   ├── tailwind.config.js
+│   │   └── lib/apiClient.ts # Shared HTTP client
 │   └── package.json
 │
-└── README.md            # This file
+└── README.md
 ```
 
 ---
 
-## Backend — idvize-api
+## API Reference
 
-### Environment Variables
-
-Create `idvize-api/.env` (copy from the template below). All IAM platform credentials are optional — the platform runs fully with mock adapters when they are absent.
-
-```env
-# ── Server ────────────────────────────────────────────────────────
-PORT=3001
-NODE_ENV=development
-
-# ── API Security ──────────────────────────────────────────────────
-# Static API key required in x-api-key header for all requests
-API_KEY=idvize-dev-key-change-me
-
-# ── JWT ───────────────────────────────────────────────────────────
-# Secret used to sign/verify JWTs — change before production
-JWT_SECRET=change-me-in-production
-
-# ── Entra ID (Azure Active Directory) ────────────────────────────
-ENTRA_TENANT_ID=
-ENTRA_CLIENT_ID=
-ENTRA_CLIENT_SECRET=
-
-# ── SailPoint IdentityNow ─────────────────────────────────────────
-SAILPOINT_BASE_URL=
-SAILPOINT_CLIENT_ID=
-SAILPOINT_CLIENT_SECRET=
-
-# ── CyberArk PAM ─────────────────────────────────────────────────
-CYBERARK_BASE_URL=
-CYBERARK_USERNAME=
-CYBERARK_PASSWORD=
-
-# ── Okta ──────────────────────────────────────────────────────────
-OKTA_DOMAIN=
-OKTA_API_TOKEN=
-
-# ── Anthropic Claude AI ───────────────────────────────────────────
-# Required for AI executive narratives & agent analysis
-ANTHROPIC_API_KEY=
-```
-
-### Installation & Running (Backend)
-
-```bash
-cd idvize-api
-
-# Install dependencies
-npm install
-
-# Development (ts-node, hot-reload)
-npm run dev
-
-# Production build
-npm run build
-node dist/index.js
-```
-
-The API starts on **http://localhost:3001**. Verify with:
-
-```bash
-curl http://localhost:3001/health
-```
-
-Expected response includes all module statuses:
-```json
-{
-  "status": "ok",
-  "modules": {
-    "Application Governance": "active",
-    "Cost & Vendor Intelligence": "active",
-    "Security & Identity Governance": "active",
-    "Document Registry": "active",
-    "Program Maturity": "active"
-  }
-}
-```
-
----
-
-### API Reference
-
-All endpoints require the following headers unless noted otherwise:
-
+All endpoints (except `/health` and `/security/auth/token`) require:
 ```
 x-api-key: idvize-dev-key-change-me
-Authorization: Bearer <jwt-token>
+Authorization: Bearer <jwt>
 Content-Type: application/json
 ```
 
----
-
-#### Health
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | None | Service status, module capabilities, integration states |
-
----
-
-#### Authentication
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/security/auth/token` | API key only | Issue JWT — body: `{ email, password }` |
-| `GET` | `/security/auth/me` | JWT | Current user profile |
-| `GET` | `/security/auth/matrix` | JWT | Full permission matrix for current user |
-
----
-
-#### Module 1 — Application Governance
+### IAM OS Kernel (`/os`)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/applications` | List applications (query: `riskTier`, `department`, `search`) |
-| `POST` | `/applications` | Create or upsert a single application |
-| `GET` | `/applications/:id` | Get single application details |
-| `POST` | `/applications/import` | Bulk import via CSV or JSON payload |
+| `GET` | `/os/status` | Kernel heartbeat: coverage %, gaps, driver health, process count |
+| `GET` | `/os/coverage` | Coverage by risk tier, control type, and driver |
+| `GET` | `/os/gaps` | Prioritised gap list with missing controls and recommended actions |
+| `GET` | `/os/identity-plane` | All identities with control coverage map |
+| `GET` | `/os/drivers` | Driver registry: Entra, SailPoint, CyberArk, Okta |
+| `GET` | `/os/processes` | Active builds + pending approvals + overdue rotations |
+| `GET` | `/os/modules` | Installed module registry with health |
+| `GET` | `/os/events` | Last 50 IAM events with severity and driver tags |
+| `GET` | `/os/alerts` | Actionable alerts: gaps, expiring credentials, degraded drivers |
+| `POST` | `/os/gaps/:gapId/action` | Action a gap: `onboard-iam` \| `request-sso` \| `request-pam` \| `schedule-review` |
 
----
-
-#### Module 2 — Control Detection
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/controls/evaluate` | Evaluate controls for one or all applications |
-| `GET` | `/controls/:appId` | Get cached control evaluation result |
-
----
-
-#### Module 4 — Build Execution
+### Controls Catalog (`/controls`)
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/build/start` | Start a new build job |
-| `GET` | `/build` | List builds (query: `state`, `platform`, `appId`) |
-| `GET` | `/build/:id` | Get full build state and artifacts |
-| `POST` | `/build/:id/advance` | Advance build to the next state |
+| `GET` | `/controls/catalog` | Full 49-control catalog. Filters: `?pillar=AM\|IGA\|PAM\|CIAM`, `?category=`, `?tag=` |
+| `POST` | `/controls/evaluate` | Evaluate controls for one app or all apps |
+| `GET` | `/controls/:appId` | Cached control evaluation for an application |
+
+### Application Governance (`/applications`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/applications` | List (query: `riskTier`, `department`, `search`) |
+| `POST` | `/applications` | Create or upsert |
+| `GET` | `/applications/:id` | Detail |
+| `POST` | `/applications/import` | Bulk import via CSV or JSON |
+
+### Build Execution (`/build`)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/build/start` | Start a build job |
+| `GET` | `/build` | List builds |
+| `GET` | `/build/:id` | Build detail + artifacts |
+| `POST` | `/build/:id/advance` | Advance to next state |
 | `POST` | `/build/:id/transition` | Explicit state transition |
-| `POST` | `/build/:id/data` | Submit technical data for current stage |
-| `POST` | `/build/:id/artifacts` | Generate build artifacts |
+| `POST` | `/build/:id/data` | Submit stage data |
+| `POST` | `/build/:id/artifacts` | Generate artifacts |
 
----
-
-#### Module 5 — Cost & Vendor Intelligence
+### Cost & Vendor Intelligence (`/cost`)
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/cost/analyze` | Run full cost analysis engine |
-| `POST` | `/cost/analyze/ai` | Claude-powered cost analysis with narrative |
-| `GET` | `/cost/report` | Get last generated cost report |
-| `GET` | `/cost/summary` | Aggregated cost breakdown (people + tech + partners) |
-| `GET` | `/cost/vendor-analysis` | Cost impact analysis for all vendors |
-| `GET` | `/cost/vendor-analysis/:vendorId` | Single vendor impact |
-| `GET` | `/cost/optimization` | Optimization opportunities with effort/impact ratings |
-| `POST` | `/cost/vendors` | Create or update a vendor record |
-| `GET` | `/cost/vendors` | List all vendors |
-| `POST` | `/cost/contracts` | Create or update a contract |
-| `GET` | `/cost/contracts` | List all contracts |
-| `POST` | `/cost/people` | Add a people cost record |
-| `GET` | `/cost/people` | List all people cost records |
+| `POST` | `/cost/analyze` | Run cost analysis |
+| `POST` | `/cost/analyze/ai` | Claude-powered analysis + narrative |
+| `GET` | `/cost/report` | Last report |
+| `GET` | `/cost/summary` | Aggregated totals |
+| `GET` | `/cost/vendor-analysis` | Per-vendor cost impact |
+| `GET` | `/cost/optimization` | Optimization opportunities |
+| `POST/GET` | `/cost/vendors` | Vendor CRUD |
+| `POST/GET` | `/cost/contracts` | Contract CRUD |
+| `POST/GET` | `/cost/people` | People cost CRUD |
 
----
-
-#### Module 6 — IAM Platform Integrations
+### IAM Platform Integrations (`/integrations`)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/integrations/status` | Connection status for all platforms |
-| `GET` | `/integrations/config` | Current saved credentials (secrets redacted) |
-| `POST` | `/integrations/configure` | Save platform credentials to runtime environment |
-| `POST` | `/integrations/test/:platform` | Test connection using submitted credentials (never saved env) |
-| `GET` | `/integrations/entra/apps` | List Entra ID applications |
-| `GET` | `/integrations/sailpoint/sources` | List SailPoint identity sources |
-| `GET` | `/integrations/cyberark/safes` | List CyberArk safes |
-| `GET` | `/integrations/okta/apps` | List Okta applications |
-| `POST` | `/integrations/correlate/:appName` | Cross-platform application correlation |
+| `GET` | `/integrations/status` | All 4 platform statuses |
+| `POST` | `/integrations/test/:platform` | Test connection (entra\|sailpoint\|cyberark\|okta) |
+| `POST` | `/integrations/configure` | Save credentials |
+| `GET` | `/integrations/entra/apps` | Entra applications |
+| `GET` | `/integrations/sailpoint/sources` | SailPoint identity sources |
+| `GET` | `/integrations/cyberark/safes` | CyberArk safes |
+| `GET` | `/integrations/okta/apps` | Okta applications |
+| `POST` | `/integrations/correlate/:appName` | Cross-platform correlation |
 
-**Platform values for `:platform`:** `entra` | `sailpoint` | `cyberark` | `okta`
+### Security & Identity Governance (`/security`)
 
-Test connection request body example:
-```json
-{
-  "entra": {
-    "tenantId": "...",
-    "clientId": "...",
-    "clientSecret": "..."
-  }
-}
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/security/auth/token` | Issue JWT |
+| `GET` | `/security/auth/me` | Current user profile |
+| `GET` | `/security/auth/matrix` | Full permission matrix |
+| `GET` | `/security/authz/check` | Check permission (`?permission=`) |
+| `GET` | `/security/authz/my-permissions` | Effective permissions |
+| `GET` | `/security/scim/v2/Users` | SCIM users |
+| `GET` | `/security/scim/v2/Groups` | SCIM groups |
+| `POST` | `/security/approvals` | Create approval request |
+| `POST` | `/security/approvals/:id/resolve` | Approve / deny |
+| `GET` | `/security/audit` | Audit log |
+| `GET` | `/security/posture` | Security posture report |
+| `POST` | `/security/posture/ai` | Claude posture analysis |
+| `GET` | `/security/masking/demo` | Field-level masking demo |
+| `POST/GET` | `/security/credentials` | Credential registry |
+| `POST` | `/security/credentials/:id/rotate` | Rotate |
+| `POST` | `/security/credentials/:id/revoke` | Revoke |
+| `GET` | `/security/credentials/rotation/report` | Rotation status |
+| `POST/GET` | `/security/credentials/request(s)` | Credential access requests |
+| `POST` | `/security/credentials/requests/:id/resolve` | Approve / deny request |
+| `GET` | `/security/vault/providers` | Vault providers |
+| `GET` | `/security/vault/status` | Active vault status |
+| `GET` | `/security/vault/events` | Vault access events |
+
+### Document Registry (`/documents`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/documents` | List documents |
+| `POST` | `/documents` | Create document |
+| `GET` | `/documents/:id` | Detail + versions + reviews |
+| `PATCH` | `/documents/:id` | Update |
+| `POST` | `/documents/:id/submit` | Submit for review |
+| `POST` | `/documents/:id/review` | Review (approve/reject) |
+| `POST` | `/documents/:id/publish` | Publish |
+| `POST` | `/documents/:id/archive` | Archive |
+
+### Program Maturity (`/maturity`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/maturity/summary` | Overall score, level, recommendations |
+| `GET` | `/maturity/domains` | All 13 domain scores |
+| `GET` | `/maturity/domains/:domainId` | Domain drill-down: indicators, evidence |
+| `POST` | `/maturity/recalculate` | Fresh assessment + Claude narrative |
+| `GET` | `/maturity/history` | Past assessment runs |
+
+---
+
+## IAM OS Kernel
+
+The kernel is the **IAM Coverage Intelligence Engine** — it reads from all existing modules and computes which enterprise applications and identities are protected by IAM controls, and which are not.
+
+### Coverage Logic
+
+```
+For each application in the CMDB:
+  Required controls = TIER_REQUIRED[app.riskTier]
+    critical: [SSO, MFA, PAM, Access Review]
+    high:     [SSO, MFA]
+    medium:   [SSO]
+    low:      []
+
+  present  = controls detected in app.iamPosture
+  missing  = required - present
+  riskScore = f(tier, missingCount)
+
+  → if missing.length > 0: add to gap list
+```
+
+### OS Concept Map
+
+| OS Concept | IAM OS Equivalent |
+|---|---|
+| Kernel | IAM Coverage Intelligence Engine |
+| Device Drivers | Platform adapters (Entra, SailPoint, CyberArk, Okta) |
+| Process Manager | Workflow engine (builds, approvals, rotations) |
+| Applications | IAM capability modules (IGA, AM, PAM, CIAM) |
+| File System | Universal Identity Plane |
+| System Monitor | Maturity & posture engine |
+| Shell | IDVIZE API + frontend UI |
+
+---
+
+## Controls Library
+
+**49 IAM controls** extracted from industry frameworks (NIST SP 800-53, SOX, PCI-DSS, HIPAA, Zero Trust, FIDO, ISO 27001, COBIT) and categorised across the four IAM pillars.
+
+| Pillar | Count | Focus |
+|---|---|---|
+| AM — Access Management | 15 | Authentication, authorisation, federation, Zero Trust |
+| IGA — Identity Governance & Administration | 15 | Lifecycle, governance, SoD, certification, audit |
+| PAM — Privileged Access Management | 10 | Vaulting, session recording, key & secrets management |
+| CIAM — Customer Identity & Access Management | 9 | Registration, social login, consent, fraud detection |
+
+Each control includes: description, capabilities list, policy drivers, applicable risk tiers, implementation complexity, and tags.
+
+---
+
+## IAM Program Maturity Model
+
+**5-level scale** aligned with CMMI, NIST CSF, and ISACA frameworks.
+
+| Level | Band | Label |
+|---|---|---|
+| L1 | 0–20 | Initial — ad-hoc, reactive |
+| L2 | 21–40 | Developing — early implementation |
+| L3 | 41–60 | Defined — documented, consistent |
+| L4 | 61–80 | Managed — measured, monitored |
+| L5 | 81–100 | Optimized — automated, proactive |
+
+**13 Domains:** IGA · AM · PAM · CIAM · Identity Lifecycle · Access Reviews · SoD · Audit & Compliance · Data Governance · Vendor Management · Incident Response · IAM Architecture · Cost Optimisation
+
+**Confidence-weighted scoring:**
+```
+Evidence quality:  live=1.0 · estimated=0.6 · mock=0.4 · missing=0.1
+domainScore = Σ(score × weight × confidence) / Σ(weight × confidence)
 ```
 
 ---
 
-#### Module 7 — Security & Identity Governance
+## AI Agent Layer
 
-**Authorisation:**
+Claude (Anthropic) is used for three bounded purposes — all scoring remains deterministic:
 
-| Method | Path | Description |
+| Agent | Trigger | Output |
 |---|---|---|
-| `GET` | `/security/authz/check` | Check permission (query: `permission=<id>`) |
-| `GET` | `/security/authz/my-permissions` | Current user's effective permissions |
-| `GET` | `/security/authz/policies` | List all authorisation policies |
+| Maturity Narrative | `POST /maturity/recalculate` | Executive summary of score, strengths, gaps |
+| Cost Intelligence | `POST /cost/analyze/ai` | Cost trend analysis, anomaly identification |
+| Security Posture | `POST /security/posture/ai` | Risk narrative with prioritised recommendations |
 
-**SCIM 2.0 Provisioning:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/security/scim/v2/Users` | List provisioned users |
-| `GET` | `/security/scim/v2/Groups` | List provisioned groups |
-
-**Approval Workflows:**
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/security/approvals` | Create an approval request |
-
-**Audit Log:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/security/audit` | Retrieve audit log events (query: `actor`, `resource`, `limit`) |
-
-**Security Posture:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/security/posture` | Deterministic security posture report |
-| `POST` | `/security/posture/ai` | Claude-powered posture analysis with recommendations |
-
-**Field Masking Demo:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/security/masking/demo` | Demonstrate field-level data masking |
-
-**Credential Governance:**
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/security/credentials` | Register a new credential |
-| `GET` | `/security/credentials` | List all credentials |
-| `GET` | `/security/credentials/:id` | Get credential detail |
-| `POST` | `/security/credentials/:id/rotate` | Trigger credential rotation |
-| `POST` | `/security/credentials/:id/revoke` | Revoke a credential |
-| `POST` | `/security/credentials/:id/register-reference` | Register an application reference |
-| `GET` | `/security/credentials/rotation/report` | Rotation status report |
-| `POST` | `/security/credentials/request` | Submit a credential access request |
-| `GET` | `/security/credentials/requests` | List credential requests |
-| `POST` | `/security/credentials/requests/:id/resolve` | Approve or deny a request |
-
-**Secret Vault:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/security/vault/providers` | Available vault providers (AWS SM, Azure KV, CyberArk, HashiCorp, mock) |
-| `GET` | `/security/vault/status` | Active vault integration status |
-| `GET` | `/security/vault/events` | Vault access event log |
-
----
-
-#### Document Registry
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/documents` | List documents (permission: `document.view`) |
-| `GET` | `/documents/stats` | Aggregate statistics by status and type |
-| `POST` | `/documents` | Create a new document |
-| `GET` | `/documents/:id` | Get document with all versions |
-| `PATCH` | `/documents/:id` | Update document metadata or content |
-| `POST` | `/documents/:id/submit` | Submit draft for review |
-| `POST` | `/documents/:id/review` | Submit a review (approve/reject with comments) |
-| `POST` | `/documents/:id/publish` | Publish an approved document |
-| `POST` | `/documents/:id/archive` | Archive a document |
-
----
-
-#### Program Maturity Assessment
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/maturity/summary` | Overall maturity score, level, top recommendations |
-| `GET` | `/maturity/domains` | All 13 domain scores with confidence |
-| `GET` | `/maturity/domains/:domainId` | Single domain drill-down: indicators, evidence, explainability, recommendations |
-| `POST` | `/maturity/recalculate` | Trigger a fresh assessment run (re-collects all evidence) |
-| `GET` | `/maturity/history` | List of past assessment runs |
-
----
-
-## Frontend — idvize
-
-### Installation & Running (Frontend)
-
-```bash
-cd idvize
-
-# Install dependencies
-npm install
-
-# Development server (hot module replacement)
-npm run dev
-# Opens http://localhost:5173
-
-# Production build
-npm run build
-# Output in dist/
-
-# Preview production build locally
-npm run preview
-```
-
-### Application Routes
-
-| Path | Page | Description |
-|---|---|---|
-| `/` | Redirect | Redirects to `/dashboard` if logged in, `/login` otherwise |
-| `/login` | LoginPage | JWT authentication form |
-| `/dashboard` | Dashboard | Main overview with maturity scores, domain cards |
-| `/iga` | IdentityWarehouse | Identity Governance & Administration analytics |
-| `/access-management` | AccessManagement | Authentication, SSO & MFA overview |
-| `/pam` | PAMDashboard | Privileged Access Management dashboard |
-| `/ciam` | CIAMDashboard | Customer Identity & Access Management |
-| `/applications/onboarding` | AppOnboarding | Application onboarding workflow |
-| `/applications/management` | AppManagement | Application lifecycle management |
-| `/applications/orphan-accounts` | OrphanAccounts | Orphan account detection & remediation |
-| `/cmdb` | CMDBPage | Configuration Management Database |
-| `/cmdb/:appId` | AppDetailPage | Application detail with controls, posture, recommendations |
-| `/documents` | DocumentsPage | Document registry & approval workflow |
-| `/integrations` | IntegrationsPage | Platform credentials, test & status |
-| `/maturity` | MaturityPage | IAM Programme Maturity full report |
-| `/maturity/domains/:domainId` | MaturityDomainDetail | Domain-level drill-down with evidence |
-
----
-
-## Modules
-
-### Module 1 — Application Governance
-
-Manages the application inventory that underpins all IAM decisions.
-
-- **Import**: Bulk ingest applications from CSV/JSON with metadata normalisation
-- **CMDB**: Full-featured configuration database with risk tiers, departments, platform tags
-- **Application detail**: Controls status, security posture, IAM gap analysis
-- **Cross-platform correlation**: Links the same application across Entra, SailPoint, CyberArk, Okta
-
-### Module 2 — Control Detection
-
-Maps applications to expected IAM controls and identifies gaps.
-
-- Evaluates controls (MFA, RBAC, SSO, PAM coverage, SCIM provisioning) per application
-- Produces gap scores and risk assessments
-- Feeds the Build Execution engine with gap data
-
-### Module 4 — Build Execution
-
-State-machine driven workflow for executing IAM builds (new integrations, remediation).
-
-**States**: `planning → design → review → approved → in_progress → testing → completed`
-
-- Generates build artifacts (configuration files, runbooks, test plans)
-- Accepts technical data submissions per stage
-- Tracks progress and artifacts at each transition
-
-### Module 5 — Cost & Vendor Intelligence
-
-Full cost visibility across people, technology, and partner spend.
-
-- Aggregates people costs (FTE, contractors) by team and function
-- Tracks vendor contracts with renewal dates, negotiation leverage scores
-- Produces optimization opportunities with effort/impact ratings
-- Claude-powered narrative analysis of cost trends and anomalies
-
-### Module 6 — IAM Platform Integrations
-
-Connects to enterprise IAM platforms with live credential testing.
-
-| Platform | Authentication | Data Retrieved |
-|---|---|---|
-| Entra ID (Azure AD) | OAuth2 `client_credentials` → Microsoft Graph | Applications, groups, users |
-| SailPoint IdentityNow | OAuth2 `client_credentials` | Identity sources, accounts, entitlements |
-| CyberArk PAM | Username/password → session token | Safes, accounts, platforms |
-| Okta | API token | Applications, users, groups |
-
-**Important**: Connection tests always use the credentials submitted in the request body — they never fall back to previously saved environment variables, preventing false positives.
-
-### Module 7 — Security & Identity Governance
-
-The most comprehensive module, covering:
-
-**Authentication & Sessions**
-- JWT-based authentication (HS256, 8-hour TTL)
-- OIDC adapter for federated login (SAML adapter scaffolded)
-- Role-based token claims
-
-**Authorisation (RBAC/ABAC)**
-- Policy engine with role and attribute-based rules
-- Permission matrix: `resource.action` format
-- Runtime permission checks with full audit trail
-
-**Credential & Secret Governance**
-- Credential registry with lifecycle management (active → rotating → revoked)
-- Rotation monitoring with overdue alerts
-- Access request workflow with approval gates
-- Application reference tracking (which apps use which credentials)
-
-**Secret Vault Abstraction**
-- Unified interface across: AWS Secrets Manager, Azure Key Vault, CyberArk (vault), HashiCorp Vault, Mock
-- Provider status, access event logging
-
-**SCIM 2.0 Provisioning**
-- User and group provisioning endpoint
-- Lifecycle event tracking
-
-**Audit Log**
-- Immutable append-only log for all security-relevant events
-- Every integration test, credential rotation, approval, and login is recorded
-
-**Field-Level Masking**
-- Demonstrates masking of sensitive fields (email, SSN, account numbers) based on caller role
-
-### Document Registry
-
-Policy and procedure management with approval workflow.
-
-- **Document types**: Policy, Procedure, Standard, Guideline, Runbook
-- **Lifecycle**: Draft → In Review → Approved → Published → Archived
-- **Versioning**: Full version history with diff tracking
-- **Review workflow**: Submit → Review (approve/reject with comments) → Publish
-- **Permission gating**: View, create, review, publish — each requires specific role
-
-### Program Maturity Assessment
-
-A deterministic, evidence-grounded IAM maturity scoring engine. See [IAM Program Maturity Model](#iam-program-maturity-model) for full detail.
+If `ANTHROPIC_API_KEY` is absent, all features work; AI narratives are omitted.
 
 ---
 
 ## Authentication & Authorisation
 
-### Obtaining a Token
-
 ```bash
+# Get a token
 curl -X POST http://localhost:3001/security/auth/token \
   -H "Content-Type: application/json" \
   -H "x-api-key: idvize-dev-key-change-me" \
-  -d '{"email":"admin@idvize.com","password":"password123"}'
+  -d '{"username":"admin@idvize.com","password":"password123"}'
 ```
-
-Response:
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGci...",
-    "user": { "id": "...", "email": "admin@idvize.com", "role": "admin" },
-    "expiresIn": 28800
-  }
-}
-```
-
-### Using the Token
-
-Include the token in every subsequent request:
-```
-Authorization: Bearer eyJhbGci...
-```
-
-The frontend `apiFetch()` client handles this automatically and redirects to `/login` on any 401 response.
 
 ### Role Hierarchy
 
@@ -668,219 +642,46 @@ The frontend `apiFetch()` client handles this automatically and redirects to `/l
 | `admin` | Full access to all modules and operations |
 | `iam_manager` | Manage applications, view all reports, approve documents |
 | `iam_engineer` | Create/update applications, run builds, manage credentials |
-| `auditor` | Read-only access to audit logs, reports, maturity assessments |
-| `viewer` | Read-only access to dashboards and documents |
+| `auditor` | Read-only audit logs, reports, maturity assessments |
+| `viewer` | Read-only dashboards and documents |
 
 ---
 
-## IAM Program Maturity Model
+## Demo Users
 
-IDVIZE implements an industry-standard **5-level maturity scale** aligned with CMMI, NIST CSF, and ISACA frameworks.
-
-### Maturity Levels
-
-| Level | Score Band | Label | Characteristics |
-|---|---|---|---|
-| L1 | 0 – 20 | Initial | Ad-hoc processes, no formal IAM programme, reactive posture |
-| L2 | 21 – 40 | Developing | Recognised need, early implementation, inconsistent practices |
-| L3 | 41 – 60 | Defined | Documented policies, consistently applied, basic automation |
-| L4 | 61 – 80 | Managed | Measured and controlled, predictable outcomes, continuous monitoring |
-| L5 | 81 – 100 | Optimized | Continuous improvement, full automation, proactive posture |
-
-### Assessment Architecture
-
-```
-External Sources           Evidence Layer          Scoring Layer
-──────────────            ──────────────          ─────────────
-Document Module    ──→    EvidenceItem            NormalizationService
-Audit Logs         ──→    quality: live │          → 0–100 per indicator
-Approval Workflows ──→            mock  │          → confidence: 0–1
-SCIM Provisioning  ──→            est.  │
-Application CMDB   ──→            miss  │          ScoringEngine
-Cost Module        ──→                 ↓           → confidence-weighted avg
-Entra Adapter      ──→    MaturityIndicator        → domain score
-SailPoint Adapter  ──→    (50+ indicators)         → overall score
-CyberArk Adapter   ──→
-Okta Adapter       ──→                             ExplainabilityService
-                                                   → narrative
-                                                   → key factors
-                                                   → limitations
-
-                                                   RecommendationAgent
-                                                   → deterministic rules
-                                                   → Claude AI narrative
-```
-
-### 13 Maturity Domains
-
-| Domain ID | Domain Name |
-|---|---|
-| `iga` | Identity Governance & Administration |
-| `am` | Authentication, SSO & MFA |
-| `pam` | Privileged Access Management |
-| `ciam` | Customer Identity & Access Management |
-| `lifecycle` | Identity Lifecycle Management |
-| `access_review` | Access Reviews & Certification |
-| `separation_of_duties` | Separation of Duties |
-| `audit_compliance` | Audit & Compliance |
-| `data_governance` | Data Governance & Classification |
-| `vendor_management` | Vendor & Third-party Risk |
-| `incident_response` | Incident Response |
-| `architecture` | IAM Architecture & Standards |
-| `cost_optimisation` | Cost Optimisation |
-
-### Confidence-Weighted Scoring
-
-Scores are never silently inflated by missing or low-quality evidence:
-
-```
-Evidence Quality   Confidence Weight
-─────────────────  ─────────────────
-live               1.0  (real API data)
-estimated          0.6  (derived/calculated)
-mock               0.4  (placeholder data)
-missing            0.1  (no evidence found)
-
-domainScore = Σ(indicator.score × indicator.weight × indicator.confidence)
-            / Σ(indicator.weight × indicator.confidence)
-```
-
-Low-confidence domains are surfaced in the dashboard with amber warnings.
-
----
-
-## AI Agent Layer
-
-IDVIZE uses Claude (Anthropic) for three specific, bounded purposes:
-
-| Agent | Trigger | Output |
+| Email | Password | Role |
 |---|---|---|
-| **Maturity Narrative** | `POST /maturity/recalculate` | Executive summary explaining the overall score, key strengths and gaps |
-| **Cost Intelligence** | `POST /cost/analyze/ai` | Cost trend analysis, anomaly identification, optimisation narrative |
-| **Security Posture** | `POST /security/posture/ai` | Governance risk narrative with prioritised recommendations |
+| `admin@idvize.com` | `password123` | Admin — full access |
+| `sarah.architect@idvize.com` | `password123` | Architect |
+| `james.analyst@idvize.com` | `password123` | Analyst |
+| `lisa.engineer@idvize.com` | `password123` | Engineer |
+| `raj.developer@idvize.com` | `password123` | Developer |
 
-**Important constraints:**
-- Claude **never sets numeric scores** — all scoring is deterministic
-- Claude receives only pre-computed facts and evidence summaries
-- If `ANTHROPIC_API_KEY` is absent, all features work correctly; AI narratives are simply omitted
-
----
-
-## Demo Users & Credentials
-
-The API seeds the following demo users on startup:
-
-| Email | Password | Role | Access |
-|---|---|---|---|
-| `admin@idvize.com` | `password123` | `admin` | Full platform access |
-| `manager@idvize.com` | `password123` | `iam_manager` | All modules, no admin settings |
-| `engineer@idvize.com` | `password123` | `iam_engineer` | Build, applications, credentials |
-| `auditor@idvize.com` | `password123` | `auditor` | Read-only audit & reports |
-| `viewer@idvize.com` | `password123` | `viewer` | Dashboard & document view only |
-
-> These credentials are for **development and demonstration only**. Change all secrets before any deployment.
+> Development and demonstration only. Rotate all secrets before any deployment.
 
 ---
 
-## Development Workflow
+## Known Limitations
 
-### Starting Both Servers
-
-**Terminal 1 — Backend:**
-```bash
-cd idvize-api
-npm run build && node dist/index.js
-# or for hot-reload:
-npm run dev
-```
-
-**Terminal 2 — Frontend:**
-```bash
-cd idvize
-npm run dev
-```
-
-Open **http://localhost:5173** and log in as `admin@idvize.com` / `password123`.
-
-### Building for Production
-
-```bash
-# Backend
-cd idvize-api && npm run build
-# Output: idvize-api/dist/
-
-# Frontend
-cd idvize && npm run build
-# Output: idvize/dist/  (serve with any static file host)
-```
-
-### TypeScript Checking
-
-```bash
-# Backend — type check only (no emit)
-cd idvize-api && npx tsc --noEmit
-
-# Frontend — type check via Vite
-cd idvize && npm run build
-```
-
-### Linting
-
-```bash
-cd idvize && npm run lint
-```
+| Area | Limitation |
+|---|---|
+| **Persistence** | All data is in-memory. Restarting the API resets all state. |
+| **Platform adapters** | All four adapters (Entra, SailPoint, CyberArk, Okta) return mock data unless live credentials are provided. Only the Entra test-connection performs a real OAuth2 call. |
+| **Identity plane** | Cross-platform identity reconciliation uses representative mock records. Real reconciliation requires live adapters. |
+| **JWT** | No refresh tokens. 8-hour TTL requires re-login. |
+| **API key** | Single static key in `.env`. |
+| **SAML** | Adapter scaffolded but not functional. |
+| **Multi-tenancy** | Single-tenant only. |
+| **Bundle size** | Single JS chunk (~882 KB). No code-splitting applied. |
+| **Tests** | No unit or integration test suite. |
 
 ---
 
 ## Git Repository
 
 **Remote:** https://github.com/omobolu/Claud-IAM-Platform
-
-| Branch | Purpose |
-|---|---|
-| `main` | Stable baseline |
-| `prototype` | Active development — current working prototype |
-
-### Commit History
-
-```
-dad2302  feat: maturity 1-5 scale, dashboard score bubbling, prototype quality
-fb70914  Add Enterprise IAM Program Maturity capability
-223ca37  Add IAM platform integrations UI with secure connection testing
-eb243ee  Initial commit — idvize IAM Orchestration & Governance Platform
-```
+**Active branch:** `prototype`
 
 ---
 
-## Known Limitations & Roadmap
-
-### Current Limitations
-
-| Area | Limitation |
-|---|---|
-| **Persistence** | All data is in-memory. Restarting the API server resets all state (applications, builds, credentials, maturity runs). |
-| **Authentication** | Demo JWT secret is hardcoded. Rotate `JWT_SECRET` in production. |
-| **API key** | Single static API key. Replace with per-client key management before production. |
-| **Platform adapters** | Entra, SailPoint, CyberArk, Okta adapters return mock data when credentials are not configured. Only the Entra test-connection performs a real OAuth2 call. |
-| **Frontend bundle** | Single JS chunk (~840 KB minified). Code-splitting not yet applied. |
-| **SAML** | SAML adapter is scaffolded but not fully implemented. |
-| **Multi-tenancy** | Single-tenant only. |
-
-### Planned Improvements
-
-- [ ] Persistent storage layer (PostgreSQL / MongoDB)
-- [ ] Complete live adapters for SailPoint, CyberArk, Okta
-- [ ] Code-split frontend bundle
-- [ ] Refresh token support
-- [ ] Per-client API key management
-- [ ] Full SAML 2.0 SP implementation
-- [ ] Docker Compose for one-command local setup
-- [ ] Unit and integration test suite
-- [ ] Maturity trend tracking across assessment runs (historical charting)
-- [ ] Export maturity report to PDF
-
----
-
-## Licence
-
-Internal prototype — all rights reserved. Not for distribution.
+*IDVIZE IAM OS — Internal prototype. All rights reserved.*
