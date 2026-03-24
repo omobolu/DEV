@@ -165,16 +165,16 @@ function computeCoverage() {
 
       const recommendedAction =
         missingControls.includes('SSO') && missingControls.includes('MFA') && missingControls.includes('PAM')
-          ? 'full-iam-onboarding'
+          ? 'onboard-iam'
           : missingControls.includes('PAM')  ? 'request-pam'
           : missingControls.includes('SSO')  ? 'request-sso'
           :                                    'schedule-review';
 
       const actionLabel =
-        recommendedAction === 'full-iam-onboarding' ? 'Onboard to IAM OS'
-        : recommendedAction === 'request-pam'       ? 'Request PAM Coverage'
-        : recommendedAction === 'request-sso'       ? 'Request SSO Integration'
-        :                                             'Schedule Access Review';
+        recommendedAction === 'onboard-iam'   ? 'Onboard to IAM OS'
+        : recommendedAction === 'request-pam' ? 'Request PAM Coverage'
+        : recommendedAction === 'request-sso' ? 'Request SSO Integration'
+        :                                       'Schedule Access Review';
 
       gaps.push({
         gapId:             `gap-${app.appId}`,
