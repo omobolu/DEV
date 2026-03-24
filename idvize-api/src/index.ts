@@ -6,6 +6,8 @@ import morgan from 'morgan';
 
 import { apiKeyAuth } from './middleware/apiKey';
 import { errorHandler } from './middleware/errorHandler';
+import { controlService } from './modules/control/control.service';
+import { seedApplications } from './modules/application/application.seed';
 
 // ── Module Controllers ──────────────────────────────────────────────────────
 import applicationController from './modules/application/application.controller';
@@ -185,6 +187,9 @@ app.listen(PORT, () => {
   console.log(`    GET  /os/events`);
   console.log(`    GET  /os/alerts`);
   console.log(`========================================================\n`);
+
+  // Seed demo applications (no-op if already seeded)
+  seedApplications();
 });
 
 export default app;
