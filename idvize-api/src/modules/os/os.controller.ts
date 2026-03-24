@@ -721,10 +721,20 @@ router.get('/alerts', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── POST /os/gaps/:gapId/action ───────────────────────────────────────────────
+// Always creates BOTH:
+//   (1) Approval  — represents email notification to app owner + IAM team
+//   (2) Build job — AI agent configuration task queued until form is submitted
+// Returns: approvalId, buildId, sentTo, nextSteps, missingControls
 router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) => {
   const { gapId } = req.params;
   const { action } = req.body as { action: string };
   const actor = (req as any).user as { userId: string; name: string } | undefined;
+
+  const VALID = ['onboard-iam', 'request-sso', 'request-pam', 'schedule-review'];
+  if (!VALID.includes(action)) {
+    res.status(400).json({ success: false, error: `Unknown action '${action}'. Valid: ${VALID.join(', ')}` });
+    return;
+  }
 
   const { gaps } = computeCoverage();
   const gap = gaps.find(g => g.gapId === gapId);
@@ -733,30 +743,76 @@ router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) =>
     return;
   }
 
+  const app = applicationRepository.findById(gap.appId);
+  const riskLevel = (gap.riskTier === 'critical' || gap.riskTier === 'high') ? 'high_risk' : 'standard';
+
+  const ACTION_LABEL: Record<string, string> = {
+    'onboard-iam':      'Full IAM Onboarding',
+    'request-sso':      'SSO Integration',
+    'request-pam':      'PAM Coverage Request',
+    'schedule-review':  'Access Certification',
+  };
+  const BUILD_TYPE: Record<string, string> = {
+    'onboard-iam':     'sso_integration',
+    'request-sso':     'sso_integration',
+    'request-pam':     'pam_onboarding',
+    'schedule-review': 'iga_onboarding',
+  };
+  const PLATFORM: Record<string, string> = {
+    'onboard-iam':     'entra',
+    'request-sso':     'entra',
+    'request-pam':     'cyberark',
+    'schedule-review': 'sailpoint',
+  };
+
   try {
-    if (action === 'onboard-iam' || action === 'request-sso') {
-      const job = buildService.startBuild({
-        appId:        gap.appId,
-        controlGap:   (gap.missingControls[0] ?? 'SSO') as any,
-        buildType:    action === 'request-sso' ? 'sso_integration' as any : undefined,
-        platform:     'entra' as any,
-        assignedTo:   actor?.name ?? 'IAM Team',
-      });
-      res.json({ success: true, data: { actionTaken: action, processId: (job as any).buildId, type: 'build', message: `Build job created for ${gap.appName}` } });
-    } else if (action === 'request-pam' || action === 'schedule-review') {
-      const approval = approvalService.requestApproval({
-        requesterId:  actor?.userId ?? 'system',
-        action:       action === 'request-pam' ? 'PAM Onboarding' : 'Access Review',
-        resource:     gap.appName,
-        riskLevel:    (gap.riskTier === 'critical' ? 'critical'
-                     : gap.riskTier === 'high'     ? 'high'
-                     :                               'medium') as any,
-        justification: `IAM OS gap remediation: ${gap.appName} is missing ${gap.missingControls.join(', ')}`,
-      });
-      res.json({ success: true, data: { actionTaken: action, processId: approval.requestId, type: 'approval', message: `Approval request created for ${gap.appName}` } });
-    } else {
-      res.status(400).json({ success: false, error: `Unknown action: ${action}. Valid: onboard-iam, request-sso, request-pam, schedule-review` });
-    }
+    // Step 1 — Approval (notification to app owner + IAM team)
+    const approval = approvalService.requestApproval({
+      requesterId:   actor?.userId ?? 'system',
+      action:        `${ACTION_LABEL[action]} — ${gap.appName}`,
+      resource:      gap.appName,
+      riskLevel,
+      justification: `IAM OS remediation: ${gap.appName} (${gap.riskTier}) is missing ${gap.missingControls.join(', ')}. ` +
+                     `Business owner and technical admin notified to provide configuration information.`,
+    });
+
+    // Step 2 — Build job (AI agent task)
+    const job = buildService.startBuild({
+      appId:      gap.appId,
+      controlGap: (gap.missingControls[0] ?? 'IAM') as any,
+      buildType:  BUILD_TYPE[action] as any,
+      platform:   PLATFORM[action] as any,
+      assignedTo: actor?.name ?? 'IAM Team',
+    });
+
+    const buildId = (job as any).buildId;
+
+    const sentTo = [
+      { role: 'Business Owner',  name: app?.owner        ?? 'App Owner',  email: app?.ownerEmail      ?? 'owner@corp.com' },
+      { role: 'Technical Admin', name: 'IAM Team',                        email: 'iam-team@corp.com'  },
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        actionTaken:     action,
+        actionLabel:     ACTION_LABEL[action],
+        approvalId:      approval.requestId,
+        buildId,
+        appName:         gap.appName,
+        riskTier:        gap.riskTier,
+        missingControls: gap.missingControls,
+        presentControls: gap.presentControls,
+        sentTo,
+        nextSteps: [
+          `Email sent to ${sentTo.map(r => r.name).join(' & ')} with configuration form`,
+          `AI agent (${buildId}) queued — starts once form is submitted`,
+          `Engineer review (${approval.requestId}) triggered after build completes`,
+        ],
+        message: `${ACTION_LABEL[action]} workflow started for ${gap.appName}`,
+      },
+      timestamp: new Date().toISOString(),
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

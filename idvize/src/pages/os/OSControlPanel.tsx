@@ -15,6 +15,7 @@ import {
   RefreshCw, Zap, Database, Users, BarChart2, ShieldAlert,
   ShieldCheck, UserCheck, Plug, Award, FileText, TrendingUp,
   AlertCircle, Clock, ArrowRight, Settings, Layers,
+  X, Mail, Bot, UserCog, ClipboardList, Loader2,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 
@@ -176,11 +177,207 @@ function CoverageBar({ tier, total, covered, pct, gaps }: CoverageTier) {
   )
 }
 
-// ── Gap Row ───────────────────────────────────────────────────────────────────
+// ── Gap Action Result type ────────────────────────────────────────────────────
+interface GapActionResult {
+  actionLabel: string; approvalId: string; buildId: string
+  appName: string; riskTier: string; missingControls: string[]; presentControls: string[]
+  sentTo: Array<{ role: string; name: string; email: string }>
+  nextSteps: string[]; message: string
+}
 
-function GapRow({ gap, onAction, actioning }: { gap: Gap; onAction: (gapId: string, action: string) => void; actioning: string | null }) {
+// ── Gap Action Modal ──────────────────────────────────────────────────────────
+function GapActionModal({ gap, onClose, onConfirmed }: {
+  gap: Gap
+  onClose: () => void
+  onConfirmed: (result: GapActionResult) => void
+}) {
+  const [phase, setPhase] = useState<'preview' | 'sending' | 'done'>('preview')
+  const [result, setResult] = useState<GapActionResult | null>(null)
+  const [error, setError]   = useState('')
   const sc = tierColor(gap.riskTier)
-  const loading = actioning === gap.gapId
+
+  const ACTION_DESC: Record<string, string> = {
+    'onboard-iam':     'Configure SSO, provisioning, PAM coverage, and access reviews across all IAM pillars',
+    'request-sso':     'Integrate this application with the enterprise Identity Provider (Entra ID / Okta)',
+    'request-pam':     'Onboard privileged accounts to CyberArk vault with session recording and rotation',
+    'schedule-review': 'Set up quarterly access certification in SailPoint for all entitlements on this app',
+  }
+
+  const send = async () => {
+    setPhase('sending')
+    setError('')
+    try {
+      const r = await apiFetch(`/os/gaps/${gap.gapId}/action`, {
+        method: 'POST', body: JSON.stringify({ action: gap.recommendedAction }),
+      })
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error)
+      setResult(j.data)
+      setPhase('done')
+      onConfirmed(j.data)
+    } catch (e) {
+      setError((e as Error).message)
+      setPhase('preview')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-surface-700 rounded-t-2xl"
+             style={{ backgroundColor: sc + '10', borderTopColor: sc + '30' }}>
+          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" style={{ color: sc }} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">{gap.actionLabel}</h3>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                style={{ backgroundColor: sc + '20', color: sc }}>{gap.riskTier}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">{gap.appName} · {gap.department} · Risk {gap.riskScore}/100</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+          {phase !== 'done' ? (
+            <>
+              {/* Action description */}
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {ACTION_DESC[gap.recommendedAction] ?? gap.actionLabel}
+              </p>
+
+              {/* Control status */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Control Status</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {gap.missingControls.map(c => (
+                    <span key={c} className="text-xs bg-red-900/20 border border-red-800/30 text-red-400 px-2 py-0.5 rounded-full">
+                      Missing: {c}
+                    </span>
+                  ))}
+                  {gap.presentControls.map(c => (
+                    <span key={c} className="text-xs bg-green-900/20 border border-green-800/30 text-green-400 px-2 py-0.5 rounded-full">
+                      ✓ {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Workflow */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">What Happens Next</p>
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-col items-center gap-1 pt-0.5">
+                    {[Mail, ClipboardList, Bot, UserCog].map((Icon, i) => (
+                      <div key={i} className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                             style={{ backgroundColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '30')[i],
+                                      borderWidth: 1, borderStyle: 'solid', borderColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '50')[i] }}>
+                          <Icon size={11} style={{ color: [sc, '#a78bfa', '#22d3ee', '#fbbf24'][i] }} />
+                        </div>
+                        {i < 3 && <div className="w-px h-4 bg-surface-600" />}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex-1 space-y-3 pt-0.5">
+                    {[
+                      { title: 'Email sent to Business Owner & Technical Admin', sub: 'A configuration form is sent requesting the technical information needed' },
+                      { title: 'Owner completes configuration form', sub: `Specific details needed for ${gap.recommendedAction === 'request-pam' ? 'PAM vault setup' : gap.recommendedAction === 'schedule-review' ? 'access review configuration' : 'SSO / IAM integration'}` },
+                      { title: 'AI agent configures and builds', sub: 'The agent uses the submitted data to configure the IAM controls automatically' },
+                      { title: 'Engineer review & sign-off', sub: 'Alert sent to the assigned engineer to review and approve the configuration' },
+                    ].map((s, i) => (
+                      <div key={i}>
+                        <p className="text-xs font-medium text-slate-200">{s.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{s.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
+              )}
+            </>
+          ) : result && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-green-900/20 border border-green-800/40 rounded-xl">
+                <CheckCircle size={20} className="text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-300">Workflow initiated</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{result.message}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Notified</p>
+                {result.sentTo.map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
+                    <Mail size={13} className="text-indigo-400 flex-shrink-0" />
+                    <div>
+                      <span className="text-xs font-medium text-slate-200">{r.name}</span>
+                      <span className="text-[10px] text-slate-500 ml-2">{r.role}</span>
+                      <p className="text-[11px] text-slate-500">{r.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Processes Created</p>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs text-violet-300 bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
+                    <ClipboardList size={11} /> Approval: {result.approvalId}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-900/20 border border-cyan-800/40 px-2.5 py-1.5 rounded-lg">
+                    <Bot size={11} /> Build: {result.buildId}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Steps</p>
+                {result.nextSteps.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-slate-600" />
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-surface-700">
+          <button onClick={onClose}
+            className="px-4 py-2 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors">
+            {phase === 'done' ? 'Close' : 'Cancel'}
+          </button>
+          {phase !== 'done' && (
+            <button onClick={send} disabled={phase === 'sending'}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-lg disabled:opacity-60 transition-colors"
+              style={{ backgroundColor: sc }}>
+              {phase === 'sending'
+                ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
+                : <><Mail size={12} /> Send Configuration Request</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Gap Row ───────────────────────────────────────────────────────────────────
+function GapRow({ gap, onConfigure }: { gap: Gap; onConfigure: (gap: Gap) => void }) {
+  const sc = tierColor(gap.riskTier)
   return (
     <div className="rounded-lg border border-surface-600 bg-surface-800 p-4 flex items-center gap-4">
       <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: sc }} />
@@ -206,12 +403,10 @@ function GapRow({ gap, onAction, actioning }: { gap: Gap; onAction: (gapId: stri
         </div>
       </div>
       <button
-        onClick={() => onAction(gap.gapId, gap.recommendedAction)}
-        disabled={!!loading}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50 transition-colors shrink-0"
+        onClick={() => onConfigure(gap)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0 transition-opacity hover:opacity-90"
         style={{ backgroundColor: sc }}>
-        {loading ? <RefreshCw size={11} className="animate-spin" /> : <ArrowRight size={11} />}
-        {loading ? 'Working…' : gap.actionLabel}
+        <Zap size={11} /> {gap.actionLabel}
       </button>
     </div>
   )
@@ -340,9 +535,10 @@ export default function OSControlPanel() {
   const [alerts,    setAlerts]    = useState<Alert[]>([])
   const [coverage,  setCoverage]  = useState<{ byRiskTier: CoverageTier[]; byControlType: ControlTypeCoverage[] } | null>(null)
 
-  const [loading,   setLoading]   = useState(true)
-  const [actioning, setActioning] = useState<string | null>(null)
-  const [refreshing,setRefreshing]= useState(false)
+  const [loading,    setLoading]    = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [modalGap,   setModalGap]   = useState<Gap | null>(null)
+  const [toast,      setToast]      = useState<{ message: string; appName: string } | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
@@ -377,14 +573,13 @@ export default function OSControlPanel() {
     setSearchParams(t === 'monitor' ? {} : { tab: t })
   }
 
-  const handleGapAction = async (gapId: string, action: string) => {
-    setActioning(gapId)
-    try {
-      const r = await apiFetch(`/os/gaps/${gapId}/action`, { method: 'POST', body: JSON.stringify({ action }) })
-      const j = await r.json()
-      if (j.success) await loadAll()
-    } finally { setActioning(null) }
-  }
+  const handleGapConfirmed = useCallback(async (result: GapActionResult) => {
+    // Immediately refresh processes list so new build + approval appear
+    const procR = await apiFetch('/os/processes').then(r => r.json())
+    if (procR.success) setProcesses(procR.data)
+    setToast({ message: `${result.actionLabel} workflow started`, appName: result.appName })
+    setTimeout(() => setToast(null), 5000)
+  }, [])
 
   const handleApproval = async (requestId: string, decision: 'approved' | 'rejected') => {
     await apiFetch(`/security/approvals/${requestId}/resolve`, {
@@ -668,8 +863,31 @@ export default function OSControlPanel() {
       {/* ══════════════════════════════════════════════════════════════════════
           OPERATE TAB
       ══════════════════════════════════════════════════════════════════════ */}
+      {/* Gap action modal */}
+      {modalGap && (
+        <GapActionModal
+          gap={modalGap}
+          onClose={() => setModalGap(null)}
+          onConfirmed={async (result) => {
+            setModalGap(null)
+            await handleGapConfirmed(result)
+          }}
+        />
+      )}
+
       {tab === 'operate' && (
         <div className="space-y-4">
+
+          {/* Success toast */}
+          {toast && (
+            <div className="flex items-center gap-3 p-3 bg-green-900/30 border border-green-700/50 rounded-xl text-sm">
+              <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
+              <span className="text-green-300 font-medium">{toast.message}</span>
+              <span className="text-slate-400">workflow started for</span>
+              <span className="text-white font-medium">{toast.appName}</span>
+              <span className="text-slate-500 ml-auto text-xs">Processes updated ↓</span>
+            </div>
+          )}
 
           {/* Gap Remediation Queue */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
@@ -692,7 +910,7 @@ export default function OSControlPanel() {
               : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {gaps.map(g => (
-                    <GapRow key={g.gapId} gap={g} onAction={handleGapAction} actioning={actioning} />
+                    <GapRow key={g.gapId} gap={g} onConfigure={setModalGap} />
                   ))}
                 </div>
               )
