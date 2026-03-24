@@ -156,6 +156,62 @@ router.get('/gaps/:controlId', (req: Request, res: Response) => {
   });
 });
 
+// ── GET /controls/app-coverage/:controlId — all apps bucketed by status ───
+router.get('/app-coverage/:controlId', (req: Request, res: Response) => {
+  const controlId = req.params.controlId as string;
+
+  const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
+  if (!ctrl) {
+    res.status(404).json({ success: false, error: `Control ${controlId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  const apps = applicationRepository.findAll();
+
+  type AppRow = { appId: string; appName: string; riskTier: string; department: string };
+  const implemented: AppRow[] = [];
+  const gap:         AppRow[] = [];
+  const notApplicable: AppRow[] = [];
+  const undetected:  AppRow[] = [];
+
+  for (const app of apps) {
+    const row: AppRow = { appId: app.appId, appName: app.name, riskTier: app.riskTier, department: app.department };
+    const override = controlOverridesStore.get(app.appId, controlId);
+    if (override?.notApplicable) { notApplicable.push(row); continue; }
+    const status = detectStatus(controlId, app.iamPosture);
+    if      (status === 'detected')   implemented.push(row);
+    else if (status === 'gap')        gap.push(row);
+    else                              undetected.push(row);
+  }
+
+  const sort = (arr: AppRow[]) => arr.sort((a, b) => (tierOrder[a.riskTier] ?? 4) - (tierOrder[b.riskTier] ?? 4));
+
+  res.json({
+    success: true,
+    data: {
+      controlId,
+      name:        ctrl.name,
+      pillar:      ctrl.pillar,
+      category:    ctrl.category,
+      description: ctrl.description,
+      riskReduction: ctrl.riskReduction,
+      implemented:   sort(implemented),
+      gap:           sort(gap),
+      notApplicable: sort(notApplicable),
+      undetected:    sort(undetected),
+      summary: {
+        implemented:   implemented.length,
+        gap:           gap.length,
+        notApplicable: notApplicable.length,
+        undetected:    undetected.length,
+        total:         apps.length,
+      },
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ── GET /controls/catalog ──────────────────────────────────────────────────
 router.get('/catalog', (req: Request, res: Response) => {
   const pillar   = req.query.pillar   as IamPillar | undefined;

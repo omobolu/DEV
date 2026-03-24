@@ -65,7 +65,15 @@ interface Alert {
 }
 
 interface CoverageTier { tier: string; total: number; covered: number; pct: number; gaps: number }
-interface ControlTypeCoverage { control: string; apps: number; pct: number }
+interface ControlTypeCoverage { controlId: string; control: string; pillar: string; apps: number; pct: number | null }
+
+interface AppRow { appId: string; appName: string; riskTier: string; department: string }
+interface ControlDrillDownData {
+  controlId: string; name: string; pillar: string; category: string
+  description: string; riskReduction: string
+  implemented: AppRow[]; gap: AppRow[]; notApplicable: AppRow[]; undetected: AppRow[]
+  summary: { implemented: number; gap: number; notApplicable: number; undetected: number; total: number }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -174,6 +182,168 @@ function CoverageBar({ tier, total, covered, pct, gaps }: CoverageTier) {
         {gaps} gaps
       </div>
     </div>
+  )
+}
+
+// ── Control Drill-Down Panel ──────────────────────────────────────────────────
+function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onClose: () => void }) {
+  const navigate = useNavigate()
+  const [data, setData]   = useState<ControlDrillDownData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'gap' | 'implemented' | 'undetected' | 'na'>('gap')
+
+  useEffect(() => {
+    setLoading(true)
+    apiFetch(`/controls/app-coverage/${controlId}`)
+      .then(r => r.json())
+      .then(j => { if (j.success) setData(j.data) })
+      .finally(() => setLoading(false))
+  }, [controlId])
+
+  const PILLAR_COLOR: Record<string, string> = {
+    AM: '#22d3ee', IGA: '#818cf8', PAM: '#fbbf24', CIAM: '#4ade80',
+  }
+  const pillarColor = data ? (PILLAR_COLOR[data.pillar] ?? '#818cf8') : '#818cf8'
+
+  const tabs = [
+    { key: 'gap'         as const, label: 'Gap',          count: data?.summary.gap         ?? 0, color: '#ef4444' },
+    { key: 'implemented' as const, label: 'Implemented',  count: data?.summary.implemented ?? 0, color: '#22c55e' },
+    { key: 'undetected'  as const, label: 'Not Assessed', count: data?.summary.undetected  ?? 0, color: '#64748b' },
+    { key: 'na'          as const, label: 'N/A',          count: data?.summary.notApplicable ?? 0, color: '#475569' },
+  ]
+
+  const rows: AppRow[] =
+    activeTab === 'gap'         ? (data?.gap          ?? []) :
+    activeTab === 'implemented' ? (data?.implemented  ?? []) :
+    activeTab === 'undetected'  ? (data?.undetected   ?? []) :
+                                  (data?.notApplicable ?? [])
+
+  const isClickable = activeTab === 'gap' || activeTab === 'undetected'
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-surface-900 border-l border-surface-700 shadow-2xl flex flex-col">
+
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 border-b border-surface-700 flex-shrink-0"
+             style={{ borderTopColor: pillarColor + '40', backgroundColor: pillarColor + '08' }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded border"
+                  style={{ color: pillarColor, borderColor: pillarColor + '40', backgroundColor: pillarColor + '15' }}>
+                  {data?.pillar ?? '…'}
+                </span>
+                <span className="text-xs text-slate-500">{controlId}</span>
+                {data && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded border capitalize ${
+                    data.riskReduction === 'critical' ? 'text-red-400 border-red-800/40 bg-red-900/20' :
+                    data.riskReduction === 'high'     ? 'text-amber-400 border-amber-800/40 bg-amber-900/20' :
+                    'text-slate-400 border-slate-700 bg-slate-800/40'
+                  }`}>{data.riskReduction} risk reduction</span>
+                )}
+              </div>
+              <h2 className="text-base font-bold text-white mt-1.5">{data?.name ?? 'Loading…'}</h2>
+              {data && <p className="text-xs text-slate-500 mt-0.5">{data.category}</p>}
+            </div>
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0 mt-1">
+              <X size={18} />
+            </button>
+          </div>
+
+          {data && (
+            <p className="text-xs text-slate-400 mt-3 leading-relaxed">{data.description}</p>
+          )}
+
+          {/* Summary bar */}
+          {data && (
+            <div className="mt-3 h-2 rounded-full bg-surface-700 overflow-hidden flex">
+              {data.summary.implemented > 0 && (
+                <div className="h-full bg-green-500 transition-all"
+                     style={{ width: `${(data.summary.implemented / data.summary.total) * 100}%` }} />
+              )}
+              {data.summary.gap > 0 && (
+                <div className="h-full bg-red-500 transition-all"
+                     style={{ width: `${(data.summary.gap / data.summary.total) * 100}%` }} />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-surface-700 flex-shrink-0">
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              className={`flex-1 py-2.5 text-xs font-medium transition-colors border-b-2 ${
+                activeTab === t.key ? 'border-current' : 'border-transparent text-slate-500 hover:text-slate-300'
+              }`}
+              style={{ color: activeTab === t.key ? t.color : undefined, borderColor: activeTab === t.key ? t.color : undefined }}>
+              {t.label}
+              <span className="ml-1 text-[10px] opacity-70">({t.count})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* App list */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-32 text-slate-500 text-sm">Loading…</div>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+              <CheckCircle size={20} className={activeTab === 'implemented' ? 'text-green-400' : undefined} />
+              <p className="text-sm">
+                {activeTab === 'gap' ? 'No confirmed gaps — good coverage' :
+                 activeTab === 'implemented' ? 'No apps detected with this control yet' :
+                 'None'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-surface-700/50">
+              {rows.map(app => {
+                const tc = tierColor(app.riskTier)
+                return (
+                  <div key={app.appId}
+                    onClick={() => isClickable ? navigate(`/cmdb/${app.appId}`) : undefined}
+                    className={`flex items-center gap-3 px-5 py-3 transition-colors ${
+                      isClickable ? 'cursor-pointer hover:bg-surface-800 group' : 'hover:bg-surface-800/40'
+                    }`}>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: tc }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-200 font-medium truncate">{app.appName}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0"
+                          style={{ backgroundColor: tc + '20', color: tc }}>{app.riskTier}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-500">{app.appId}</span>
+                        <span className="text-xs text-slate-600">·</span>
+                        <span className="text-xs text-slate-500">{app.department}</span>
+                      </div>
+                    </div>
+                    {isClickable && (
+                      <ArrowRight size={14} className="text-slate-600 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {activeTab === 'gap' && rows.length > 0 && (
+          <div className="px-5 py-3 border-t border-surface-700 flex-shrink-0">
+            <p className="text-xs text-slate-500">
+              Click any app to open its IAM Controls Assessment page
+            </p>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -535,10 +705,11 @@ export default function OSControlPanel() {
   const [alerts,    setAlerts]    = useState<Alert[]>([])
   const [coverage,  setCoverage]  = useState<{ byRiskTier: CoverageTier[]; byControlType: ControlTypeCoverage[] } | null>(null)
 
-  const [loading,    setLoading]    = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [modalGap,   setModalGap]   = useState<Gap | null>(null)
-  const [toast,      setToast]      = useState<{ message: string; appName: string } | null>(null)
+  const [loading,         setLoading]         = useState(true)
+  const [refreshing,      setRefreshing]      = useState(false)
+  const [modalGap,        setModalGap]        = useState<Gap | null>(null)
+  const [toast,           setToast]           = useState<{ message: string; appName: string } | null>(null)
+  const [selectedControl, setSelectedControl] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
@@ -766,18 +937,21 @@ export default function OSControlPanel() {
                 <span className="text-sm font-semibold text-slate-200">IAM Control Coverage</span>
                 <span className="text-xs text-slate-500 ml-2">— percentage of apps with each control applied</span>
               </div>
+              <p className="text-xs text-slate-500 mb-3">Click any control to see which apps have it implemented vs. which have a gap.</p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {coverage.byControlType.map(c => {
-                  const col = c.pct >= 70 ? '#22c55e' : c.pct >= 40 ? '#eab308' : '#ef4444'
+                  const col = c.pct !== null && c.pct >= 70 ? '#22c55e' : c.pct !== null && c.pct >= 40 ? '#eab308' : '#ef4444'
                   return (
-                    <div key={c.control} className="text-center p-3 rounded-lg bg-surface-900/60">
-                      <div className="text-xl font-bold mb-1" style={{ color: col }}>{c.pct}%</div>
+                    <button key={c.control}
+                      onClick={() => setSelectedControl(c.controlId ?? c.control)}
+                      className="text-center p-3 rounded-lg bg-surface-900/60 hover:bg-surface-700/60 hover:ring-1 hover:ring-indigo-500/40 transition-all cursor-pointer text-left">
+                      <div className="text-xl font-bold mb-1" style={{ color: col }}>{c.pct !== null ? `${c.pct}%` : '—'}</div>
                       <div className="text-xs text-slate-400 font-medium">{c.control}</div>
                       <div className="text-xs text-slate-600">{c.apps} apps</div>
                       <div className="h-1.5 rounded-full bg-surface-700 mt-2">
-                        <div className="h-full rounded-full" style={{ width: `${c.pct}%`, backgroundColor: col }} />
+                        <div className="h-full rounded-full" style={{ width: `${c.pct ?? 0}%`, backgroundColor: col }} />
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -872,6 +1046,14 @@ export default function OSControlPanel() {
             setModalGap(null)
             await handleGapConfirmed(result)
           }}
+        />
+      )}
+
+      {/* Control drill-down panel */}
+      {selectedControl && (
+        <ControlDrillDownPanel
+          controlId={selectedControl}
+          onClose={() => setSelectedControl(null)}
         />
       )}
 
