@@ -1,7 +1,35 @@
 import { Router, Request, Response } from 'express';
 import { controlService } from './control.service';
+import { CONTROLS_CATALOG, CATALOG_SUMMARY, IamPillar } from './control.catalog';
 
 const router = Router();
+
+// GET /controls/catalog — full IAM controls catalog organised by pillar
+router.get('/catalog', (req: Request, res: Response) => {
+  const pillar = req.query.pillar as IamPillar | undefined;
+  const category = req.query.category as string | undefined;
+  const tag = req.query.tag as string | undefined;
+
+  let controls = CONTROLS_CATALOG;
+  if (pillar)    controls = controls.filter(c => c.pillar === pillar.toUpperCase());
+  if (category)  controls = controls.filter(c => c.category.toLowerCase() === category.toLowerCase());
+  if (tag)       controls = controls.filter(c => c.tags.includes(tag.toLowerCase()));
+
+  const pillars = ['AM', 'IGA', 'PAM', 'CIAM'] as IamPillar[];
+  const byPillar = Object.fromEntries(
+    pillars.map(p => [p, controls.filter(c => c.pillar === p)])
+  );
+
+  res.json({
+    success: true,
+    data: {
+      summary: { ...CATALOG_SUMMARY, filtered: controls.length },
+      byPillar,
+      controls,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // POST /controls/evaluate — evaluate controls for one or all applications
 router.post('/evaluate', async (req: Request, res: Response) => {

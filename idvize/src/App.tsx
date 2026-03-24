@@ -19,6 +19,7 @@ import IntegrationsPage from '@/pages/integrations/IntegrationsPage'
 import MaturityPage from '@/pages/maturity/MaturityPage'
 import MaturityDomainDetail from '@/pages/maturity/MaturityDomainDetail'
 import OSControlPanel from '@/pages/os/OSControlPanel'
+import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import { CMDBProvider } from '@/context/CMDBContext'
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/" element={<AppLayout onLogout={handleLogout} />}>
             <Route index element={<Navigate to="/os" replace />} />
             <Route path="os" element={<OSControlPanel />} />
+            <Route path="controls/library" element={<ControlsLibrary />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="insights/program-maturity" element={<ProgramInsights />} />
             <Route path="iga/*" element={<IdentityWarehouse />} />

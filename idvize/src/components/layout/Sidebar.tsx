@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   MonitorDot, Plug, ScrollText, BarChart2, ShieldCheck,
   ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
-  LayoutDashboard,
+  LayoutDashboard, BookOpen,
 } from 'lucide-react'
 
 const SECTION_SYSTEM = [
@@ -18,9 +18,10 @@ const SECTION_IAM = [
 ]
 
 const SECTION_DATA = [
-  { icon: Database,    label: 'Identity CMDB', path: '/cmdb',      color: '#8b5cf6' },
-  { icon: FileText,    label: 'Policy & Docs', path: '/documents', color: '#10b981' },
-  { icon: LayoutDashboard, label: 'IAM Overview', path: '/dashboard', color: '#64748b' },
+  { icon: Database,        label: 'Identity CMDB',    path: '/cmdb',             color: '#8b5cf6' },
+  { icon: FileText,        label: 'Policy & Docs',    path: '/documents',        color: '#10b981' },
+  { icon: BookOpen,        label: 'Controls Library', path: '/controls/library', color: '#6366f1' },
+  { icon: LayoutDashboard, label: 'IAM Overview',     path: '/dashboard',        color: '#64748b' },
 ]
 
 const SECTION_INTEL = [
