@@ -4,6 +4,8 @@ import { CONTROLS_CATALOG, CATALOG_SUMMARY, IamPillar } from './control.catalog'
 import { controlOverridesStore } from './control.overrides.store';
 import { applicationRepository } from '../application/application.repository';
 import { IamPosture } from '../application/application.types';
+import { buildService } from '../build/build.service';
+import { approvalService } from '../security/approval/approval.service';
 
 const router = Router();
 
@@ -286,6 +288,118 @@ router.post('/evaluate', async (req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+});
+
+// ── Control-pillar form fields — what the AI agent needs to configure each pillar ──
+const PILLAR_FORM_FIELDS: Record<string, Array<{ label: string; hint: string; required: boolean }>> = {
+  AM: [
+    { label: 'Identity Provider',          hint: 'e.g. Microsoft Entra, Okta, ADFS',               required: true },
+    { label: 'Protocol',                   hint: 'SAML 2.0 / OIDC / OAuth 2.0',                     required: true },
+    { label: 'Metadata / Discovery URL',   hint: 'SP metadata URL or OIDC well-known endpoint',     required: true },
+    { label: 'Redirect / ACS URIs',        hint: 'Comma-separated list of allowed callback URLs',    required: true },
+    { label: 'User Attribute Mapping',     hint: 'e.g. email → UPN, displayName → full_name',        required: false },
+    { label: 'MFA Policy',                 hint: 'Conditional access policy name or "all users"',    required: false },
+  ],
+  IGA: [
+    { label: 'SCIM Endpoint URL',          hint: 'Application SCIM 2.0 base URL',                   required: true },
+    { label: 'SCIM API Token / Secret',    hint: 'Bearer token for SCIM provisioning calls',         required: true },
+    { label: 'Lifecycle Events',           hint: 'Joiner / Mover / Leaver triggers to automate',     required: true },
+    { label: 'Role / Entitlement Mapping', hint: 'HR department or job code → app role mapping',     required: false },
+    { label: 'Review Schedule',            hint: 'Certification cadence e.g. quarterly',             required: false },
+  ],
+  PAM: [
+    { label: 'Account Types to Vault',     hint: 'e.g. local admin, service account, domain admin', required: true },
+    { label: 'Service Account List',       hint: 'Comma-separated list of svc- accounts',           required: true },
+    { label: 'Credential Rotation Policy', hint: 'e.g. every 30 days, on checkout',                 required: true },
+    { label: 'Session Recording',          hint: 'Required for privileged sessions? Yes / No',       required: true },
+    { label: 'Approver Group',             hint: 'AD group or team that approves PAM access',        required: false },
+  ],
+  CIAM: [
+    { label: 'Customer Journey Type',      hint: 'e.g. B2C registration, partner portal, API',      required: true },
+    { label: 'MFA Methods',                hint: 'e.g. TOTP, SMS OTP, WebAuthn',                     required: true },
+    { label: 'Social / External IdPs',     hint: 'Google, Apple, LinkedIn — or "none"',              required: false },
+    { label: 'Token Lifetime',             hint: 'Access token expiry e.g. 1h, refresh 30d',         required: false },
+    { label: 'Branding / Domain',          hint: 'Custom domain for hosted login UI',                required: false },
+  ],
+};
+
+// ── POST /controls/app/:appId/:controlId/remediate — trigger remediation ──
+// Creates:  (1) approval request — represents email sent to app owner + technical admin
+//           (2) build job — the AI agent configuration task (pending until info gathered)
+// Returns:  both IDs, who was notified, and the form fields the agent will need filled.
+router.post('/app/:appId/:controlId/remediate', (req: Request, res: Response) => {
+  const appId     = req.params.appId     as string;
+  const controlId = req.params.controlId as string;
+  const actor     = (req as any).user as { userId?: string; name?: string } | undefined;
+
+  const app = applicationRepository.findById(appId);
+  if (!app) {
+    res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
+  if (!ctrl) {
+    res.status(404).json({ success: false, error: `Control ${controlId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  try {
+    // Step 1 — Create approval (simulates email to Business Owner + Technical Admin)
+    const approval = approvalService.requestApproval({
+      requesterId:   actor?.userId ?? 'system',
+      action:        `IAM Configuration Request — ${ctrl.name} on ${app.name}`,
+      resource:      app.name,
+      riskLevel:     (app.riskTier === 'critical' || app.riskTier === 'high') ? 'high_risk' : 'standard',
+      justification: `Control gap detected: ${ctrl.name} (${controlId}) is not implemented on ${app.name}. ` +
+                     `Business owner and technical admin have been notified to provide configuration information.`,
+    });
+
+    // Step 2 — Create build job (AI agent configuration task — queued until info received)
+    const buildTypeMap: Record<string, string> = {
+      AM: 'sso_integration', IGA: 'iga_onboarding', PAM: 'pam_onboarding', CIAM: 'ciam_onboarding',
+    };
+    const platformMap: Record<string, string> = {
+      AM: 'entra', IGA: 'sailpoint', PAM: 'cyberark', CIAM: 'okta',
+    };
+    const job = buildService.startBuild({
+      appId,
+      controlGap: controlId as any,
+      buildType:  buildTypeMap[ctrl.pillar] as any,
+      platform:   platformMap[ctrl.pillar] as any,
+      assignedTo: actor?.name ?? 'IAM Team',
+    });
+
+    // Who gets notified
+    const sentTo = [
+      { role: 'Business Owner',  name: app.owner,     email: app.ownerEmail },
+      { role: 'Technical Admin', name: 'IAM Team',    email: 'iam-team@corp.com' },
+    ];
+    if (app.supportContact) sentTo.push({ role: 'Support Contact', name: app.supportContact, email: app.supportContact });
+
+    res.json({
+      success: true,
+      data: {
+        approvalId:  approval.requestId,
+        buildId:     (job as any).buildId,
+        controlId,
+        controlName: ctrl.name,
+        pillar:      ctrl.pillar,
+        appName:     app.name,
+        sentTo,
+        formFields:  PILLAR_FORM_FIELDS[ctrl.pillar] ?? [],
+        nextSteps: [
+          `Email sent to ${sentTo.map(r => r.name).join(' and ')} with configuration form`,
+          `AI agent (build ${(job as any).buildId}) queued — will start once form is submitted`,
+          `Engineer review approval (${approval.requestId}) will be triggered after configuration completes`,
+        ],
+        message: `Configuration request sent for ${ctrl.name} on ${app.name}`,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // ── GET /controls/:appId — cached evaluation (legacy) ─────────────────────

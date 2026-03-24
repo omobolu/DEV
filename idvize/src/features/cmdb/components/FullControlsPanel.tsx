@@ -10,6 +10,7 @@ import {
   Shield, ShieldCheck, ShieldAlert, UserCheck, Layers,
   CheckCircle, XCircle, MinusCircle, HelpCircle,
   Pencil, X, Save, ChevronDown, ChevronUp, Search,
+  Zap, Loader2, Mail, Bot, UserCog, ArrowRight, ClipboardList,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 
@@ -179,6 +180,253 @@ function EditModal({
   )
 }
 
+// ── Types for configure response ─────────────────────────────────────────────
+interface ConfigureResult {
+  approvalId: string
+  buildId: string
+  controlName: string
+  pillar: string
+  appName: string
+  sentTo: Array<{ role: string; name: string; email: string }>
+  formFields: Array<{ label: string; hint: string; required: boolean }>
+  nextSteps: string[]
+  message: string
+}
+
+// ── Configure Modal ──────────────────────────────────────────────────────────
+function ConfigureModal({ control, appId, onClose }: {
+  control: AppControl; appId: string; onClose: () => void
+}) {
+  const [phase, setPhase]     = useState<'preview' | 'sending' | 'done'>('preview')
+  const [result, setResult]   = useState<ConfigureResult | null>(null)
+  const [error, setError]     = useState('')
+
+  const pillar  = PILLAR_CFG[control.pillar]
+  const PIcon   = pillar.icon
+
+  const send = async () => {
+    setPhase('sending')
+    setError('')
+    try {
+      const res  = await apiFetch(`/controls/app/${appId}/${control.controlId}/remediate`, { method: 'POST' })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error)
+      setResult(json.data)
+      setPhase('done')
+    } catch (e) {
+      setError((e as Error).message)
+      setPhase('preview')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className={`flex items-start gap-3 px-5 pt-5 pb-4 border-b border-surface-700 ${pillar.bg} rounded-t-2xl`}>
+          <PIcon size={18} className={`mt-0.5 flex-shrink-0 ${pillar.color}`} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-semibold text-white">Configure {control.name}</h3>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pillar.color} ${pillar.bg} ${pillar.border}`}>
+                {control.pillar}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">{control.controlId} · {control.category}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+
+          {phase !== 'done' ? (
+            <>
+              {/* Description */}
+              <p className="text-xs text-slate-400 leading-relaxed">{control.description}</p>
+
+              {/* Workflow steps */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Configuration Workflow</p>
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-col items-center gap-1 pt-0.5">
+                    <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center flex-shrink-0">
+                      <Mail size={11} className="text-indigo-300" />
+                    </div>
+                    <div className="w-px h-4 bg-surface-600" />
+                    <div className="w-6 h-6 rounded-full bg-violet-600/30 border border-violet-500/50 flex items-center justify-center flex-shrink-0">
+                      <ClipboardList size={11} className="text-violet-300" />
+                    </div>
+                    <div className="w-px h-4 bg-surface-600" />
+                    <div className="w-6 h-6 rounded-full bg-cyan-600/30 border border-cyan-500/50 flex items-center justify-center flex-shrink-0">
+                      <Bot size={11} className="text-cyan-300" />
+                    </div>
+                    <div className="w-px h-4 bg-surface-600" />
+                    <div className="w-6 h-6 rounded-full bg-amber-600/30 border border-amber-500/50 flex items-center justify-center flex-shrink-0">
+                      <UserCog size={11} className="text-amber-300" />
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-3 pt-0.5">
+                    <div>
+                      <p className="text-xs font-medium text-slate-200">Email sent to Business Owner & Technical Admin</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">A configuration form is sent to the app owner and IAM team requesting the required technical details</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-200">Owner completes configuration form</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">They provide the {control.pillar}-specific information listed below</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-200">AI agent configures and builds</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">The agent uses the submitted data to configure {control.name} automatically</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-200">Engineer review &amp; sign-off</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">An alert is sent to the assigned engineer to review and approve the configuration</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form fields that will be requested */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  Information Requested from App Owner
+                </p>
+                <div className="space-y-1.5">
+                  {(control.pillar === 'AM'   ? amFields   :
+                    control.pillar === 'IGA'  ? igaFields  :
+                    control.pillar === 'PAM'  ? pamFields  : ciamFields
+                  ).map((f, i) => (
+                    <div key={i} className="flex items-start gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
+                      <div className={`mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${f.required ? 'bg-red-400' : 'bg-slate-600'}`} />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium text-slate-200">{f.label}</span>
+                        {f.required && <span className="text-[10px] text-red-400 ml-1.5">required</span>}
+                        <p className="text-[11px] text-slate-500 mt-0.5">{f.hint}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
+              )}
+            </>
+          ) : result && (
+            /* Done state */
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-green-900/20 border border-green-800/40 rounded-xl">
+                <CheckCircle size={20} className="text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-300">Configuration request sent</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{result.message}</p>
+                </div>
+              </div>
+
+              {/* Who was notified */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Notified</p>
+                {result.sentTo.map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
+                    <Mail size={13} className="text-indigo-400 flex-shrink-0" />
+                    <div>
+                      <span className="text-xs font-medium text-slate-200">{r.name}</span>
+                      <span className="text-[10px] text-slate-500 ml-2">{r.role}</span>
+                      <p className="text-[11px] text-slate-500">{r.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Process IDs */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Processes Created</p>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs text-violet-300 bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
+                    <ClipboardList size={11} /> Approval: {result.approvalId}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-900/20 border border-cyan-800/40 px-2.5 py-1.5 rounded-lg">
+                    <Bot size={11} /> Build: {result.buildId}
+                  </span>
+                </div>
+              </div>
+
+              {/* Next steps */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Steps</p>
+                {result.nextSteps.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-slate-600" />
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-surface-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
+          >
+            {phase === 'done' ? 'Close' : 'Cancel'}
+          </button>
+          {phase !== 'done' && (
+            <button
+              onClick={send}
+              disabled={phase === 'sending'}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg
+                         hover:bg-indigo-500 disabled:opacity-60 transition-colors"
+            >
+              {phase === 'sending'
+                ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
+                : <><Mail size={12} /> Send Configuration Request</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Per-pillar form fields (mirrors backend PILLAR_FORM_FIELDS)
+const amFields   = [
+  { label: 'Identity Provider',        hint: 'e.g. Microsoft Entra, Okta, ADFS',             required: true },
+  { label: 'Protocol',                 hint: 'SAML 2.0 / OIDC / OAuth 2.0',                   required: true },
+  { label: 'Metadata / Discovery URL', hint: 'SP metadata URL or OIDC well-known endpoint',   required: true },
+  { label: 'Redirect / ACS URIs',      hint: 'Comma-separated list of allowed callback URLs', required: true },
+  { label: 'User Attribute Mapping',   hint: 'e.g. email → UPN, displayName → full_name',      required: false },
+  { label: 'MFA Policy',               hint: 'Conditional access policy name or "all users"', required: false },
+]
+const igaFields  = [
+  { label: 'SCIM Endpoint URL',        hint: 'Application SCIM 2.0 base URL',                 required: true },
+  { label: 'SCIM API Token / Secret',  hint: 'Bearer token for SCIM provisioning calls',       required: true },
+  { label: 'Lifecycle Events',         hint: 'Joiner / Mover / Leaver triggers to automate',   required: true },
+  { label: 'Role / Entitlement Mapping', hint: 'HR department or job code → app role mapping', required: false },
+  { label: 'Review Schedule',          hint: 'Certification cadence e.g. quarterly',           required: false },
+]
+const pamFields  = [
+  { label: 'Account Types to Vault',   hint: 'e.g. local admin, service account, domain admin', required: true },
+  { label: 'Service Account List',     hint: 'Comma-separated list of svc- accounts',          required: true },
+  { label: 'Credential Rotation Policy', hint: 'e.g. every 30 days, on checkout',              required: true },
+  { label: 'Session Recording',        hint: 'Required for privileged sessions? Yes / No',      required: true },
+  { label: 'Approver Group',           hint: 'AD group or team that approves PAM access',       required: false },
+]
+const ciamFields = [
+  { label: 'Customer Journey Type',    hint: 'e.g. B2C registration, partner portal, API',    required: true },
+  { label: 'MFA Methods',              hint: 'e.g. TOTP, SMS OTP, WebAuthn',                   required: true },
+  { label: 'Social / External IdPs',   hint: 'Google, Apple, LinkedIn — or "none"',            required: false },
+  { label: 'Token Lifetime',           hint: 'Access token expiry e.g. 1h, refresh 30d',       required: false },
+  { label: 'Branding / Domain',        hint: 'Custom domain for hosted login UI',               required: false },
+]
+
 // ── Control Row ─────────────────────────────────────────────────────────────
 function ControlRow({
   control, appId, onUpdate,
@@ -187,6 +435,7 @@ function ControlRow({
 }) {
   const [expanded, setExpanded]   = useState(false)
   const [editing, setEditing]     = useState(false)
+  const [configuring, setConfiguring] = useState(false)
   const pillar  = PILLAR_CFG[control.pillar]
   const status  = STATUS_CFG[control.status]
   const PIcon   = pillar.icon
@@ -200,6 +449,13 @@ function ControlRow({
           appId={appId}
           onSave={onUpdate}
           onClose={() => setEditing(false)}
+        />
+      )}
+      {configuring && (
+        <ConfigureModal
+          control={control}
+          appId={appId}
+          onClose={() => setConfiguring(false)}
         />
       )}
       <div className="border border-surface-700 rounded-xl bg-surface-800 hover:border-surface-600 transition-colors">
@@ -233,6 +489,18 @@ function ControlRow({
           {/* Notes indicator */}
           {control.notes && (
             <span className="text-[10px] text-slate-500 bg-surface-700 px-1.5 py-0.5 rounded hidden md:block">note</span>
+          )}
+
+          {/* Configure — only shown for gap controls */}
+          {control.status === 'gap' && (
+            <button
+              onClick={e => { e.stopPropagation(); setConfiguring(true) }}
+              className="flex items-center gap-1 text-[11px] font-medium text-indigo-300 bg-indigo-900/20 border border-indigo-800/40
+                         hover:bg-indigo-900/40 hover:border-indigo-700/60 px-2 py-0.5 rounded-full flex-shrink-0 transition-colors"
+              title={`Configure ${control.name} on this application`}
+            >
+              <Zap size={10} /> Configure
+            </button>
           )}
 
           {/* Edit */}
@@ -436,7 +704,7 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
           <div className="flex items-center justify-center h-24 text-slate-500 text-sm">No controls match your filters</div>
         ) : (
           filtered.map(c => (
-            <ControlRow key={c.controlId} control={c} appId={appId} onUpdate={updateControl} />
+            <ControlRow key={c.controlId} control={c} appId={appId} onUpdate={updateControl}  />
           ))
         )}
       </div>
