@@ -19,6 +19,8 @@
  *   GET  /os/events          — Live IAM event stream
  *   GET  /os/alerts          — Actionable alert list
  *   POST /os/gaps/:gapId/action — Action a coverage gap
+ *   POST /os/gaps/evaluate     — Run gap engine on a submitted list of apps
+ *   GET  /os/gaps/mock         — Gap engine results for 5 built-in mock apps
  */
 
 import { Router, Request, Response } from 'express';
@@ -29,6 +31,7 @@ import { approvalService }                  from '../security/approval/approval.
 import { credentialRotationMonitorService } from '../security/credentials/credential-rotation-monitor.service';
 import { auditService }                     from '../security/audit/audit.service';
 import { requireAuth }                      from '../../middleware/requireAuth';
+import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
 import { IamPosture }                       from '../application/application.types';
@@ -718,6 +721,146 @@ router.get('/alerts', requireAuth, (_req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: alerts });
+});
+
+// ── Gap Engine — mock data ────────────────────────────────────────────────────
+const MOCK_APPS: AppGapInput[] = [
+  {
+    name: 'SAP Finance',
+    isInternetFacing: false,
+    containsSensitiveData: true,
+    hasSSO: false,
+    hasMFA: false,
+    hasIGA: false,
+    hasPAM: true,
+    hasPrivilegedAccess: true,
+  },
+  {
+    name: 'Customer Portal',
+    isInternetFacing: true,
+    containsSensitiveData: true,
+    hasSSO: true,
+    hasMFA: false,
+    hasIGA: true,
+    hasPAM: false,
+    hasPrivilegedAccess: false,
+  },
+  {
+    name: 'Workday HCM',
+    isInternetFacing: true,
+    containsSensitiveData: true,
+    hasSSO: true,
+    hasMFA: true,
+    hasIGA: false,
+    hasPAM: false,
+    hasPrivilegedAccess: false,
+  },
+  {
+    name: 'Internal Wiki',
+    isInternetFacing: false,
+    containsSensitiveData: false,
+    hasSSO: false,
+    hasMFA: false,
+    hasIGA: false,
+    hasPAM: false,
+    hasPrivilegedAccess: false,
+  },
+  {
+    name: 'AWS Console',
+    isInternetFacing: true,
+    containsSensitiveData: false,
+    hasSSO: true,
+    hasMFA: true,
+    hasIGA: true,
+    hasPAM: false,
+    hasPrivilegedAccess: true,
+  },
+];
+
+// ── GET /os/gaps/mock ─────────────────────────────────────────────────────────
+router.get('/gaps/mock', requireAuth, (_req: Request, res: Response) => {
+  const results = evaluateApps(MOCK_APPS);
+  res.json({
+    success: true,
+    data: {
+      results,
+      summary: {
+        total:    results.length,
+        critical: results.filter(r => r.severity === 'CRITICAL').length,
+        high:     results.filter(r => r.severity === 'HIGH').length,
+        medium:   results.filter(r => r.severity === 'MEDIUM').length,
+        low:      results.filter(r => r.severity === 'LOW').length,
+        withGaps: results.filter(r => r.gaps.length > 0).length,
+        clean:    results.filter(r => r.gaps.length === 0).length,
+      },
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ── POST /os/gaps/evaluate ────────────────────────────────────────────────────
+// Accept a list of app objects and run the gap engine over them.
+// Body: { apps: AppGapInput[] }
+router.post('/gaps/evaluate', requireAuth, (req: Request, res: Response) => {
+  const { apps } = req.body as { apps?: unknown[] };
+
+  if (!Array.isArray(apps) || apps.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'Provide a non-empty "apps" array in the request body.',
+      example: {
+        apps: [{
+          name: 'My App',
+          isInternetFacing: true,
+          containsSensitiveData: false,
+          hasSSO: false,
+          hasMFA: false,
+          hasIGA: false,
+          hasPAM: false,
+          hasPrivilegedAccess: false,
+        }],
+      },
+    });
+    return;
+  }
+
+  // Validate each entry has the required fields
+  const required: (keyof AppGapInput)[] = [
+    'name', 'isInternetFacing', 'containsSensitiveData',
+    'hasSSO', 'hasMFA', 'hasIGA', 'hasPAM', 'hasPrivilegedAccess',
+  ];
+
+  for (let i = 0; i < apps.length; i++) {
+    const app = apps[i] as Record<string, unknown>;
+    for (const field of required) {
+      if (app[field] === undefined) {
+        res.status(400).json({
+          success: false,
+          error: `apps[${i}] is missing required field: "${field}"`,
+        });
+        return;
+      }
+    }
+  }
+
+  const results = evaluateApps(apps as AppGapInput[]);
+
+  res.json({
+    success: true,
+    data: {
+      results,
+      summary: {
+        total:    results.length,
+        critical: results.filter(r => r.severity === 'CRITICAL').length,
+        high:     results.filter(r => r.severity === 'HIGH').length,
+        medium:   results.filter(r => r.severity === 'MEDIUM').length,
+        low:      results.filter(r => r.severity === 'LOW').length,
+        withGaps: results.filter(r => r.gaps.length > 0).length,
+        clean:    results.filter(r => r.gaps.length === 0).length,
+      },
+    },
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── POST /os/gaps/:gapId/action ───────────────────────────────────────────────

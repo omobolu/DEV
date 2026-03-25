@@ -5,6 +5,7 @@ import { Request, Response, NextFunction } from 'express';
 const BEARER_AUTH_PREFIXES = [
   '/security',   // Module 7 — all routes use Bearer tokens (JWT) or are public (login)
   '/documents',  // Document Registry — Bearer JWT auth via requireAuth middleware
+  '/os',         // IAM OS Kernel — all routes use Bearer JWT via requireAuth middleware
 ];
 
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
