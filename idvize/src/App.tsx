@@ -20,6 +20,7 @@ import MaturityPage from '@/pages/maturity/MaturityPage'
 import MaturityDomainDetail from '@/pages/maturity/MaturityDomainDetail'
 import OSControlPanel from '@/pages/os/OSControlPanel'
 import ControlsLibrary from '@/pages/controls/ControlsLibrary'
+import ValueDashboard  from '@/pages/value/ValueDashboard'
 import { CMDBProvider } from '@/context/CMDBContext'
 
 export default function App() {
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="maturity" element={<MaturityPage />} />
             <Route path="maturity/domains/:domainId" element={<MaturityDomainDetail />} />
+            <Route path="value" element={<ValueDashboard />} />
             <Route path="my-account" element={<StubPage title="My Account" />} />
             <Route path="users" element={<StubPage title="Users" />} />
             <Route path="admin" element={<StubPage title="Admin" />} />

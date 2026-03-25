@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   MonitorDot, Plug, ScrollText, BarChart2, ShieldCheck,
   ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
-  LayoutDashboard, BookOpen,
+  LayoutDashboard, BookOpen, TrendingUp,
 } from 'lucide-react'
 
 const SECTION_SYSTEM = [
@@ -25,8 +25,9 @@ const SECTION_DATA = [
 ]
 
 const SECTION_INTEL = [
-  { icon: Award,       label: 'Maturity',    path: '/maturity',                color: '#a855f7' },
-  { icon: DollarSign,  label: 'Cost Intel',  path: '/insights/program-maturity', color: '#f97316' },
+  { icon: Award,       label: 'Maturity',       path: '/maturity',                  color: '#a855f7' },
+  { icon: DollarSign,  label: 'Cost Intel',     path: '/insights/program-maturity', color: '#f97316' },
+  { icon: TrendingUp,  label: 'Business Value', path: '/value',                     color: '#22c55e' },
 ]
 
 function SectionLabel({ label }: { label: string }) {

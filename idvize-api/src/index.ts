@@ -19,6 +19,7 @@ import securityController from './modules/security/security.controller';
 import documentController from './modules/document/document.controller';
 import maturityController from './modules/maturity/maturity.controller';
 import osController       from './modules/os/os.controller';
+import valueController    from './modules/value/value.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
 import gapsRouter from './routes/gaps';
@@ -83,6 +84,7 @@ app.use('/security', securityController);
 app.use('/documents', documentController);
 app.use('/maturity',  maturityController);
 app.use('/os',        osController);
+app.use('/value',     valueController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
 app.use('/api/gaps', gapsRouter);
