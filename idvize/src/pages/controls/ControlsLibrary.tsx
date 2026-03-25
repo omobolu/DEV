@@ -24,6 +24,14 @@ import { useNavigate } from 'react-router-dom'
 // ── Types ──────────────────────────────────────────────────────────────────
 type IamPillar = 'AM' | 'IGA' | 'PAM' | 'CIAM'
 
+interface PlatformConfig {
+  platformId: 'entra' | 'sailpoint' | 'cyberark' | 'okta'
+  platformName: string
+  featureName: string
+  featurePath: string
+  agentActions: string[]
+}
+
 interface CatalogControl {
   controlId: string
   name: string
@@ -36,6 +44,7 @@ interface CatalogControl {
   policyDrivers: string[]
   implementationComplexity: 'low' | 'medium' | 'high'
   tags: string[]
+  platform?: PlatformConfig
 }
 
 interface ControlCoverage {
@@ -272,6 +281,11 @@ function ControlCard({
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pillar.color} ${pillar.bg} ${pillar.border}`}>
               {control.pillar}
             </span>
+            {control.platform && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-600 bg-slate-800/50 text-slate-300">
+                {control.platform.platformName}
+              </span>
+            )}
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize ${RISK_COLOR[control.riskReduction]}`}>
               {control.riskReduction} risk reduction
             </span>
@@ -284,6 +298,12 @@ function ControlCard({
             <span className={`text-xs capitalize ${COMPLEXITY_COLOR[control.implementationComplexity]}`}>
               {control.implementationComplexity} complexity
             </span>
+            {control.platform && (
+              <>
+                <span className="text-xs text-slate-500">·</span>
+                <span className="text-xs text-indigo-400">{control.platform.featureName}</span>
+              </>
+            )}
           </div>
 
           {/* Inline coverage bar (always visible) */}

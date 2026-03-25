@@ -18,6 +18,24 @@ import { apiFetch } from '@/lib/apiClient'
 type IamPillar  = 'AM' | 'IGA' | 'PAM' | 'CIAM'
 type CtrlStatus = 'implemented' | 'gap' | 'not_applicable' | 'undetected'
 
+interface FormFieldDef {
+  key: string
+  label: string
+  type: 'text' | 'url' | 'select' | 'multiselect' | 'textarea' | 'toggle' | 'number'
+  placeholder?: string
+  options?: string[]
+  required: boolean
+  hint?: string
+}
+
+interface PlatformConfig {
+  platformId: 'entra' | 'sailpoint' | 'cyberark' | 'okta'
+  platformName: string
+  featureName: string
+  featurePath: string
+  agentActions: string[]
+}
+
 interface AppControl {
   controlId:              string
   name:                   string
@@ -30,6 +48,8 @@ interface AppControl {
   policyDrivers:          string[]
   implementationComplexity: 'low' | 'medium' | 'high'
   tags:                   string[]
+  platform?:              PlatformConfig
+  configFormFields?:      FormFieldDef[]
   status:                 CtrlStatus
   notes:                  string
   updatedAt:              string | null
@@ -232,8 +252,16 @@ function ConfigureModal({ control, appId, onClose }: {
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pillar.color} ${pillar.bg} ${pillar.border}`}>
                 {control.pillar}
               </span>
+              {control.platform && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-600 bg-slate-800/50 text-slate-300">
+                  {control.platform.platformName}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-0.5">{control.controlId} · {control.category}</p>
+            {control.platform && (
+              <p className="text-[11px] text-indigo-400 mt-0.5 font-medium">{control.platform.featureName}</p>
+            )}
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
             <X size={16} />
@@ -290,22 +318,48 @@ function ConfigureModal({ control, appId, onClose }: {
                 </div>
               </div>
 
+              {/* Platform agent actions */}
+              {control.platform && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    AI Agent Actions in {control.platform.platformName}
+                  </p>
+                  <div className="p-2.5 bg-surface-800 border border-surface-700 rounded-lg space-y-1.5">
+                    <p className="text-[11px] text-indigo-300 font-medium">{control.platform.featurePath}</p>
+                    {control.platform.agentActions.map((action, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 flex-shrink-0">{i + 1}.</span>
+                        <span className="text-[11px] text-slate-400">{action}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Form fields that will be requested */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Information Requested from App Owner
+                  Information Requested from App / IAM Team
                 </p>
                 <div className="space-y-1.5">
-                  {(control.pillar === 'AM'   ? amFields   :
-                    control.pillar === 'IGA'  ? igaFields  :
-                    control.pillar === 'PAM'  ? pamFields  : ciamFields
-                  ).map((f, i) => (
+                  {(control.configFormFields ?? []).map((f, i) => (
                     <div key={i} className="flex items-start gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
                       <div className={`mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${f.required ? 'bg-red-400' : 'bg-slate-600'}`} />
                       <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium text-slate-200">{f.label}</span>
-                        {f.required && <span className="text-[10px] text-red-400 ml-1.5">required</span>}
-                        <p className="text-[11px] text-slate-500 mt-0.5">{f.hint}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium text-slate-200">{f.label}</span>
+                          {f.required && <span className="text-[10px] text-red-400">required</span>}
+                          <span className="text-[10px] text-slate-600 bg-surface-700 px-1 py-0.5 rounded font-mono">{f.type}</span>
+                        </div>
+                        {f.placeholder && <p className="text-[11px] text-slate-600 mt-0.5 italic">{f.placeholder}</p>}
+                        {f.hint && <p className="text-[11px] text-slate-500 mt-0.5">{f.hint}</p>}
+                        {f.options && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {f.options.map(opt => (
+                              <span key={opt} className="text-[10px] px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded text-slate-400">{opt}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -395,37 +449,6 @@ function ConfigureModal({ control, appId, onClose }: {
     </div>
   )
 }
-
-// Per-pillar form fields (mirrors backend PILLAR_FORM_FIELDS)
-const amFields   = [
-  { label: 'Identity Provider',        hint: 'e.g. Microsoft Entra, Okta, ADFS',             required: true },
-  { label: 'Protocol',                 hint: 'SAML 2.0 / OIDC / OAuth 2.0',                   required: true },
-  { label: 'Metadata / Discovery URL', hint: 'SP metadata URL or OIDC well-known endpoint',   required: true },
-  { label: 'Redirect / ACS URIs',      hint: 'Comma-separated list of allowed callback URLs', required: true },
-  { label: 'User Attribute Mapping',   hint: 'e.g. email → UPN, displayName → full_name',      required: false },
-  { label: 'MFA Policy',               hint: 'Conditional access policy name or "all users"', required: false },
-]
-const igaFields  = [
-  { label: 'SCIM Endpoint URL',        hint: 'Application SCIM 2.0 base URL',                 required: true },
-  { label: 'SCIM API Token / Secret',  hint: 'Bearer token for SCIM provisioning calls',       required: true },
-  { label: 'Lifecycle Events',         hint: 'Joiner / Mover / Leaver triggers to automate',   required: true },
-  { label: 'Role / Entitlement Mapping', hint: 'HR department or job code → app role mapping', required: false },
-  { label: 'Review Schedule',          hint: 'Certification cadence e.g. quarterly',           required: false },
-]
-const pamFields  = [
-  { label: 'Account Types to Vault',   hint: 'e.g. local admin, service account, domain admin', required: true },
-  { label: 'Service Account List',     hint: 'Comma-separated list of svc- accounts',          required: true },
-  { label: 'Credential Rotation Policy', hint: 'e.g. every 30 days, on checkout',              required: true },
-  { label: 'Session Recording',        hint: 'Required for privileged sessions? Yes / No',      required: true },
-  { label: 'Approver Group',           hint: 'AD group or team that approves PAM access',       required: false },
-]
-const ciamFields = [
-  { label: 'Customer Journey Type',    hint: 'e.g. B2C registration, partner portal, API',    required: true },
-  { label: 'MFA Methods',              hint: 'e.g. TOTP, SMS OTP, WebAuthn',                   required: true },
-  { label: 'Social / External IdPs',   hint: 'Google, Apple, LinkedIn — or "none"',            required: false },
-  { label: 'Token Lifetime',           hint: 'Access token expiry e.g. 1h, refresh 30d',       required: false },
-  { label: 'Branding / Domain',        hint: 'Custom domain for hosted login UI',               required: false },
-]
 
 // ── Control Row ─────────────────────────────────────────────────────────────
 function ControlRow({

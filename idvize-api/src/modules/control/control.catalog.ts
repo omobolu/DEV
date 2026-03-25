@@ -12,6 +12,24 @@ export type IamPillar = 'AM' | 'IGA' | 'PAM' | 'CIAM';
 export type ControlComplexity = 'low' | 'medium' | 'high';
 export type ControlRiskReduction = 'critical' | 'high' | 'medium' | 'low';
 
+export interface FormFieldDef {
+  key: string;
+  label: string;
+  type: 'text' | 'url' | 'select' | 'multiselect' | 'textarea' | 'toggle' | 'number';
+  placeholder?: string;
+  options?: string[];
+  required: boolean;
+  hint?: string;
+}
+
+export interface PlatformConfig {
+  platformId: 'entra' | 'sailpoint' | 'cyberark' | 'okta';
+  platformName: string;
+  featureName: string;
+  featurePath: string;
+  agentActions: string[];
+}
+
 export interface CatalogControl {
   controlId: string;
   name: string;
@@ -24,6 +42,8 @@ export interface CatalogControl {
   policyDrivers: string[];
   implementationComplexity: ControlComplexity;
   tags: string[];
+  platform: PlatformConfig;
+  configFormFields: FormFieldDef[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +62,28 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'NIST SP 800-53', 'ISO 27001', 'PCI-DSS'],
     implementationComplexity: 'medium',
     tags: ['sso', 'authentication', 'federation'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Enterprise Application SSO',
+      featurePath: 'Entra ID > Enterprise applications > [App] > Single sign-on',
+      agentActions: [
+        'Create enterprise application registration',
+        'Configure SAML or OIDC sign-on method',
+        'Upload or enter IdP metadata / federation details',
+        'Set Reply URL (ACS) and Entity ID',
+        'Map user attributes (UPN, email, display name)',
+        'Assign user groups to the application',
+      ],
+    },
+    configFormFields: [
+      { key: 'appDisplayName', label: 'Application Display Name', type: 'text', placeholder: 'e.g. Salesforce CRM', required: true, hint: 'Name shown to users in the My Apps portal' },
+      { key: 'signOnMethod', label: 'Sign-On Protocol', type: 'select', options: ['SAML 2.0', 'OpenID Connect / OAuth 2.0'], required: true },
+      { key: 'acsUrl', label: 'Reply URL (ACS URL)', type: 'url', placeholder: 'https://app.example.com/saml/acs', required: true, hint: 'The endpoint that receives the SAML assertion' },
+      { key: 'entityId', label: 'Identifier (Entity ID)', type: 'text', placeholder: 'https://app.example.com', required: true },
+      { key: 'assignedGroups', label: 'Entra Groups to Assign', type: 'textarea', placeholder: 'e.g. GRP-App-Users, GRP-App-Admins', required: true, hint: 'Comma-separated list of Entra group names' },
+      { key: 'attributeMappings', label: 'Additional Attribute Mappings', type: 'textarea', placeholder: 'e.g. department=user.department', required: false, hint: 'One mapping per line: claimName=entraAttribute' },
+    ],
   },
   {
     controlId: 'AM-002',
@@ -55,6 +97,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-63B', 'PCI-DSS', 'HIPAA', 'SOX', 'Zero Trust'],
     implementationComplexity: 'low',
     tags: ['mfa', 'authentication', 'zero-trust'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Conditional Access — MFA Policy',
+      featurePath: 'Entra ID > Protection > Conditional Access > Policies',
+      agentActions: [
+        'Create Conditional Access policy targeting the application',
+        'Set users/groups in scope',
+        'Configure grant control: Require multifactor authentication',
+        'Set session controls and sign-in frequency',
+        'Enable policy in Report-only mode then enforce',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApp', label: 'Target Application', type: 'text', placeholder: 'e.g. SAP Finance (must match Enterprise App name)', required: true },
+      { key: 'targetGroups', label: 'User Groups in Scope', type: 'textarea', placeholder: 'e.g. GRP-SAP-Users', required: true, hint: 'Comma-separated Entra group names' },
+      { key: 'mfaMethods', label: 'Allowed MFA Methods', type: 'multiselect', options: ['Microsoft Authenticator (Push)', 'FIDO2 Security Key', 'TOTP / Authenticator App', 'SMS OTP', 'Voice Call'], required: true },
+      { key: 'excludeBreakGlass', label: 'Exclude Break-Glass Accounts', type: 'toggle', required: false, hint: 'Recommended: always exclude emergency access accounts' },
+      { key: 'signInFrequency', label: 'Re-authentication Frequency (hours)', type: 'number', placeholder: '24', required: false },
+    ],
   },
   {
     controlId: 'AM-003',
@@ -68,6 +130,25 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-63B', 'Zero Trust', 'FIDO Alliance'],
     implementationComplexity: 'high',
     tags: ['passwordless', 'passkeys', 'biometrics', 'fido2'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Authentication Methods Policy — Passwordless',
+      featurePath: 'Entra ID > Protection > Authentication methods > Policies',
+      agentActions: [
+        'Enable FIDO2 Security Key method and configure AAGUID allowlist',
+        'Enable Microsoft Authenticator passwordless phone sign-in',
+        'Configure authentication strengths in Conditional Access',
+        'Assign method policy to target user groups',
+        'Configure registration campaign for users',
+      ],
+    },
+    configFormFields: [
+      { key: 'passwordlessMethod', label: 'Passwordless Method', type: 'select', options: ['FIDO2 Security Key', 'Microsoft Authenticator (Phone Sign-in)', 'Windows Hello for Business', 'Certificate-Based Auth'], required: true },
+      { key: 'targetGroups', label: 'User Groups in Scope', type: 'textarea', placeholder: 'e.g. GRP-Executives, GRP-Finance', required: true },
+      { key: 'registrationCampaignDays', label: 'Registration Campaign Duration (days)', type: 'number', placeholder: '14', required: false, hint: 'Days users have to register before enforcement' },
+      { key: 'allowedAaguids', label: 'Allowed FIDO2 AAGUID List (optional)', type: 'textarea', placeholder: 'e.g. YubiKey 5 AAGUID', required: false, hint: 'Leave blank to allow all certified FIDO2 keys' },
+    ],
   },
   {
     controlId: 'AM-004',
@@ -81,6 +162,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['adaptive', 'risk-based', 'contextual'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Conditional Access — Risk-Based Policy (Identity Protection)',
+      featurePath: 'Entra ID > Protection > Conditional Access > Policies > Risk-based',
+      agentActions: [
+        'Enable Identity Protection user risk and sign-in risk policies',
+        'Create Conditional Access policy with risk conditions',
+        'Configure sign-in risk threshold (high/medium)',
+        'Set grant controls: require MFA or block on high risk',
+        'Configure remediation actions for risky users',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApp', label: 'Target Application', type: 'text', placeholder: 'Enterprise app name', required: true },
+      { key: 'signInRiskThreshold', label: 'Sign-in Risk Threshold', type: 'select', options: ['Low and above', 'Medium and above', 'High'], required: true },
+      { key: 'userRiskThreshold', label: 'User Risk Threshold', type: 'select', options: ['Low and above', 'Medium and above', 'High'], required: true },
+      { key: 'highRiskAction', label: 'Action on High Risk', type: 'select', options: ['Require MFA', 'Block access', 'Require password change'], required: true },
+      { key: 'namedLocations', label: 'Trusted Named Locations (optional)', type: 'textarea', placeholder: 'e.g. HQ Office - 203.0.113.0/24', required: false, hint: 'IP ranges to exclude from risk evaluation' },
+    ],
   },
   {
     controlId: 'AM-005',
@@ -94,6 +195,23 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'NIST SP 800-53', 'ISO 27001', 'PCI-DSS', 'HIPAA'],
     implementationComplexity: 'medium',
     tags: ['rbac', 'authorization', 'least-privilege'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'App Roles & Role Assignments',
+      featurePath: 'Entra ID > Enterprise applications > [App] > App roles / Users and groups',
+      agentActions: [
+        'Define app roles in the application manifest (App registrations)',
+        'Create role assignments mapping Entra groups to app roles',
+        'Configure role claims in the SAML/OIDC token',
+        'Remove direct user assignments — enforce group-based RBAC',
+      ],
+    },
+    configFormFields: [
+      { key: 'appRoles', label: 'Application Roles to Create', type: 'textarea', placeholder: 'e.g. Admin, ReadOnly, Contributor (one per line)', required: true, hint: 'Roles that will be defined in the app manifest' },
+      { key: 'roleGroupMappings', label: 'Role → Entra Group Mappings', type: 'textarea', placeholder: 'Admin=GRP-SAP-Admins\nReadOnly=GRP-SAP-Viewers', required: true, hint: 'Format: RoleName=EntraGroupName, one per line' },
+      { key: 'roleClaimName', label: 'Role Claim Name in Token', type: 'text', placeholder: 'roles', required: false, hint: 'Attribute name the application reads for role info' },
+    ],
   },
   {
     controlId: 'AM-006',
@@ -107,6 +225,23 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-162', 'Zero Trust', 'GDPR'],
     implementationComplexity: 'high',
     tags: ['abac', 'authorization', 'dynamic-access', 'policy-engine'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Custom Security Attributes & Attribute-Based Access Control',
+      featurePath: 'Entra ID > Custom security attributes / Conditional Access > Filters for devices',
+      agentActions: [
+        'Define custom security attribute sets and attributes',
+        'Assign attribute values to users, groups, or service principals',
+        'Create Conditional Access policy using attribute filter conditions',
+        'Configure attribute-based group membership rules',
+      ],
+    },
+    configFormFields: [
+      { key: 'attributeSet', label: 'Attribute Set Name', type: 'text', placeholder: 'e.g. AppAccess', required: true, hint: 'Custom security attribute set in Entra' },
+      { key: 'attributes', label: 'Attributes to Define', type: 'textarea', placeholder: 'e.g. ClearanceLevel=High\nDepartment=Finance', required: true, hint: 'One attribute=value per line' },
+      { key: 'policyCondition', label: 'Access Policy Condition', type: 'textarea', placeholder: 'e.g. ClearanceLevel == High AND Department == Finance', required: true },
+    ],
   },
   {
     controlId: 'AM-007',
@@ -120,6 +255,23 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-53', 'Zero Trust', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['pbac', 'policy-engine', 'authorization'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Conditional Access — Named Policies & Authentication Context',
+      featurePath: 'Entra ID > Protection > Conditional Access > Authentication context',
+      agentActions: [
+        'Define Authentication Context classes for the app',
+        'Create Conditional Access policies referencing authentication context',
+        'Configure application to request specific auth context claims',
+        'Set step-up requirements per policy classification',
+      ],
+    },
+    configFormFields: [
+      { key: 'authContextClasses', label: 'Authentication Context Classes', type: 'textarea', placeholder: 'e.g. c1=Require MFA\nc2=Require compliant device', required: true, hint: 'One class per line; app will request these at runtime' },
+      { key: 'targetApp', label: 'Target Application', type: 'text', placeholder: 'Enterprise app name', required: true },
+      { key: 'policyLogic', label: 'Policy Evaluation Logic', type: 'textarea', placeholder: 'e.g. If action=WriteFinancial then require c2', required: true },
+    ],
   },
   {
     controlId: 'AM-008',
@@ -133,6 +285,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['entitlements', 'permissions', 'fine-grained'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Entitlement Management — Access Packages',
+      featurePath: 'Entra ID > Identity Governance > Entitlement management > Access packages',
+      agentActions: [
+        'Create access package for the application',
+        'Add resource roles (app roles, groups, SharePoint sites) to the package',
+        'Configure access package policies: who can request, approval workflow',
+        'Set expiration and access review settings',
+        'Publish catalog to eligible requestors',
+      ],
+    },
+    configFormFields: [
+      { key: 'packageName', label: 'Access Package Name', type: 'text', placeholder: 'e.g. SAP Finance — Standard Access', required: true },
+      { key: 'resourceRoles', label: 'Resource Roles to Bundle', type: 'textarea', placeholder: 'e.g. SAP Finance: ReadOnly\nGroup: GRP-SAP-Users', required: true },
+      { key: 'eligibleRequestors', label: 'Who Can Request', type: 'select', options: ['All employees', 'Specific groups', 'All external users', 'Specific external orgs'], required: true },
+      { key: 'approverGroups', label: 'Approver Groups', type: 'text', placeholder: 'e.g. GRP-SAP-Owners', required: true },
+      { key: 'expirationDays', label: 'Access Expiration (days, 0=no expiry)', type: 'number', placeholder: '90', required: false },
+    ],
   },
   {
     controlId: 'AM-009',
@@ -146,6 +318,23 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-207'],
     implementationComplexity: 'high',
     tags: ['dynamic', 'real-time', 'zero-trust'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Continuous Access Evaluation (CAE)',
+      featurePath: 'Entra ID > Protection > Conditional Access > Continuous access evaluation',
+      agentActions: [
+        'Enable CAE for the target application',
+        'Configure critical event triggers (IP change, user disable, password reset)',
+        'Set session revocation policies',
+        'Verify application supports CAE claims challenge',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApp', label: 'Target Application', type: 'text', placeholder: 'Enterprise app name', required: true },
+      { key: 'caeTriggers', label: 'CAE Trigger Events', type: 'multiselect', options: ['User account disabled', 'Password changed', 'IP address changed', 'Token revoked by admin', 'High risk sign-in'], required: true },
+      { key: 'sessionLifetimeMinutes', label: 'Max Session Lifetime (minutes)', type: 'number', placeholder: '60', required: false },
+    ],
   },
   {
     controlId: 'AM-010',
@@ -159,6 +348,24 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001', 'NIST SP 800-63C', 'GDPR'],
     implementationComplexity: 'medium',
     tags: ['federation', 'saml', 'oauth', 'oidc'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'External Identities — Federation',
+      featurePath: 'Entra ID > External Identities > All identity providers',
+      agentActions: [
+        'Configure external organisation federation (SAML/OIDC)',
+        'Set up cross-tenant access policies',
+        'Define trusted domains for inbound federation',
+        'Configure outbound access settings for partner resources',
+      ],
+    },
+    configFormFields: [
+      { key: 'partnerDomain', label: 'Partner Organisation Domain', type: 'text', placeholder: 'e.g. partner.com', required: true },
+      { key: 'federationProtocol', label: 'Federation Protocol', type: 'select', options: ['SAML 2.0', 'OpenID Connect / OIDC', 'WS-Federation'], required: true },
+      { key: 'partnerMetadataUrl', label: 'Partner Metadata URL', type: 'url', placeholder: 'https://partner.com/saml/metadata', required: false },
+      { key: 'trustedMfaClaims', label: 'Trust Partner MFA Claims', type: 'toggle', required: false, hint: 'If enabled, Entra will honour MFA already completed at partner IdP' },
+    ],
   },
   {
     controlId: 'AM-011',
@@ -172,6 +379,25 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['OWASP API Top 10', 'PCI-DSS', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['api', 'token', 'oauth', 'jwt'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'App Registrations — API Permissions & OAuth 2.0',
+      featurePath: 'Entra ID > App registrations > [App] > API permissions / Expose an API',
+      agentActions: [
+        'Register application in Entra (or use existing registration)',
+        'Define OAuth 2.0 scopes in Expose an API',
+        'Configure client credentials or certificate for service principals',
+        'Grant required API permissions and admin consent',
+        'Set token lifetime and token issuance policies',
+      ],
+    },
+    configFormFields: [
+      { key: 'apiScopes', label: 'OAuth 2.0 Scopes to Expose', type: 'textarea', placeholder: 'e.g. api.read\napi.write', required: true, hint: 'One scope per line' },
+      { key: 'clientAuthMethod', label: 'Client Authentication Method', type: 'select', options: ['Client Secret', 'Certificate', 'Managed Identity', 'Federated Identity Credential'], required: true },
+      { key: 'tokenLifetimeMinutes', label: 'Access Token Lifetime (minutes)', type: 'number', placeholder: '60', required: false },
+      { key: 'allowedClientApps', label: 'Allowed Client Application IDs', type: 'textarea', placeholder: 'e.g. app-id-1\napp-id-2', required: false },
+    ],
   },
   {
     controlId: 'AM-012',
@@ -185,6 +411,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-207', 'Zero Trust', 'CISA ZTA', 'Executive Order 14028'],
     implementationComplexity: 'high',
     tags: ['zero-trust', 'continuous-verification', 'architecture'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Zero Trust — Conditional Access & Device Compliance',
+      featurePath: 'Entra ID > Protection > Conditional Access + Intune > Compliance policies',
+      agentActions: [
+        'Create Zero Trust Conditional Access policy: require compliant device + MFA',
+        'Configure device compliance policies in Intune',
+        'Enable Continuous Access Evaluation',
+        'Block legacy authentication protocols',
+        'Require Entra hybrid join or Entra join for device trust',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApp', label: 'Target Application', type: 'text', required: true },
+      { key: 'deviceComplianceRequired', label: 'Require Device Compliance', type: 'toggle', required: true },
+      { key: 'hybridJoinRequired', label: 'Require Hybrid/Entra Join', type: 'toggle', required: false },
+      { key: 'blockLegacyAuth', label: 'Block Legacy Authentication Protocols', type: 'toggle', required: true, hint: 'Blocks Basic Auth, SMTP AUTH, IMAP, POP3' },
+      { key: 'mfaRequired', label: 'Require MFA on Every Sign-in', type: 'toggle', required: true },
+    ],
   },
   {
     controlId: 'AM-013',
@@ -198,6 +444,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['conditional-access', 'context', 'policy'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Conditional Access Policies',
+      featurePath: 'Entra ID > Protection > Conditional Access > Policies',
+      agentActions: [
+        'Create Conditional Access policy scoped to the application',
+        'Set conditions: locations, device platforms, client apps',
+        'Configure grant controls (MFA, compliant device, approved app)',
+        'Set session controls (sign-in frequency, persistent browser)',
+        'Deploy in Report-only then switch to On',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApp', label: 'Target Application', type: 'text', required: true },
+      { key: 'allowedLocations', label: 'Allowed Named Locations', type: 'textarea', placeholder: 'e.g. HQ Office, UK VPN Range', required: false, hint: 'Leave blank to allow all; named locations must exist in Entra' },
+      { key: 'blockPersonalDevices', label: 'Block Unmanaged / Personal Devices', type: 'toggle', required: false },
+      { key: 'blockLegacyClients', label: 'Block Legacy Authentication Clients', type: 'toggle', required: true },
+      { key: 'sessionPersistence', label: 'Persistent Browser Session', type: 'select', options: ['Never persistent', 'Always persistent', 'Based on sign-in frequency only'], required: false },
+    ],
   },
   {
     controlId: 'AM-014',
@@ -211,6 +477,27 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53', 'PCI-DSS'],
     implementationComplexity: 'medium',
     tags: ['temporary-access', 'session', 'ephemeral'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Privileged Identity Management (PIM) — Eligible Assignments',
+      featurePath: 'Entra ID > Identity Governance > Privileged Identity Management > Azure AD roles',
+      agentActions: [
+        'Configure eligible role assignments (not permanent) in PIM',
+        'Set activation approval requirements and justification',
+        'Set maximum activation duration',
+        'Enable MFA on activation',
+        'Configure activation notification and audit alerts',
+      ],
+    },
+    configFormFields: [
+      { key: 'pimRole', label: 'Azure AD / App Role to Govern via PIM', type: 'text', placeholder: 'e.g. SAP Finance Admin', required: true },
+      { key: 'eligibleGroups', label: 'Groups Eligible for Activation', type: 'text', placeholder: 'e.g. GRP-SAP-Admins-Eligible', required: true },
+      { key: 'maxActivationHours', label: 'Maximum Activation Duration (hours)', type: 'number', placeholder: '8', required: true },
+      { key: 'requireApproval', label: 'Require Approval to Activate', type: 'toggle', required: true },
+      { key: 'approverGroups', label: 'Approvers', type: 'text', placeholder: 'e.g. GRP-SAP-Owners', required: false },
+      { key: 'requireMfaOnActivation', label: 'Require MFA on Activation', type: 'toggle', required: true },
+    ],
   },
   {
     controlId: 'AM-015',
@@ -224,6 +511,26 @@ const AM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['CSA Cloud Controls Matrix', 'ISO 27017', 'NIST SP 800-53'],
     implementationComplexity: 'high',
     tags: ['cloud', 'saas', 'hybrid', 'multi-cloud'],
+    platform: {
+      platformId: 'entra',
+      platformName: 'Microsoft Entra ID',
+      featureName: 'Enterprise Applications — Cloud App Discovery & SaaS Governance',
+      featurePath: 'Entra ID > Enterprise applications > All applications + Cloud App Discovery',
+      agentActions: [
+        'Onboard SaaS application via the Entra app gallery or custom SAML/OIDC',
+        'Enable Cloud App Security / Defender for Cloud Apps shadow IT discovery',
+        'Configure app governance policies',
+        'Set up user and group assignments',
+        'Enable SCIM provisioning to the SaaS app',
+      ],
+    },
+    configFormFields: [
+      { key: 'appGallerySearch', label: 'Application Gallery Name (or "Custom")', type: 'text', placeholder: 'e.g. Salesforce, Workday, Custom SAML App', required: true },
+      { key: 'provisioningEnabled', label: 'Enable SCIM Provisioning', type: 'toggle', required: false },
+      { key: 'scimEndpoint', label: 'SCIM Endpoint URL', type: 'url', placeholder: 'https://app.example.com/scim/v2', required: false },
+      { key: 'scimSecretToken', label: 'SCIM Secret Token', type: 'text', placeholder: '(stored securely — not visible after save)', required: false },
+      { key: 'cloudEnvironment', label: 'Cloud Environment', type: 'select', options: ['Microsoft Azure', 'AWS', 'Google Cloud', 'Multi-cloud / Other'], required: true },
+    ],
   },
 ];
 
@@ -243,6 +550,27 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'ISO 27001', 'NIST SP 800-53', 'PCI-DSS', 'HIPAA'],
     implementationComplexity: 'high',
     tags: ['jml', 'lifecycle', 'provisioning', 'joiner-mover-leaver'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Lifecycle Manager — JML Workflows',
+      featurePath: 'IdentityNow > Admin > Lifecycle Management > Workflows',
+      agentActions: [
+        'Create Joiner workflow: trigger on HR system new hire event',
+        'Create Mover workflow: trigger on department/role change attribute',
+        'Create Leaver workflow: trigger on termination date or HR status change',
+        'Map workflow to provisioning rules and target applications',
+        'Configure manager notification and approval steps',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetApplication', label: 'Target Application in IdentityNow', type: 'text', placeholder: 'e.g. SAP ECC, Active Directory', required: true },
+      { key: 'hrSource', label: 'HR Source System', type: 'select', options: ['Workday', 'SAP SuccessFactors', 'ADP', 'BambooHR', 'Custom CSV / API'], required: true },
+      { key: 'joinTriggerAttribute', label: 'Joiner Trigger Attribute & Value', type: 'text', placeholder: 'e.g. employeeStatus=Active', required: true },
+      { key: 'leaverTriggerAttribute', label: 'Leaver Trigger Attribute & Value', type: 'text', placeholder: 'e.g. employeeStatus=Terminated', required: true },
+      { key: 'moverTriggerAttribute', label: 'Mover Trigger Attribute (department/title change)', type: 'text', placeholder: 'e.g. department', required: false },
+      { key: 'gracePeriodHours', label: 'Leaver Grace Period (hours before disable)', type: 'number', placeholder: '0', required: false },
+    ],
   },
   {
     controlId: 'IGA-002',
@@ -256,6 +584,28 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'NIST SP 800-53', 'ISO 27001', 'PCI-DSS'],
     implementationComplexity: 'medium',
     tags: ['provisioning', 'scim', 'deprovisioning', 'automation'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Sources & Provisioning — SCIM 2.0 Connector',
+      featurePath: 'IdentityNow > Admin > Connections > Sources > [New Source]',
+      agentActions: [
+        'Create new source using SCIM 2.0 connector type',
+        'Enter SCIM endpoint URL and bearer token',
+        'Run test connection and import accounts/entitlements',
+        'Configure attribute mapping (IdentityNow → SCIM schema)',
+        'Set provisioning policies and create provisioning plan',
+        'Enable real-time provisioning via event triggers',
+      ],
+    },
+    configFormFields: [
+      { key: 'sourceName', label: 'Source Name in IdentityNow', type: 'text', placeholder: 'e.g. Salesforce CRM', required: true },
+      { key: 'scimBaseUrl', label: 'SCIM Base URL', type: 'url', placeholder: 'https://app.example.com/scim/v2', required: true },
+      { key: 'scimAuthToken', label: 'SCIM Bearer Token', type: 'text', placeholder: '(stored securely)', required: true },
+      { key: 'userAttributeMap', label: 'Attribute Mappings (IdentityNow → SCIM)', type: 'textarea', placeholder: 'userName=identity.email\ndisplayName=identity.displayName', required: true },
+      { key: 'enableDeprovision', label: 'Enable Automated De-provisioning', type: 'toggle', required: true },
+      { key: 'deprovisionAction', label: 'De-provisioning Action', type: 'select', options: ['Disable account', 'Delete account', 'Remove all entitlements'], required: true },
+    ],
   },
   {
     controlId: 'IGA-003',
@@ -269,6 +619,25 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['rbac', 'provisioning', 'role-based'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Roles — Business Roles & Provisioning',
+      featurePath: 'IdentityNow > Admin > Roles > Business Roles',
+      agentActions: [
+        'Create business role with role membership criteria (department, job title)',
+        'Add entitlements / access profiles to the role',
+        'Set role assignment criteria and automatic assignment rules',
+        'Configure provisioning plan for role-granted access',
+        'Enable role propagation and test with sample identities',
+      ],
+    },
+    configFormFields: [
+      { key: 'roleName', label: 'Business Role Name', type: 'text', placeholder: 'e.g. Finance Analyst', required: true },
+      { key: 'membershipCriteria', label: 'Role Membership Criteria', type: 'textarea', placeholder: 'e.g. department=Finance AND jobTitle=Analyst', required: true },
+      { key: 'accessProfiles', label: 'Access Profiles to Include', type: 'textarea', placeholder: 'e.g. SAP Finance Read\nWorkday Payroll View', required: true, hint: 'Access profiles must already exist in IdentityNow' },
+      { key: 'autoAssign', label: 'Automatically Assign Role on Criteria Match', type: 'toggle', required: true },
+    ],
   },
   {
     controlId: 'IGA-004',
@@ -282,6 +651,25 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['jit', 'provisioning', 'on-demand'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Sources — Just-in-Time Provisioning',
+      featurePath: 'IdentityNow > Admin > Connections > Sources > [App] > Provisioning > JIT',
+      agentActions: [
+        'Enable JIT provisioning on the source connector',
+        'Configure SAML JIT attribute mapping from assertion',
+        'Define account creation rules for first-login provisioning',
+        'Set account update rules for subsequent logins',
+        'Configure JIT account cleanup / expiration policy',
+      ],
+    },
+    configFormFields: [
+      { key: 'sourceName', label: 'IdentityNow Source Name', type: 'text', placeholder: 'e.g. ServiceNow', required: true },
+      { key: 'jitTrigger', label: 'JIT Trigger', type: 'select', options: ['First SAML login', 'First OIDC login', 'Access request approval'], required: true },
+      { key: 'jitAttributes', label: 'Attributes Passed at Login', type: 'textarea', placeholder: 'e.g. email, displayName, department, groups', required: true },
+      { key: 'accountExpiryDays', label: 'JIT Account Expiry (days, 0=no expiry)', type: 'number', placeholder: '0', required: false },
+    ],
   },
   {
     controlId: 'IGA-005',
@@ -295,6 +683,27 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'HIPAA', 'ISO 27001', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['access-review', 'certification', 'attestation', 'governance'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Certifications — Access Review Campaigns',
+      featurePath: 'IdentityNow > Governance > Certifications > Campaigns',
+      agentActions: [
+        'Create certification campaign scoped to the application',
+        'Set reviewer type (manager, entitlement owner, application owner)',
+        'Configure campaign schedule (quarterly recommended for critical apps)',
+        'Set remediation action for revoke decisions',
+        'Configure escalation and deadline notifications',
+      ],
+    },
+    configFormFields: [
+      { key: 'campaignName', label: 'Campaign Name', type: 'text', placeholder: 'e.g. SAP Finance Q1 Access Review', required: true },
+      { key: 'targetSource', label: 'Target Application / Source', type: 'text', placeholder: 'e.g. SAP Finance', required: true },
+      { key: 'reviewerType', label: 'Reviewer', type: 'select', options: ['Manager', 'Application Owner', 'Entitlement Owner', 'Identity Attribute (custom)'], required: true },
+      { key: 'frequencyDays', label: 'Review Frequency (days)', type: 'number', placeholder: '90', required: true },
+      { key: 'deadlineDays', label: 'Reviewer Deadline (days)', type: 'number', placeholder: '14', required: true },
+      { key: 'autoRevoke', label: 'Auto-Revoke on No Response', type: 'toggle', required: false, hint: 'If enabled, unanswered items are automatically revoked at deadline' },
+    ],
   },
   {
     controlId: 'IGA-006',
@@ -308,6 +717,25 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'ISO 27001', 'NIST SP 800-53'],
     implementationComplexity: 'high',
     tags: ['sod', 'separation-of-duties', 'fraud-prevention', 'compliance'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Policies — Separation of Duties',
+      featurePath: 'IdentityNow > Admin > Governance > Policies > SoD Policies',
+      agentActions: [
+        'Define SoD policy with conflicting entitlement pairs',
+        'Set policy violation action (alert, require approval, block provisioning)',
+        'Configure compensating controls for approved exceptions',
+        'Schedule SoD violation reporting',
+        'Integrate SoD policy into access request approval workflow',
+      ],
+    },
+    configFormFields: [
+      { key: 'policyName', label: 'SoD Policy Name', type: 'text', placeholder: 'e.g. Initiate-and-Approve Financial Transactions', required: true },
+      { key: 'conflictingPairs', label: 'Conflicting Entitlement Pairs', type: 'textarea', placeholder: 'e.g. SAP:AP_Invoice_Create vs SAP:AP_Payment_Approve\n(one pair per line, separated by "vs")', required: true },
+      { key: 'violationAction', label: 'Action on Violation', type: 'select', options: ['Alert only', 'Require approval to proceed', 'Block provisioning'], required: true },
+      { key: 'exceptionApprovers', label: 'Exception Approvers', type: 'text', placeholder: 'e.g. GRP-Finance-Controls', required: false },
+    ],
   },
   {
     controlId: 'IGA-007',
@@ -321,6 +749,24 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['role-mining', 'optimisation', 'analytics'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Roles — Role Mining',
+      featurePath: 'IdentityNow > Admin > Roles > Role Mining',
+      agentActions: [
+        'Run role mining analysis on the target application source',
+        'Review suggested role clusters and acceptance criteria',
+        'Create candidate roles from mining results',
+        'Validate role membership with application owner',
+        'Promote candidate roles to active business roles',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSource', label: 'Target Application Source', type: 'text', placeholder: 'e.g. SAP ECC', required: true },
+      { key: 'minIdentitiesPerRole', label: 'Minimum Identities per Suggested Role', type: 'number', placeholder: '5', required: false, hint: 'Filters out very small role clusters' },
+      { key: 'popularityThreshold', label: 'Entitlement Popularity Threshold (%)', type: 'number', placeholder: '70', required: false, hint: 'Entitlements held by this % of a cluster are included in the role' },
+    ],
   },
   {
     controlId: 'IGA-008',
@@ -334,6 +780,25 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['self-service', 'access-request', 'workflow'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Access Request — Self-Service Catalog',
+      featurePath: 'IdentityNow > Admin > Access > Access Request > Access Request Configuration',
+      agentActions: [
+        'Enable access request on the target access profiles / roles',
+        'Add items to the requestable access catalog',
+        'Configure approval workflow for the access items',
+        'Set request form fields and instructions visible to requestors',
+        'Enable request notifications and status tracking',
+      ],
+    },
+    configFormFields: [
+      { key: 'catalogItems', label: 'Access Items to Make Requestable', type: 'textarea', placeholder: 'e.g. SAP Finance ReadOnly\nSAP Finance Contributor', required: true },
+      { key: 'requestFormInstructions', label: 'Instructions Shown to Requestor', type: 'textarea', placeholder: 'e.g. Provide your manager approval reference and business justification', required: false },
+      { key: 'requireJustification', label: 'Require Business Justification', type: 'toggle', required: true },
+      { key: 'requestExpiryDays', label: 'Request Expiry (days, 0=permanent)', type: 'number', placeholder: '0', required: false },
+    ],
   },
   {
     controlId: 'IGA-009',
@@ -347,6 +812,26 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'ISO 27001', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['approval', 'workflow', 'governance'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Workflows — Approval Flows',
+      featurePath: 'IdentityNow > Admin > Workflows',
+      agentActions: [
+        'Create approval workflow using workflow builder',
+        'Add approval steps with configurable approvers (manager, role owner, group)',
+        'Set escalation rules and timeout actions',
+        'Configure parallel vs sequential approval stages',
+        'Attach workflow to access request or provisioning event',
+      ],
+    },
+    configFormFields: [
+      { key: 'workflowName', label: 'Workflow Name', type: 'text', placeholder: 'e.g. SAP Finance Access Approval', required: true },
+      { key: 'approvalStages', label: 'Approval Stages (in order)', type: 'textarea', placeholder: 'Stage 1: Manager\nStage 2: Application Owner', required: true },
+      { key: 'approvalType', label: 'Approval Type', type: 'select', options: ['Sequential (all must approve)', 'Parallel (any approver)', 'First approver wins'], required: true },
+      { key: 'timeoutDays', label: 'Approval Timeout (days)', type: 'number', placeholder: '7', required: true },
+      { key: 'timeoutAction', label: 'Action on Timeout', type: 'select', options: ['Escalate to next approver', 'Auto-approve', 'Auto-reject'], required: true },
+    ],
   },
   {
     controlId: 'IGA-010',
@@ -360,6 +845,26 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'HIPAA', 'ISO 27001', 'GDPR'],
     implementationComplexity: 'medium',
     tags: ['attestation', 'certification', 'compliance', 'audit'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Certifications — Scheduled Compliance Campaigns',
+      featurePath: 'IdentityNow > Governance > Certifications > Campaigns > Schedule',
+      agentActions: [
+        'Create scheduled certification campaign',
+        'Define scope: specific source, role, or entitlement',
+        'Set attestation frequency (quarterly / annual)',
+        'Configure sign-off requirements and evidence export',
+        'Generate compliance report after campaign completion',
+      ],
+    },
+    configFormFields: [
+      { key: 'campaignName', label: 'Campaign Name', type: 'text', placeholder: 'e.g. Annual SOX Access Attestation', required: true },
+      { key: 'scope', label: 'Campaign Scope', type: 'select', options: ['All entitlements for application', 'Specific roles only', 'High-risk entitlements only', 'All identities with access'], required: true },
+      { key: 'attestorType', label: 'Attestor', type: 'select', options: ['Manager', 'Application Owner', 'Governance Committee', 'Identity Self-Attestation'], required: true },
+      { key: 'regulatoryFramework', label: 'Regulatory Framework', type: 'multiselect', options: ['SOX', 'PCI-DSS', 'HIPAA', 'GDPR', 'ISO 27001'], required: true },
+      { key: 'exportFormat', label: 'Evidence Export Format', type: 'select', options: ['PDF Report', 'CSV', 'JSON', 'GRC Platform API'], required: false },
+    ],
   },
   {
     controlId: 'IGA-011',
@@ -373,6 +878,27 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-63B', 'ISO 27001', 'PCI-DSS'],
     implementationComplexity: 'low',
     tags: ['password', 'sspr', 'credential-policy'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Password Management — Policy & Self-Service Reset',
+      featurePath: 'IdentityNow > Admin > Password Management > Password Policies',
+      agentActions: [
+        'Create password policy with complexity and history rules',
+        'Assign policy to target sources / applications',
+        'Enable Self-Service Password Reset (SSPR) for target users',
+        'Configure password synchronisation across sources',
+        'Integrate HaveIBeenPwned breach detection',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSources', label: 'Sources to Apply Policy', type: 'textarea', placeholder: 'e.g. Active Directory, SAP', required: true },
+      { key: 'minLength', label: 'Minimum Password Length', type: 'number', placeholder: '12', required: true },
+      { key: 'complexityRules', label: 'Complexity Requirements', type: 'multiselect', options: ['Uppercase required', 'Lowercase required', 'Number required', 'Special character required'], required: true },
+      { key: 'historyCount', label: 'Password History Count', type: 'number', placeholder: '12', required: false },
+      { key: 'enableSspr', label: 'Enable Self-Service Password Reset', type: 'toggle', required: true },
+      { key: 'breachDetection', label: 'Enable Breach Detection (HaveIBeenPwned)', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'IGA-012',
@@ -386,6 +912,26 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'HIPAA', 'GDPR', 'ISO 27001', 'NIST SP 800-53'],
     implementationComplexity: 'medium',
     tags: ['audit', 'compliance', 'reporting', 'logging'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Reports — Compliance & Audit Packages',
+      featurePath: 'IdentityNow > Reports > Compliance > [Report Type]',
+      agentActions: [
+        'Enable audit logging for target sources and events',
+        'Configure scheduled compliance report for the application',
+        'Set report recipients and delivery schedule',
+        'Configure SIEM/log export integration if required',
+        'Generate initial evidence package for audit baseline',
+      ],
+    },
+    configFormFields: [
+      { key: 'reportTypes', label: 'Report Types to Enable', type: 'multiselect', options: ['Access Entitlement Report', 'Certification Summary', 'Provisioning Activity', 'SoD Violations', 'Orphan Account Report'], required: true },
+      { key: 'schedule', label: 'Report Schedule', type: 'select', options: ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'On-demand only'], required: true },
+      { key: 'recipients', label: 'Report Recipients (email)', type: 'textarea', placeholder: 'e.g. ciso@corp.com, audit@corp.com', required: true },
+      { key: 'siemExport', label: 'Enable SIEM Log Export', type: 'toggle', required: false },
+      { key: 'siemEndpoint', label: 'SIEM Endpoint URL (if enabled)', type: 'url', placeholder: 'https://siem.corp.com/intake', required: false },
+    ],
   },
   {
     controlId: 'IGA-013',
@@ -399,6 +945,25 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53'],
     implementationComplexity: 'high',
     tags: ['ai', 'ml', 'intelligent-governance', 'automation'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'AI Services — Access Recommendations & Outlier Detection',
+      featurePath: 'IdentityNow > Admin > AI Services > Recommendations / Outliers',
+      agentActions: [
+        'Enable AI-powered access recommendations for the application',
+        'Configure outlier detection for the target source',
+        'Set recommendation confidence threshold',
+        'Enable auto-revocation suggestions for low-confidence access',
+        'Integrate recommendations into certification campaign workflow',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSource', label: 'Target Source / Application', type: 'text', placeholder: 'e.g. Salesforce CRM', required: true },
+      { key: 'recommendationMode', label: 'Recommendation Mode', type: 'select', options: ['Suggest only (human decision)', 'Auto-approve high confidence', 'Auto-revoke low confidence'], required: true },
+      { key: 'confidenceThreshold', label: 'Confidence Threshold (%)', type: 'number', placeholder: '80', required: false, hint: 'Recommendations above this % are treated as high confidence' },
+      { key: 'outlierDetection', label: 'Enable Outlier Detection', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'IGA-014',
@@ -412,6 +977,24 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'PCI-DSS', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['entitlement', 'reporting', 'visibility'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Reports — Access Entitlement Report',
+      featurePath: 'IdentityNow > Reports > Access > Entitlements Report',
+      agentActions: [
+        'Run entitlement aggregation on target source',
+        'Generate user access entitlement report for the application',
+        'Schedule recurring report for audit evidence',
+        'Export report to GRC or ticketing system',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSource', label: 'Target Source / Application', type: 'text', placeholder: 'e.g. Oracle EBS', required: true },
+      { key: 'includeInactive', label: 'Include Disabled / Inactive Accounts', type: 'toggle', required: false },
+      { key: 'groupByRole', label: 'Group Results by Role', type: 'toggle', required: false },
+      { key: 'exportDestination', label: 'Export Destination', type: 'select', options: ['Download CSV', 'Email recipients', 'ServiceNow GRC', 'SharePoint'], required: false },
+    ],
   },
   {
     controlId: 'IGA-015',
@@ -425,6 +1008,26 @@ const IGA_CONTROLS: CatalogControl[] = [
     policyDrivers: ['SOX', 'ISO 27001', 'NIST SP 800-53', 'COBIT'],
     implementationComplexity: 'medium',
     tags: ['policy', 'risk', 'compliance', 'enforcement'],
+    platform: {
+      platformId: 'sailpoint',
+      platformName: 'SailPoint IdentityNow',
+      featureName: 'Policies — Risk Policies & Violation Management',
+      featurePath: 'IdentityNow > Admin > Governance > Policies',
+      agentActions: [
+        'Define risk policy targeting the application entitlements',
+        'Configure risk scoring criteria and weight',
+        'Set violation notification and escalation path',
+        'Enable continuous policy evaluation',
+        'Schedule risk summary report for leadership',
+      ],
+    },
+    configFormFields: [
+      { key: 'policyName', label: 'Risk Policy Name', type: 'text', placeholder: 'e.g. SAP Finance Over-Provisioning Risk', required: true },
+      { key: 'riskCriteria', label: 'Risk Criteria', type: 'textarea', placeholder: 'e.g. User holds >3 SAP transaction codes across all modules', required: true },
+      { key: 'riskWeight', label: 'Risk Weight (1–10)', type: 'number', placeholder: '7', required: true },
+      { key: 'violationOwner', label: 'Violation Owner (email or group)', type: 'text', placeholder: 'e.g. iam-governance@corp.com', required: true },
+      { key: 'evaluationFrequency', label: 'Evaluation Frequency', type: 'select', options: ['Real-time', 'Daily', 'Weekly'], required: true },
+    ],
   },
 ];
 
@@ -444,6 +1047,27 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'HIPAA', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['pam', 'privileged', 'session-management', 'recording'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Core PAS — Account Onboarding & PSM Session Management',
+      featurePath: 'CyberArk PVWA > Accounts > Add Account / PSM > Connections',
+      agentActions: [
+        'Discover and onboard privileged accounts for the target system',
+        'Create safe and assign account to platform policy',
+        'Configure PSM (Privileged Session Manager) connection component',
+        'Set session recording and audit trail policies',
+        'Configure session isolation and dual-control approval',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSystem', label: 'Target System Hostname / IP', type: 'text', placeholder: 'e.g. sap-prod-01.corp.com', required: true },
+      { key: 'accountType', label: 'Privileged Account Type', type: 'select', options: ['Windows Local Admin', 'Domain Admin', 'Linux Root', 'Service Account', 'Database Admin'], required: true },
+      { key: 'safeName', label: 'CyberArk Safe Name', type: 'text', placeholder: 'e.g. SAP-Prod-Admins', required: true },
+      { key: 'platformId', label: 'CyberArk Platform ID', type: 'text', placeholder: 'e.g. WinServerLocal, UnixSSH', required: true },
+      { key: 'sessionRecording', label: 'Enable Session Recording', type: 'toggle', required: true },
+      { key: 'dualControl', label: 'Require Dual-Control Approval', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'PAM-002',
@@ -457,6 +1081,26 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'HIPAA', 'NIST SP 800-53', 'CIS Controls'],
     implementationComplexity: 'medium',
     tags: ['vault', 'password-vaulting', 'credential', 'rotation'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Core PAS — Digital Vault & Credential Storage',
+      featurePath: 'CyberArk PVWA > Accounts > Add Account > Safe & Platform Assignment',
+      agentActions: [
+        'Create dedicated safe for target application accounts',
+        'Onboard credentials into the vault (manual or bulk import)',
+        'Set password policy: complexity, rotation interval',
+        'Configure automated password rotation (CPM)',
+        'Configure check-out / check-in workflow for shared accounts',
+      ],
+    },
+    configFormFields: [
+      { key: 'safeName', label: 'Vault Safe Name', type: 'text', placeholder: 'e.g. Oracle-Prod-DBAdmins', required: true },
+      { key: 'safeOwners', label: 'Safe Owners (AD groups)', type: 'text', placeholder: 'e.g. GRP-CyberArk-SafeOwners-Oracle', required: true },
+      { key: 'rotationIntervalDays', label: 'Password Rotation Interval (days)', type: 'number', placeholder: '30', required: true },
+      { key: 'exclusiveCheckout', label: 'Exclusive Checkout (one user at a time)', type: 'toggle', required: false },
+      { key: 'checkoutDurationHours', label: 'Maximum Checkout Duration (hours)', type: 'number', placeholder: '4', required: false },
+    ],
   },
   {
     controlId: 'PAM-003',
@@ -470,6 +1114,27 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'PCI-DSS', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['jit', 'privileged', 'zero-standing-privilege'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Privilege Cloud — Just-in-Time Access',
+      featurePath: 'CyberArk Privilege Cloud > Administration > Just-in-Time Access',
+      agentActions: [
+        'Configure JIT access policy for the target system',
+        'Define eligible requestors and approvers',
+        'Set maximum elevation duration and allowed privilege levels',
+        'Connect to ticket system for request correlation',
+        'Configure automatic account revocation on expiry',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSystem', label: 'Target System', type: 'text', placeholder: 'e.g. sap-prod-01.corp.com', required: true },
+      { key: 'privilegeLevel', label: 'Privilege Level to Grant', type: 'select', options: ['Local Administrator', 'Domain Administrator', 'Root / Sudo', 'Database DBA', 'Custom role'], required: true },
+      { key: 'eligibleGroups', label: 'Groups Eligible to Request', type: 'text', placeholder: 'e.g. GRP-SAP-Basis-Team', required: true },
+      { key: 'maxDurationHours', label: 'Maximum Elevation Duration (hours)', type: 'number', placeholder: '4', required: true },
+      { key: 'requireTicketNumber', label: 'Require Change Ticket Number', type: 'toggle', required: false },
+      { key: 'ticketSystem', label: 'Ticket System', type: 'select', options: ['ServiceNow', 'Jira', 'Remedy', 'Manual (no integration)'], required: false },
+    ],
   },
   {
     controlId: 'PAM-004',
@@ -483,6 +1148,26 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'HIPAA', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['session-recording', 'monitoring', 'keystroke', 'forensics'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Core PAS — PSM Session Recording & Monitoring',
+      featurePath: 'CyberArk PVWA > Administration > Session Management > Session Monitoring',
+      agentActions: [
+        'Enable PSM recording policy for the target platform',
+        'Configure recording storage retention period',
+        'Enable keystroke logging and OCR search indexing',
+        'Set real-time session monitoring alerts',
+        'Configure live session takeover / termination capability',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetPlatform', label: 'CyberArk Platform to Enable Recording On', type: 'text', placeholder: 'e.g. WinServerLocal, UnixSSH, SAP', required: true },
+      { key: 'retentionDays', label: 'Session Recording Retention (days)', type: 'number', placeholder: '365', required: true },
+      { key: 'keystrokeLogging', label: 'Enable Keystroke Logging', type: 'toggle', required: true },
+      { key: 'ocrIndexing', label: 'Enable OCR Text Indexing (searchable recordings)', type: 'toggle', required: false },
+      { key: 'alertOnSuspiciousCommands', label: 'Alert on Suspicious Commands', type: 'textarea', placeholder: 'e.g. rm -rf\ndrop table\nnet user /add', required: false, hint: 'One command pattern per line' },
+    ],
   },
   {
     controlId: 'PAM-005',
@@ -496,6 +1181,25 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['Zero Trust', 'NIST SP 800-53', 'PCI-DSS', 'CIS Controls'],
     implementationComplexity: 'high',
     tags: ['least-privilege', 'jea', 'privilege-reduction'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Endpoint Privilege Manager (EPM) — Least Privilege Policy',
+      featurePath: 'CyberArk EPM > Policy Management > Policies > Least Privilege',
+      agentActions: [
+        'Deploy EPM agent to target endpoints',
+        'Create application control policy for the target system',
+        'Configure privilege elevation rules (allow specific executables only)',
+        'Remove default local admin rights from users',
+        'Set up application allowlist for the environment',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetEndpoints', label: 'Target Endpoint Group / OU', type: 'text', placeholder: 'e.g. SAP-App-Servers OU', required: true },
+      { key: 'removeLocalAdmin', label: 'Remove Standing Local Admin Rights', type: 'toggle', required: true },
+      { key: 'elevationRules', label: 'Approved Applications / Commands for Elevation', type: 'textarea', placeholder: 'e.g. sapgui.exe\n/usr/sap/SID/run', required: true, hint: 'Applications that may run with elevated privileges' },
+      { key: 'blockUntrustedSoftware', label: 'Block Untrusted / Unsigned Software', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'PAM-006',
@@ -509,6 +1213,26 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['remote-access', 'vendor-access', 'third-party'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Alero / Vendor PAM — Remote Vendor Access',
+      featurePath: 'CyberArk Alero > Vendor Management > Sites & Vendors',
+      agentActions: [
+        'Create Alero site for the target system',
+        'Onboard vendor organisation and contacts',
+        'Issue time-limited vendor access invitation',
+        'Configure session isolation: no direct network access',
+        'Set access window and session recording',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSystem', label: 'Target System for Vendor Access', type: 'text', placeholder: 'e.g. Oracle DB Prod', required: true },
+      { key: 'vendorOrg', label: 'Vendor / Third-Party Organisation Name', type: 'text', placeholder: 'e.g. Accenture', required: true },
+      { key: 'vendorContacts', label: 'Vendor Contact Emails', type: 'textarea', placeholder: 'e.g. vendor.admin@accenture.com', required: true },
+      { key: 'accessWindowHours', label: 'Access Window Duration (hours)', type: 'number', placeholder: '8', required: true },
+      { key: 'requireApproval', label: 'Require Internal Approval Before Access', type: 'toggle', required: true },
+    ],
   },
   {
     controlId: 'PAM-007',
@@ -522,6 +1246,25 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['NIST SP 800-53', 'ISO 27001', 'Zero Trust'],
     implementationComplexity: 'high',
     tags: ['threat-detection', 'ueba', 'insider-threat', 'ml'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Privileged Threat Analytics (PTA)',
+      featurePath: 'CyberArk PTA > Configuration > Detection Policies',
+      agentActions: [
+        'Enable PTA integration with CyberArk Vault',
+        'Configure detection policies for the target account set',
+        'Set SIEM integration for alert forwarding',
+        'Configure automated response: suspend session on high-risk alert',
+        'Tune baseline detection period for target user population',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetAccounts', label: 'Account Set to Monitor', type: 'text', placeholder: 'e.g. SAP-Prod-Admins safe', required: true },
+      { key: 'detectionPolicies', label: 'Detection Policies to Enable', type: 'multiselect', options: ['Abnormal credential access', 'Unmanaged privileged account', 'Suspected credential theft', 'Lateral movement', 'Abnormal time-of-access'], required: true },
+      { key: 'autoSuspend', label: 'Auto-Suspend Session on High-Risk Alert', type: 'toggle', required: false },
+      { key: 'siemForwarding', label: 'Forward Alerts to SIEM', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'PAM-008',
@@ -535,6 +1278,26 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'FIPS 140-2', 'NIST SP 800-57', 'ISO 27001'],
     implementationComplexity: 'high',
     tags: ['key-management', 'cryptography', 'hsm', 'encryption'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Conjur Enterprise — Key & Certificate Management',
+      featurePath: 'CyberArk Conjur > Resources > Certificates / Policy',
+      agentActions: [
+        'Define Conjur policy for key/certificate resources',
+        'Import or generate keys within Conjur vault',
+        'Configure automated key rotation schedule',
+        'Grant application service accounts access to keys via Conjur policy',
+        'Set up HSM integration if FIPS compliance required',
+      ],
+    },
+    configFormFields: [
+      { key: 'resourceName', label: 'Key / Certificate Resource Name', type: 'text', placeholder: 'e.g. sap-prod/db-encryption-key', required: true },
+      { key: 'keyType', label: 'Key Type', type: 'select', options: ['AES-256 (symmetric)', 'RSA-2048', 'RSA-4096', 'ECDSA P-256', 'TLS Certificate'], required: true },
+      { key: 'rotationIntervalDays', label: 'Rotation Interval (days)', type: 'number', placeholder: '90', required: true },
+      { key: 'hsmBackend', label: 'HSM Backend', type: 'select', options: ['Software (Conjur vault)', 'AWS CloudHSM', 'Azure Dedicated HSM', 'Thales Luna HSM'], required: true },
+      { key: 'authorisedConsumers', label: 'Authorised Consumers (service accounts)', type: 'textarea', placeholder: 'e.g. svc-sap-prod\nsvc-oracle-app', required: true },
+    ],
   },
   {
     controlId: 'PAM-009',
@@ -548,6 +1311,26 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'NIST SP 800-53', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['secrets', 'vault', 'api-keys', 'rotation'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Conjur Enterprise — Secrets Manager',
+      featurePath: 'CyberArk Conjur > Policy > Secrets > [Application Namespace]',
+      agentActions: [
+        'Create Conjur policy namespace for the application',
+        'Store application secrets (passwords, API keys, tokens) in Conjur',
+        'Configure application identity (JWT, IAM Role, cert) for secret retrieval',
+        'Set secret rotation schedule via Conjur rotation rotators',
+        'Integrate application with Conjur SDK or Secretless Broker',
+      ],
+    },
+    configFormFields: [
+      { key: 'applicationName', label: 'Application Name (Conjur namespace)', type: 'text', placeholder: 'e.g. sap-finance-app', required: true },
+      { key: 'secretTypes', label: 'Secret Types to Manage', type: 'multiselect', options: ['Database password', 'API key', 'OAuth client secret', 'TLS private key', 'SSH private key'], required: true },
+      { key: 'authMethod', label: 'Application Auth Method to Conjur', type: 'select', options: ['JWT (Kubernetes/app token)', 'IAM Role (AWS/Azure)', 'Client Certificate', 'API Key'], required: true },
+      { key: 'rotationEnabled', label: 'Enable Automated Secret Rotation', type: 'toggle', required: true },
+      { key: 'rotationIntervalDays', label: 'Rotation Interval (days)', type: 'number', placeholder: '30', required: false },
+    ],
   },
   {
     controlId: 'PAM-010',
@@ -561,6 +1344,25 @@ const PAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PCI-DSS', 'SOX', 'HIPAA', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['audit', 'compliance', 'evidence', 'reporting'],
+    platform: {
+      platformId: 'cyberark',
+      platformName: 'CyberArk PAM',
+      featureName: 'Core PAS — Compliance Reports & Audit Trail',
+      featurePath: 'CyberArk PVWA > Reports > Compliance / Privileged Accounts Inventory',
+      agentActions: [
+        'Generate privileged account inventory report for target safe',
+        'Schedule compliance evidence report (PCI-DSS / SOX)',
+        'Configure SIEM log export from Vault event log',
+        'Enable real-time compliance dashboard',
+        'Export session recordings index for audit evidence',
+      ],
+    },
+    configFormFields: [
+      { key: 'targetSafes', label: 'Safes to Include in Report', type: 'textarea', placeholder: 'e.g. SAP-Prod-Admins\nOracle-DB-Admins', required: true },
+      { key: 'reportTypes', label: 'Report Types', type: 'multiselect', options: ['Privileged Accounts Inventory', 'Session Activity Log', 'Password Rotation Compliance', 'Safe Member Permissions', 'Unmanaged Accounts'], required: true },
+      { key: 'complianceFramework', label: 'Compliance Framework', type: 'multiselect', options: ['PCI-DSS', 'SOX', 'HIPAA', 'ISO 27001', 'NIST'], required: true },
+      { key: 'schedule', label: 'Report Schedule', type: 'select', options: ['On-demand', 'Monthly', 'Quarterly'], required: true },
+    ],
   },
 ];
 
@@ -580,6 +1382,26 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['GDPR', 'CCPA', 'ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['ciam', 'registration', 'onboarding', 'customer'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Self-Service Registration — Profile Enrollment Policy',
+      featurePath: 'Okta Admin > Security > Profile Enrollment > [Policy] > Add Rule',
+      agentActions: [
+        'Create Profile Enrollment policy for the application',
+        'Define registration form fields and required attributes',
+        'Configure email verification step',
+        'Set progressive profiling triggers for additional data collection',
+        'Assign policy to target application',
+      ],
+    },
+    configFormFields: [
+      { key: 'appName', label: 'Okta Application Name', type: 'text', placeholder: 'e.g. Customer Portal', required: true },
+      { key: 'registrationFields', label: 'Registration Form Fields', type: 'multiselect', options: ['First Name', 'Last Name', 'Email', 'Phone', 'Date of Birth', 'Company', 'Country'], required: true },
+      { key: 'emailVerification', label: 'Require Email Verification', type: 'toggle', required: true },
+      { key: 'progressiveProfilingTrigger', label: 'Progressive Profiling Trigger', type: 'select', options: ['On next login', 'After first purchase', 'On feature access', 'None'], required: false },
+      { key: 'consentText', label: 'Terms & Privacy Consent Text', type: 'textarea', placeholder: 'e.g. I agree to the Terms of Service and Privacy Policy', required: false },
+    ],
   },
   {
     controlId: 'CIAM-002',
@@ -593,6 +1415,24 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['GDPR', 'CCPA'],
     implementationComplexity: 'low',
     tags: ['social-login', 'federation', 'oauth', 'customer'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Identity Providers — Social Login',
+      featurePath: 'Okta Admin > Security > Identity Providers > Add Identity Provider',
+      agentActions: [
+        'Add social IdP (Google, Apple, Microsoft, LinkedIn)',
+        'Register Okta as OAuth client in the social provider\'s developer console',
+        'Configure OAuth client ID and secret in Okta',
+        'Map social profile attributes to Okta user profile',
+        'Set account linking rules for returning users',
+      ],
+    },
+    configFormFields: [
+      { key: 'socialProviders', label: 'Social Identity Providers', type: 'multiselect', options: ['Google', 'Apple', 'Microsoft', 'LinkedIn', 'Facebook', 'GitHub'], required: true },
+      { key: 'accountLinkingPolicy', label: 'Account Linking Policy', type: 'select', options: ['Match by email (auto-link)', 'Prompt user to link', 'Always create new account'], required: true },
+      { key: 'attributeMapping', label: 'Attribute Mappings (Social → Okta)', type: 'textarea', placeholder: 'e.g. given_name=firstName\nfamily_name=lastName', required: false },
+    ],
   },
   {
     controlId: 'CIAM-003',
@@ -606,6 +1446,26 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['GDPR', 'PSD2', 'NIST SP 800-63B'],
     implementationComplexity: 'medium',
     tags: ['mfa', 'passwordless', 'passkeys', 'biometrics', 'customer'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Authentication Policies — Customer MFA & Passwordless',
+      featurePath: 'Okta Admin > Security > Authentication Policies > [App Policy]',
+      agentActions: [
+        'Create authentication policy for the customer-facing application',
+        'Configure allowed authenticators (passkey, email magic link, SMS OTP)',
+        'Set assurance level and re-authentication frequency',
+        'Configure adaptive MFA rules (risk-based step-up)',
+        'Assign policy to target application',
+      ],
+    },
+    configFormFields: [
+      { key: 'appName', label: 'Target Application', type: 'text', placeholder: 'e.g. Customer Portal', required: true },
+      { key: 'allowedAuthenticators', label: 'Allowed Authenticators', type: 'multiselect', options: ['Passkey / WebAuthn', 'Email Magic Link', 'SMS OTP', 'Okta Verify (push)', 'TOTP (any app)', 'Biometric (device)'], required: true },
+      { key: 'mfaAssurance', label: 'MFA Assurance Level', type: 'select', options: ['Any 1 factor', 'Any 2 factors', 'Phishing-resistant only'], required: true },
+      { key: 'adaptiveMfa', label: 'Enable Adaptive / Risk-Based MFA', type: 'toggle', required: false },
+      { key: 'reAuthFrequencyHours', label: 'Re-authentication Frequency (hours)', type: 'number', placeholder: '24', required: false },
+    ],
   },
   {
     controlId: 'CIAM-004',
@@ -619,6 +1479,24 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001', 'GDPR'],
     implementationComplexity: 'medium',
     tags: ['self-service', 'portal', 'customer'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'End-User Dashboard & Self-Service Access',
+      featurePath: 'Okta Admin > Customizations > Other > End-User Dashboard',
+      agentActions: [
+        'Enable self-service application access requests',
+        'Configure application tiles visible in customer dashboard',
+        'Set up access request workflow for restricted apps',
+        'Configure profile self-service update permissions',
+        'Customise dashboard branding for the customer portal',
+      ],
+    },
+    configFormFields: [
+      { key: 'visibleApps', label: 'Applications Visible in Customer Dashboard', type: 'textarea', placeholder: 'e.g. Customer Portal, Support Hub', required: true },
+      { key: 'selfServiceProfileFields', label: 'Profile Fields Customer Can Edit', type: 'multiselect', options: ['Phone', 'Display Name', 'Address', 'Language / Locale', 'Notification Preferences'], required: false },
+      { key: 'requestableApps', label: 'Applications Customer Can Request Access To', type: 'textarea', placeholder: 'e.g. Premium Features, Beta Access', required: false },
+    ],
   },
   {
     controlId: 'CIAM-005',
@@ -632,6 +1510,25 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001', 'GDPR'],
     implementationComplexity: 'medium',
     tags: ['delegation', 'b2b', 'partner', 'tenant-admin'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Admin Roles — Delegated Administration',
+      featurePath: 'Okta Admin > Security > Administrators > Add Administrator',
+      agentActions: [
+        'Create custom admin role with scoped permissions',
+        'Assign delegated admin role to customer admin users or groups',
+        'Define resource scope (specific apps, groups, or users)',
+        'Configure delegated admin UI access and restrictions',
+        'Set audit notifications for delegated admin activity',
+      ],
+    },
+    configFormFields: [
+      { key: 'delegatedRoleName', label: 'Delegated Admin Role Name', type: 'text', placeholder: 'e.g. Tenant Admin — ACME Corp', required: true },
+      { key: 'permissions', label: 'Permitted Actions', type: 'multiselect', options: ['Manage users in group', 'Reset passwords', 'Assign applications', 'View reports', 'Manage groups'], required: true },
+      { key: 'scopeGroup', label: 'Scope: Restrict to Group', type: 'text', placeholder: 'e.g. ACME-Corp-Users', required: true, hint: 'Delegated admin can only manage users in this group' },
+      { key: 'adminUsers', label: 'Users to Grant Delegated Admin Role', type: 'textarea', placeholder: 'e.g. acme.admin@acme.com', required: true },
+    ],
   },
   {
     controlId: 'CIAM-006',
@@ -645,6 +1542,26 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['GDPR', 'CCPA', 'LGPD', 'ISO 27701'],
     implementationComplexity: 'medium',
     tags: ['consent', 'privacy', 'gdpr', 'dsar'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Privacy & Consent — Scope Consent & User Data Management',
+      featurePath: 'Okta Admin > Applications > [App] > Sign On > Consent / Privacy Policy',
+      agentActions: [
+        'Enable explicit user consent for OAuth scopes',
+        'Configure consent dialog text and granular scope descriptions',
+        'Set up privacy policy and terms-of-service links',
+        'Configure data retention policy in Okta tenant',
+        'Enable DSAR / account deletion self-service workflow',
+      ],
+    },
+    configFormFields: [
+      { key: 'appName', label: 'Application Requiring Consent', type: 'text', required: true },
+      { key: 'consentScopes', label: 'OAuth Scopes Requiring User Consent', type: 'textarea', placeholder: 'e.g. profile:read\nemail:share\norders:history', required: true, hint: 'One scope per line — users see these in consent dialog' },
+      { key: 'privacyPolicyUrl', label: 'Privacy Policy URL', type: 'url', placeholder: 'https://corp.com/privacy', required: true },
+      { key: 'tosUrl', label: 'Terms of Service URL', type: 'url', placeholder: 'https://corp.com/terms', required: false },
+      { key: 'dsarEnabled', label: 'Enable Self-Service Data Deletion (DSAR)', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'CIAM-007',
@@ -658,6 +1575,25 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001'],
     implementationComplexity: 'medium',
     tags: ['automation', 'fulfilment', 'workflow'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Okta Workflows — Automated Access Provisioning',
+      featurePath: 'Okta Admin > Workflow > Workflows Console > [New Flow]',
+      agentActions: [
+        'Create Okta Workflow triggered by group membership or event',
+        'Add provisioning action: assign application to user',
+        'Set conditions for auto-fulfilment vs approval routing',
+        'Configure downstream system webhook or API call',
+        'Test workflow with sample user and validate provisioning',
+      ],
+    },
+    configFormFields: [
+      { key: 'triggerEvent', label: 'Workflow Trigger', type: 'select', options: ['User added to group', 'User attribute change', 'Self-service access request approved', 'User verified email', 'Custom webhook'], required: true },
+      { key: 'triggerGroup', label: 'Trigger Group (if group-based)', type: 'text', placeholder: 'e.g. Premium-Subscribers', required: false },
+      { key: 'provisioningAction', label: 'Provisioning Action', type: 'select', options: ['Assign Okta application', 'Add to downstream group via API', 'Call external API webhook', 'Send welcome email'], required: true },
+      { key: 'targetApp', label: 'Target Application to Provision', type: 'text', placeholder: 'e.g. Premium Features App', required: false },
+    ],
   },
   {
     controlId: 'CIAM-008',
@@ -671,6 +1607,26 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['PSD2', 'GDPR', 'NIST SP 800-53'],
     implementationComplexity: 'high',
     tags: ['fraud', 'risk', 'bot-detection', 'ato'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'ThreatInsight — Risk-Based Authentication',
+      featurePath: 'Okta Admin > Security > ThreatInsight / Behaviour Detection',
+      agentActions: [
+        'Enable Okta ThreatInsight in Security > General',
+        'Configure behaviour detection: new device, new country, velocity',
+        'Set risk-based authentication policy: require MFA on medium risk, block on high',
+        'Enable bot detection and CAPTCHA for registration',
+        'Configure risk event notifications to security team',
+      ],
+    },
+    configFormFields: [
+      { key: 'appName', label: 'Application to Protect', type: 'text', required: true },
+      { key: 'threatInsightMode', label: 'ThreatInsight Action Mode', type: 'select', options: ['Log only', 'Log and enforce'], required: true },
+      { key: 'behaviourSignals', label: 'Behaviour Signals to Monitor', type: 'multiselect', options: ['New device', 'New country / city', 'Login velocity anomaly', 'New IP range', 'Impossible travel'], required: true },
+      { key: 'highRiskAction', label: 'Action on High Risk', type: 'select', options: ['Block and notify', 'Step-up MFA required', 'Challenge with CAPTCHA'], required: true },
+      { key: 'botProtection', label: 'Enable Bot / CAPTCHA Protection on Registration', type: 'toggle', required: false },
+    ],
   },
   {
     controlId: 'CIAM-009',
@@ -684,6 +1640,27 @@ const CIAM_CONTROLS: CatalogControl[] = [
     policyDrivers: ['ISO 27001', 'GDPR'],
     implementationComplexity: 'high',
     tags: ['b2b', 'partner', 'federation', 'saml'],
+    platform: {
+      platformId: 'okta',
+      platformName: 'Okta Customer Identity',
+      featureName: 'Okta B2B — Inbound Federation for Partner Organisations',
+      featurePath: 'Okta Admin > Security > Identity Providers > Add IdP (SAML / OIDC)',
+      agentActions: [
+        'Add partner organisation as inbound SAML/OIDC identity provider',
+        'Exchange metadata / client credentials with partner IdP',
+        'Configure JIT provisioning rules for partner users',
+        'Map partner attributes to Okta user profile',
+        'Assign partner IdP to target customer application routing rule',
+      ],
+    },
+    configFormFields: [
+      { key: 'partnerName', label: 'Partner Organisation Name', type: 'text', placeholder: 'e.g. ACME Corp', required: true },
+      { key: 'partnerIdpProtocol', label: 'Partner IdP Protocol', type: 'select', options: ['SAML 2.0', 'OpenID Connect / OIDC', 'Microsoft AD FS'], required: true },
+      { key: 'partnerMetadata', label: 'Partner IdP Metadata URL or XML', type: 'textarea', placeholder: 'https://partner.com/saml/metadata or paste XML', required: true },
+      { key: 'jitProvisioning', label: 'Enable JIT User Provisioning', type: 'toggle', required: true },
+      { key: 'attributeMapping', label: 'Attribute Mappings (Partner → Okta)', type: 'textarea', placeholder: 'e.g. email=email\ndepartment=department', required: false },
+      { key: 'allowedDomains', label: 'Allowed Email Domains', type: 'text', placeholder: 'e.g. acme.com, acme.co.uk', required: true },
+    ],
   },
 ];
 
