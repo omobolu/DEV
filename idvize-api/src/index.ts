@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { apiKeyAuth } from './middleware/apiKey';
 import { errorHandler } from './middleware/errorHandler';
 import { controlService } from './modules/control/control.service';
-import { seedApplications } from './modules/application/application.seed';
+import { seedTenants } from './modules/tenant/tenant.seed';
 
 // ── Module Controllers ──────────────────────────────────────────────────────
 import applicationController from './modules/application/application.controller';
@@ -20,6 +20,7 @@ import documentController from './modules/document/document.controller';
 import maturityController from './modules/maturity/maturity.controller';
 import osController       from './modules/os/os.controller';
 import valueController    from './modules/value/value.controller';
+import tenantController   from './modules/tenant/tenant.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
 import gapsRouter from './routes/gaps';
@@ -36,9 +37,10 @@ app.use(express.json({ limit: '10mb' }));  // Allow large CSV imports
 app.use(morgan('dev'));
 
 // Request correlation ID for audit trail
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   const { v4: uuidv4 } = require('uuid');
   req.requestId = (req.headers['x-request-id'] as string) ?? uuidv4();
+  res.setHeader('x-request-id', req.requestId);
   next();
 });
 
@@ -85,6 +87,7 @@ app.use('/documents', documentController);
 app.use('/maturity',  maturityController);
 app.use('/os',        osController);
 app.use('/value',     valueController);
+app.use('/tenants',   tenantController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
 app.use('/api/gaps', gapsRouter);
@@ -190,8 +193,8 @@ app.listen(PORT, () => {
   console.log(`    GET  /os/alerts`);
   console.log(`========================================================\n`);
 
-  // Seed demo applications (no-op if already seeded)
-  seedApplications();
+  // Seed demo tenants, users, and application portfolios
+  seedTenants();
 });
 
 export default app;

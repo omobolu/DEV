@@ -5,9 +5,10 @@ interface ChartCardProps {
   subtitle?: string
   children: ReactNode
   className?: string
+  loading?: boolean
 }
 
-export default function ChartCard({ title, subtitle, children, className = '' }: ChartCardProps) {
+export default function ChartCard({ title, subtitle, children, className = '', loading = false }: ChartCardProps) {
   return (
     <div className={`bg-surface-800 border border-surface-700 rounded-xl p-5 flex flex-col gap-4 ${className}`}>
       <div>
@@ -15,7 +16,16 @@ export default function ChartCard({ title, subtitle, children, className = '' }:
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex-1 min-h-0">
-        {children}
+        {loading ? (
+          <div className="flex items-center justify-center h-48 animate-pulse" aria-busy="true">
+            <div className="flex flex-col items-center gap-2 text-slate-600">
+              <div className="w-16 h-16 rounded-full border-2 border-surface-600 border-t-indigo-500 animate-spin" />
+              <span className="text-xs">Loading chart…</span>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </div>
   )

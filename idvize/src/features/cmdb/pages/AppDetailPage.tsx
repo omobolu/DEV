@@ -7,6 +7,7 @@ import ControlStatusList from '../components/ControlStatusList'
 import RecommendationsCard from '../components/RecommendationsCard'
 import AppMetadataCard from '../components/AppMetadataCard'
 import FullControlsPanel from '../components/FullControlsPanel'
+import AppRiskSummaryCard from '../components/AppRiskSummaryCard'
 import { AlertTriangle } from 'lucide-react'
 
 export default function AppDetailPage() {
@@ -47,6 +48,9 @@ export default function AppDetailPage() {
         criticality={app.criticality}
         risk={app.risk}
       />
+
+      {/* ── IAM Risk Summary ── */}
+      <AppRiskSummaryCard appId={app.appId} />
 
       {/* ── KPI strip ── */}
       <AppKpiBar

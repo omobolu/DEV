@@ -38,16 +38,16 @@ function levelColor(score: number): string {
 }
 
 function TrendIcon({ trend }: { trend?: string }) {
-  if (trend === 'improving') return <TrendingUp size={12} className="text-green-400" />
-  if (trend === 'declining') return <TrendingDown size={12} className="text-red-400" />
-  return <Minus size={12} className="text-slate-500" />
+  if (trend === 'improving') return <TrendingUp size={12} className="text-green-400" aria-hidden="true" />
+  if (trend === 'declining') return <TrendingDown size={12} className="text-red-400" aria-hidden="true" />
+  return <Minus size={12} className="text-slate-500" aria-hidden="true" />
 }
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100)
   const cls = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5" role="status" aria-label={`Confidence: ${pct}%`}>
       <div className="flex-1 h-1 rounded-full bg-slate-700">
         <div className={`h-full rounded-full ${cls}`} style={{ width: `${pct}%` }} />
       </div>
@@ -100,15 +100,24 @@ function MaturityBadge({ domain }: { domain?: DomainScore }) {
 function OverallMaturityStrip({ summary, onRecalc, recalcing }: {
   summary: MaturitySummary | null; onRecalc: () => void; recalcing: boolean
 }) {
-  if (!summary) return null
+  if (!summary) return (
+    <div className="flex items-center gap-6 p-4 rounded-xl border border-surface-600 bg-surface-800 animate-pulse" aria-label="Loading maturity data">
+      <div className="w-7 h-7 rounded-full bg-slate-700 shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 w-48 rounded bg-slate-700" />
+        <div className="h-2 w-full rounded bg-slate-700" />
+        <div className="h-2 w-2/3 rounded bg-slate-700" />
+      </div>
+    </div>
+  )
   const lnum  = levelNumber(summary.level)
   const sc    = levelColor(summary.overall)
   const label = summary.level.replace('Level ', 'L').replace(' - ', ' · ')
 
   return (
-    <Link to="/maturity"
+    <Link to="/maturity" aria-label="View IAM Program Maturity full report"
       className="flex items-center gap-6 p-4 rounded-xl border border-surface-600 bg-surface-800 hover:border-indigo-500/40 transition-all group">
-      <Award size={28} style={{ color: sc }} className="shrink-0" />
+      <Award size={28} style={{ color: sc }} className="shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm font-semibold text-slate-200">IAM Program Maturity</span>
@@ -137,8 +146,9 @@ function OverallMaturityStrip({ summary, onRecalc, recalcing }: {
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <button onClick={e => { e.preventDefault(); onRecalc() }} disabled={recalcing}
+          aria-label={recalcing ? 'Recalculating maturity score' : 'Recalculate maturity score'}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-surface-500 hover:border-indigo-500 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors">
-          <RefreshCw size={12} className={recalcing ? 'animate-spin' : ''} />
+          <RefreshCw size={12} className={recalcing ? 'animate-spin' : ''} aria-hidden="true" />
           {recalcing ? 'Running…' : 'Recalculate'}
         </button>
         <span className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -196,7 +206,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center"
                     style={{ backgroundColor: `${color}20` }}>
-                    <Icon size={18} style={{ color }} />
+                    <Icon size={18} style={{ color }} aria-hidden="true" />
                   </div>
                   <span className="font-semibold text-white text-sm">{label}</span>
                 </div>
@@ -207,9 +217,10 @@ export default function Dashboard() {
 
                 {/* Detail link */}
                 <div className="flex items-center justify-between mt-3 pt-2">
-                  <span className="text-xs font-medium" style={{ color }}>View Dashboard →</span>
+                  <span className="text-xs font-medium" style={{ color }} aria-label={`View ${label} dashboard`}>View Dashboard →</span>
                   {domain && (
                     <button onClick={e => { e.stopPropagation(); navigate(`/maturity/domains/${domainId}`) }}
+                      aria-label={`View ${label} maturity detail`}
                       className="text-xs text-slate-500 hover:text-indigo-400 transition-colors">
                       Maturity detail →
                     </button>

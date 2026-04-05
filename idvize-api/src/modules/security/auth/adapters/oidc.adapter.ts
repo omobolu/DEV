@@ -14,6 +14,7 @@
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { TokenClaims, User } from '../../security.types';
+import { Tenant } from '../../../tenant/tenant.types';
 import { secretsService } from '../../secrets/secrets.service';
 import { resolvePermissions } from '../../authz/permission-matrix';
 
@@ -37,20 +38,22 @@ class OidcAdapter {
   }
 
   /**
-   * Issue a signed JWT for the given user.
+   * Issue a signed JWT for the given user and their tenant.
    */
-  async issueToken(user: User): Promise<TokenResponse> {
+  async issueToken(user: User, tenant: Tenant): Promise<TokenResponse> {
     const secret = await this.getSecret();
     const sessionId = uuidv4();
     const permissions = resolvePermissions(user.roles);
 
     const claims: TokenClaims = {
-      sub: user.userId,
-      email: user.email,
-      name: user.displayName,
-      roles: user.roles,
+      sub:        user.userId,
+      email:      user.email,
+      name:       user.displayName,
+      roles:      user.roles,
       permissions,
       sessionId,
+      tenantId:   tenant.tenantId,
+      tenantName: tenant.name,
     };
 
     const access_token = jwt.sign(claims, secret, {
@@ -73,8 +76,8 @@ class OidcAdapter {
         audience: 'idvize-api',
       }) as TokenClaims;
       return decoded;
-    } catch {
-      return null;
+    } catch (err) {
+      throw err;
     }
   }
 

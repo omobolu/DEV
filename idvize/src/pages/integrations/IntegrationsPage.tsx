@@ -134,20 +134,20 @@ export default function IntegrationsPage() {
       return (
         <div className="space-y-4">
           <div>
-            <label className={lbl}>Tenant ID <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            <label htmlFor="entra-tenant-id" className={lbl}>Tenant ID <span className="text-red-400">*</span></label>
+            <input id="entra-tenant-id" className={inp} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               value={v.tenantId} onChange={e => updateField('entra', 'tenantId', e.target.value)} />
             <p className="text-xs text-slate-500 mt-1">Found in Azure Portal → Entra ID → Overview</p>
           </div>
           <div>
-            <label className={lbl}>Client ID (App Registration) <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            <label htmlFor="entra-client-id" className={lbl}>Client ID (App Registration) <span className="text-red-400">*</span></label>
+            <input id="entra-client-id" className={inp} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               value={v.clientId} onChange={e => updateField('entra', 'clientId', e.target.value)} />
             <p className="text-xs text-slate-500 mt-1">Azure Portal → App Registrations → your app → Application (client) ID</p>
           </div>
           <div>
-            <label className={lbl}>Client Secret <span className="text-red-400">*</span></label>
-            <input className={inp} type="password" placeholder="Enter client secret value"
+            <label htmlFor="entra-client-secret" className={lbl}>Client Secret <span className="text-red-400">*</span></label>
+            <input id="entra-client-secret" className={inp} type="password" placeholder="Enter client secret value"
               value={v.clientSecret} onChange={e => updateField('entra', 'clientSecret', e.target.value)} />
             <p className="text-xs text-slate-500 mt-1">Azure Portal → App Registrations → Certificates & Secrets → New client secret</p>
           </div>
@@ -164,18 +164,18 @@ export default function IntegrationsPage() {
       return (
         <div className="space-y-4">
           <div>
-            <label className={lbl}>IdentityNow Base URL <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="https://tenant.api.identitynow.com"
+            <label htmlFor="sailpoint-base-url" className={lbl}>IdentityNow Base URL <span className="text-red-400">*</span></label>
+            <input id="sailpoint-base-url" className={inp} placeholder="https://tenant.api.identitynow.com"
               value={v.baseUrl} onChange={e => updateField('sailpoint', 'baseUrl', e.target.value)} />
           </div>
           <div>
-            <label className={lbl}>Client ID <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="SailPoint OAuth client ID"
+            <label htmlFor="sailpoint-client-id" className={lbl}>Client ID <span className="text-red-400">*</span></label>
+            <input id="sailpoint-client-id" className={inp} placeholder="SailPoint OAuth client ID"
               value={v.clientId} onChange={e => updateField('sailpoint', 'clientId', e.target.value)} />
           </div>
           <div>
-            <label className={lbl}>Client Secret <span className="text-red-400">*</span></label>
-            <input className={inp} type="password" placeholder="SailPoint OAuth client secret"
+            <label htmlFor="sailpoint-client-secret" className={lbl}>Client Secret <span className="text-red-400">*</span></label>
+            <input id="sailpoint-client-secret" className={inp} type="password" placeholder="SailPoint OAuth client secret"
               value={v.clientSecret} onChange={e => updateField('sailpoint', 'clientSecret', e.target.value)} />
           </div>
           <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 text-xs text-blue-300">
@@ -190,18 +190,18 @@ export default function IntegrationsPage() {
       return (
         <div className="space-y-4">
           <div>
-            <label className={lbl}>CyberArk PVWA Base URL <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="https://cyberark.yourcompany.com"
+            <label htmlFor="cyberark-base-url" className={lbl}>CyberArk PVWA Base URL <span className="text-red-400">*</span></label>
+            <input id="cyberark-base-url" className={inp} placeholder="https://cyberark.yourcompany.com"
               value={v.baseUrl} onChange={e => updateField('cyberark', 'baseUrl', e.target.value)} />
           </div>
           <div>
-            <label className={lbl}>Username <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="API service account username"
+            <label htmlFor="cyberark-username" className={lbl}>Username <span className="text-red-400">*</span></label>
+            <input id="cyberark-username" className={inp} placeholder="API service account username"
               value={v.username} onChange={e => updateField('cyberark', 'username', e.target.value)} />
           </div>
           <div>
-            <label className={lbl}>Password <span className="text-red-400">*</span></label>
-            <input className={inp} type="password" placeholder="Service account password"
+            <label htmlFor="cyberark-password" className={lbl}>Password <span className="text-red-400">*</span></label>
+            <input id="cyberark-password" className={inp} type="password" placeholder="Service account password"
               value={v.password} onChange={e => updateField('cyberark', 'password', e.target.value)} />
           </div>
           <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 text-xs text-blue-300">
@@ -216,14 +216,14 @@ export default function IntegrationsPage() {
       return (
         <div className="space-y-4">
           <div>
-            <label className={lbl}>Okta Domain <span className="text-red-400">*</span></label>
-            <input className={inp} placeholder="yourorg.okta.com"
+            <label htmlFor="okta-domain" className={lbl}>Okta Domain <span className="text-red-400">*</span></label>
+            <input id="okta-domain" className={inp} placeholder="yourorg.okta.com"
               value={v.domain} onChange={e => updateField('okta', 'domain', e.target.value)} />
             <p className="text-xs text-slate-500 mt-1">Without https:// — e.g. dev-12345.okta.com</p>
           </div>
           <div>
-            <label className={lbl}>API Token <span className="text-red-400">*</span></label>
-            <input className={inp} type="password" placeholder="Okta API token (SSWS ...)"
+            <label htmlFor="okta-api-token" className={lbl}>API Token <span className="text-red-400">*</span></label>
+            <input id="okta-api-token" className={inp} type="password" placeholder="Okta API token (SSWS ...)"
               value={v.apiToken} onChange={e => updateField('okta', 'apiToken', e.target.value)} />
             <p className="text-xs text-slate-500 mt-1">Okta Admin → Security → API → Tokens → Create Token</p>
           </div>
@@ -251,6 +251,8 @@ export default function IntegrationsPage() {
           <button
             key={p.key}
             onClick={() => { setActive(p.key); setTestResult(null); setSaveMsg(null) }}
+            aria-label={`Configure ${p.label}`}
+            aria-pressed={active === p.key}
             className={`text-left rounded-xl border p-4 transition-all ${active === p.key ? 'border-indigo-500 bg-indigo-500/10' : 'border-surface-600 bg-surface-800 hover:border-surface-500'}`}
           >
             <div className="text-2xl mb-2">{p.logo}</div>
@@ -275,13 +277,13 @@ export default function IntegrationsPage() {
           {renderForm()}
 
           {testResult && (
-            <div className={`mt-4 rounded-lg border p-3 text-sm ${testResult.status === 'connected' ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+            <div role="alert" className={`mt-4 rounded-lg border p-3 text-sm ${testResult.status === 'connected' ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
               {testResult.status === 'connected' ? '✓' : '✗'} {testResult.message}
             </div>
           )}
 
           {saveMsg && (
-            <div className={`mt-4 rounded-lg border p-3 text-sm ${saveMsg.includes('success') ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+            <div role="alert" className={`mt-4 rounded-lg border p-3 text-sm ${saveMsg.includes('success') ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
               {saveMsg}
             </div>
           )}
@@ -290,6 +292,7 @@ export default function IntegrationsPage() {
             <button
               onClick={handleSave}
               disabled={saving}
+              aria-label={`Save ${activePlatform.label} credentials`}
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving…' : 'Save Credentials'}
@@ -297,6 +300,7 @@ export default function IntegrationsPage() {
             <button
               onClick={handleTest}
               disabled={testing}
+              aria-label={`Test ${activePlatform.label} connection`}
               className="px-4 py-2 rounded-lg border border-surface-500 hover:border-surface-400 text-slate-300 text-sm font-medium disabled:opacity-50 transition-colors"
             >
               {testing ? 'Testing…' : 'Test Connection'}

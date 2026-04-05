@@ -87,14 +87,15 @@ function CreateDocumentModal({ onClose, onCreated }: {
   const categories = ['policy', 'procedure', 'standard', 'guideline', 'runbook', 'architecture', 'other']
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="create-doc-heading">
       <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-2xl p-6 space-y-4 mx-4">
-        <h2 className="text-lg font-semibold text-white">New Document</h2>
+        <h2 id="create-doc-heading" className="text-lg font-semibold text-white">New Document</h2>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Title *</label>
+            <label htmlFor="doc-title" className="text-xs text-slate-400 mb-1 block">Title *</label>
             <input
+              id="doc-title"
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               placeholder="e.g. Password Policy v2"
@@ -103,8 +104,9 @@ function CreateDocumentModal({ onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Category *</label>
+            <label htmlFor="doc-category" className="text-xs text-slate-400 mb-1 block">Category *</label>
             <select
+              id="doc-category"
               value={form.category}
               onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
               className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-200
@@ -116,8 +118,9 @@ function CreateDocumentModal({ onClose, onCreated }: {
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Content (Markdown) *</label>
+            <label htmlFor="doc-content" className="text-xs text-slate-400 mb-1 block">Content (Markdown) *</label>
             <textarea
+              id="doc-content"
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
               rows={8}
@@ -127,8 +130,9 @@ function CreateDocumentModal({ onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Change Note</label>
+            <label htmlFor="doc-change-note" className="text-xs text-slate-400 mb-1 block">Change Note</label>
             <input
+              id="doc-change-note"
               value={form.changeNote}
               onChange={e => setForm(f => ({ ...f, changeNote: e.target.value }))}
               placeholder="e.g. Initial draft"
@@ -222,17 +226,19 @@ export default function DocumentsPage() {
         <div className="flex gap-2">
           <button
             onClick={fetchDocs}
+            aria-label="Refresh document list"
             className="flex items-center gap-1.5 text-xs text-slate-400 border border-surface-600 px-3 py-1.5
                        rounded-lg hover:bg-surface-700 transition-colors"
           >
-            <RefreshCw size={11} /> Refresh
+            <RefreshCw size={11} aria-hidden="true" /> Refresh
           </button>
           <button
             onClick={() => setShowCreate(true)}
+            aria-label="Create new document"
             className="flex items-center gap-1.5 text-xs text-white bg-violet-600 px-3 py-1.5
                        rounded-lg hover:bg-violet-500 transition-colors"
           >
-            <Plus size={11} /> New Document
+            <Plus size={11} aria-hidden="true" /> New Document
           </button>
         </div>
       </div>
@@ -253,6 +259,7 @@ export default function DocumentsPage() {
           type="text"
           value={filter}
           onChange={e => setFilter(e.target.value)}
+          aria-label="Filter documents by title, category, or owner"
           placeholder="Filter by title, category, owner…"
           className="flex-1 max-w-sm bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm
                      text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500"

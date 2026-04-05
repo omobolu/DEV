@@ -1,11 +1,42 @@
 /**
  * Shared API client for idvize frontend.
- * Automatically handles 401 (token expired) by clearing localStorage and
- * redirecting to the login screen — no more "Token invalid or expired" dead ends.
+ *
+ * Features:
+ * - Automatic auth header injection
+ * - 401 detection with error code distinction (TOKEN_EXPIRED vs TOKEN_INVALID)
+ * - Session expiry event dispatch for UI notification
+ * - Request correlation ID forwarding
  */
 
 export const API_BASE = 'http://localhost:3001'
 export const API_KEY  = 'idvize-dev-key-change-me'
+
+/** Error codes returned by the backend */
+export type ApiErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'TOKEN_EXPIRED'
+  | 'TOKEN_INVALID'
+  | 'FORBIDDEN'
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'INTERNAL_ERROR'
+
+export interface ApiErrorResponse {
+  success: false
+  error: string
+  code: ApiErrorCode
+  details?: Record<string, unknown>
+  requestId?: string
+  timestamp: string
+}
+
+/** Dispatched when a 401 is received — App.tsx listens for this */
+export const SESSION_EXPIRED_EVENT = 'idvize:session-expired'
+
+function dispatchSessionExpired() {
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
+}
 
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('idvize_token') ?? ''
@@ -23,12 +54,39 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   })
 
   if (res.status === 401) {
-    // Token expired or invalid — clear session and force re-login
-    localStorage.removeItem('idvize_token')
-    localStorage.removeItem('idvize_user')
-    window.location.href = '/'
-    // Return the response anyway so callers don't throw
+    // Distinguish between expired and invalid tokens
+    try {
+      const body = await res.clone().json()
+      if (body.code === 'TOKEN_EXPIRED' || body.code === 'TOKEN_INVALID' || body.code === 'AUTH_REQUIRED') {
+        localStorage.removeItem('idvize_token')
+        localStorage.removeItem('idvize_user')
+        localStorage.removeItem('idvize_tenant')
+        dispatchSessionExpired()
+      }
+    } catch {
+      // If we can't parse the response, still treat as session expired
+      localStorage.removeItem('idvize_token')
+      localStorage.removeItem('idvize_user')
+      localStorage.removeItem('idvize_tenant')
+      dispatchSessionExpired()
+    }
   }
 
   return res
+}
+
+/**
+ * Convenience helper to parse a standard API response.
+ * Throws on non-success responses with the error message.
+ */
+export async function apiJson<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiFetch(path, init)
+  const json = await res.json()
+  if (!json.success) {
+    const err = new Error(json.error ?? 'Request failed')
+    ;(err as any).code = json.code
+    ;(err as any).details = json.details
+    throw err
+  }
+  return json.data as T
 }

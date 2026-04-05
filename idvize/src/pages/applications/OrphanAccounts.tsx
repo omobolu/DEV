@@ -1,3 +1,4 @@
+import { UserX } from 'lucide-react'
 import ChartCard from '@/components/common/ChartCard'
 import VerticalBarChart from '@/components/charts/VerticalBarChart'
 import DataTable from '@/components/common/DataTable'
@@ -36,7 +37,10 @@ export default function OrphanAccounts() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Orphan Accounts</h1>
+        <div className="flex items-center gap-2">
+          <UserX size={20} className="text-red-400" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-white">Orphan Accounts</h1>
+        </div>
         <p className="text-slate-500 mt-1 text-sm">Applications → Orphan Accounts</p>
       </div>
 
@@ -56,6 +60,7 @@ export default function OrphanAccounts() {
           columns={COLUMNS}
           data={ORPHAN_ACCOUNTS_TABLE}
           pageSize={8}
+          emptyMessage="No orphan accounts detected"
         />
       </div>
     </div>

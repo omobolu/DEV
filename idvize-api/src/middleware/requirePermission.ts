@@ -40,6 +40,7 @@ export function requirePermission(
       reason: decision.reason,
       requestId: req.requestId,
       metadata: { method: req.method, path: req.path, matchedPolicy: decision.matchedPolicy },
+      tenantId: req.user?.tenantId,
     });
 
     if (!decision.allowed) {

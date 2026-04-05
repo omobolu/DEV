@@ -1,8 +1,9 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   MonitorDot, Plug, ScrollText, BarChart2, ShieldCheck,
   ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
-  LayoutDashboard, BookOpen, TrendingUp,
+  LayoutDashboard, BookOpen, TrendingUp, AlertTriangle, X,
 } from 'lucide-react'
 
 const SECTION_SYSTEM = [
@@ -25,9 +26,10 @@ const SECTION_DATA = [
 ]
 
 const SECTION_INTEL = [
-  { icon: Award,       label: 'Maturity',       path: '/maturity',                  color: '#a855f7' },
-  { icon: DollarSign,  label: 'Cost Intel',     path: '/insights/program-maturity', color: '#f97316' },
-  { icon: TrendingUp,  label: 'Business Value', path: '/value',                     color: '#22c55e' },
+  { icon: AlertTriangle, label: 'Top IAM Risks',  path: '/risks',                     color: '#ef4444' },
+  { icon: Award,         label: 'Maturity',       path: '/maturity',                  color: '#a855f7' },
+  { icon: DollarSign,    label: 'Cost Intel',     path: '/insights/program-maturity', color: '#f97316' },
+  { icon: TrendingUp,    label: 'Business Value', path: '/value',                     color: '#22c55e' },
 ]
 
 function SectionLabel({ label }: { label: string }) {
@@ -38,12 +40,13 @@ function SectionLabel({ label }: { label: string }) {
   )
 }
 
-function NavItem({ icon: Icon, label, path, color }: {
-  icon: React.ElementType; label: string; path: string; color?: string
+function NavItem({ icon: Icon, label, path, color, onClick }: {
+  icon: React.ElementType; label: string; path: string; color?: string; onClick?: () => void
 }) {
   return (
     <NavLink
       to={path}
+      onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors text-sm
          ${isActive
@@ -61,17 +64,49 @@ function NavItem({ icon: Icon, label, path, color }: {
   )
 }
 
-export default function Sidebar() {
-  return (
-    <aside className="flex flex-col w-52 bg-surface-800 border-r border-surface-700 h-screen flex-shrink-0 overflow-y-auto">
+interface SidebarProps {
+  open: boolean
+  onClose: () => void
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
+  const location = useLocation()
+
+  // Close on route change (mobile)
+  useEffect(() => {
+    onClose()
+  }, [location.pathname])
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    if (open) {
+      document.addEventListener('keydown', handler)
+      return () => document.removeEventListener('keydown', handler)
+    }
+  }, [open, onClose])
+
+  const sidebarContent = (
+    <>
       {/* Wordmark */}
-      <div className="flex items-center gap-2 px-4 h-14 border-b border-surface-700 flex-shrink-0">
-        <span className="text-white font-bold text-base tracking-tight">
-          id<span className="text-indigo-400">vize</span>
-        </span>
-        <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded">
-          OS
-        </span>
+      <div className="flex items-center justify-between gap-2 px-4 h-14 border-b border-surface-700 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-base tracking-tight">
+            id<span className="text-indigo-400">vize</span>
+          </span>
+          <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded">
+            OS
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:bg-surface-700 hover:text-white transition-colors"
+          aria-label="Close navigation"
+        >
+          <X size={16} />
+        </button>
       </div>
 
       {/* Control Panel — home */}
@@ -114,6 +149,33 @@ export default function Sidebar() {
       {/* INTELLIGENCE */}
       <SectionLabel label="Intelligence" />
       {SECTION_INTEL.map(item => <NavItem key={item.path} {...item} />)}
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Mobile overlay backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — always visible on md+, drawer on mobile */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 flex flex-col w-52 bg-surface-800 border-r border-surface-700 overflow-y-auto
+          transition-transform duration-200 ease-in-out
+          md:static md:translate-x-0 md:flex-shrink-0
+          ${open ? 'translate-x-0' : '-translate-x-full'}
+        `}
+        role="navigation"
+        aria-label="Main navigation"
+      >
+        {sidebarContent}
+      </aside>
+    </>
   )
 }

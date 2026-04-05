@@ -1,12 +1,24 @@
+import { useState, useEffect } from 'react'
+import { DollarSign } from 'lucide-react'
 import GaugeChart from '@/components/charts/GaugeChart'
 import ChartCard from '@/components/common/ChartCard'
 import { PROGRAM_MATURITY_DATA } from '@/data/programInsights'
 
 export default function ProgramInsights() {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 300)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Program Maturity</h1>
+        <div className="flex items-center gap-2">
+          <DollarSign size={20} className="text-orange-400" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-white">Program Maturity</h1>
+        </div>
         <p className="text-slate-500 mt-1 text-sm">Insights → Program Maturity</p>
       </div>
 
@@ -16,6 +28,7 @@ export default function ProgramInsights() {
             key={item.id}
             title={item.title}
             subtitle={`${item.totalCount.toLocaleString()} total items`}
+            loading={loading}
           >
             <GaugeChart
               segments={item.segments}
