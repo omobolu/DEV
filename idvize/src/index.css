@@ -3,16 +3,93 @@
 @tailwind utilities;
 
 @layer base {
-  :root { color-scheme: dark; }
+  /* ── Light theme (default) ─────────────────────────────────── */
+  :root {
+    color-scheme: light;
+
+    /* Surfaces / backgrounds */
+    --s-bg: 249 250 251;
+    --s-card: 255 255 255;
+    --s-hover: 243 244 246;
+    --s-input: 255 255 255;
+    --s-overlay: 0 0 0;
+
+    /* Borders */
+    --s-border: 229 231 235;
+    --s-border-strong: 209 213 219;
+
+    /* Text */
+    --s-text: 17 24 39;
+    --s-text-secondary: 55 65 81;
+    --s-text-muted: 107 114 128;
+    --s-text-faint: 156 163 175;
+
+    /* Scrollbar */
+    --s-scrollbar: #d1d5db;
+
+    /* Accent text (higher contrast for light bg) */
+    --s-a-indigo: 79 70 229;
+    --s-a-cyan: 8 145 178;
+    --s-a-red: 220 38 38;
+    --s-a-green: 22 163 74;
+    --s-a-amber: 180 83 9;
+    --s-a-purple: 147 51 234;
+    --s-a-orange: 194 65 12;
+
+    /* Chart chrome */
+    --s-chart-grid: #e5e7eb;
+    --s-chart-axis: #9ca3af;
+    --s-chart-tooltip-bg: #ffffff;
+    --s-chart-tooltip-border: #e5e7eb;
+  }
+
+  /* ── Dark theme ─────────────────────────────────────────────── */
+  [data-theme="dark"] {
+    color-scheme: dark;
+
+    --s-bg: 15 23 42;
+    --s-card: 30 41 59;
+    --s-hover: 51 65 85;
+    --s-input: 15 23 42;
+    --s-overlay: 0 0 0;
+
+    --s-border: 51 65 85;
+    --s-border-strong: 71 85 105;
+
+    --s-text: 241 245 249;
+    --s-text-secondary: 203 213 225;
+    --s-text-muted: 148 163 184;
+    --s-text-faint: 100 116 139;
+
+    --s-scrollbar: #334155;
+
+    --s-a-indigo: 129 140 248;
+    --s-a-cyan: 34 211 238;
+    --s-a-red: 248 113 113;
+    --s-a-green: 74 222 128;
+    --s-a-amber: 251 191 36;
+    --s-a-purple: 192 132 252;
+    --s-a-orange: 251 146 60;
+
+    --s-chart-grid: #334155;
+    --s-chart-axis: #64748b;
+    --s-chart-tooltip-bg: #1e293b;
+    --s-chart-tooltip-border: #475569;
+  }
+
   body {
     margin: 0;
-    @apply bg-surface-900 text-slate-100 font-sans antialiased;
+    background-color: rgb(var(--s-bg));
+    color: rgb(var(--s-text));
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #334155 transparent;
+    scrollbar-color: var(--s-scrollbar) transparent;
   }
 }

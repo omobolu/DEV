@@ -18,10 +18,10 @@ export default function AppOnboarding() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <Rocket size={20} className="text-indigo-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Application Onboarding Analytics</h1>
+          <Rocket size={20} className="text-a-indigo" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading">Application Onboarding Analytics</h1>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">Applications → Onboarding</p>
+        <p className="text-muted mt-1 text-sm">Applications → Onboarding</p>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">

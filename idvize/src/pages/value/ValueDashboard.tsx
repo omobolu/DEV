@@ -114,10 +114,10 @@ function KpiTile({
   return (
     <div className="rounded-xl border border-surface-600 bg-surface-800 p-4 relative">
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-slate-500 uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-muted uppercase tracking-wider">{label}</span>
         <div className="flex items-center gap-1">
           {footnote && (
-            <button onMouseEnter={() => setTip(true)} onMouseLeave={() => setTip(false)} className="text-slate-600 hover:text-slate-400">
+            <button onMouseEnter={() => setTip(true)} onMouseLeave={() => setTip(false)} className="text-faint hover:text-muted">
               <Info size={11} />
             </button>
           )}
@@ -125,9 +125,9 @@ function KpiTile({
         </div>
       </div>
       <div className="text-2xl font-bold" style={{ color: color ?? '#e2e8f0' }}>{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+      {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
       {tip && footnote && (
-        <div className="absolute top-full left-0 mt-1 z-10 bg-slate-800 border border-slate-600 rounded-lg p-2.5 text-xs text-slate-300 shadow-xl w-64 leading-relaxed">
+        <div className="absolute top-full left-0 mt-1 z-10 bg-slate-800 border border-slate-600 rounded-lg p-2.5 text-xs text-secondary shadow-xl w-64 leading-relaxed">
           {footnote}
         </div>
       )}
@@ -146,12 +146,12 @@ function TierBar({ t }: { t: TierValueSummary }) {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sc }} />
           <span className="text-sm font-medium capitalize" style={{ color: sc }}>{t.tier}</span>
-          <span className="text-xs text-slate-500">{t.apps} apps</span>
+          <span className="text-xs text-muted">{t.apps} apps</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <span className="text-slate-400">Base: <span className="text-white font-medium">{fmtMoney(t.baseExposure)}</span></span>
-          <span className="text-green-400">Protected: {fmtMoney(t.valueProtected)}</span>
-          {t.gapExposure > 0 && <span className="text-red-400">Gap: {fmtMoney(t.gapExposure)}</span>}
+          <span className="text-muted">Base: <span className="text-heading font-medium">{fmtMoney(t.baseExposure)}</span></span>
+          <span className="text-a-green">Protected: {fmtMoney(t.valueProtected)}</span>
+          {t.gapExposure > 0 && <span className="text-a-red">Gap: {fmtMoney(t.gapExposure)}</span>}
         </div>
       </div>
       <div className="h-3 rounded-full bg-surface-700 overflow-hidden flex">
@@ -164,7 +164,7 @@ function TierBar({ t }: { t: TierValueSummary }) {
           <div className="h-full transition-all" style={{ width: `${gapPct}%`, backgroundColor: '#ef4444', opacity: 0.6 }} />
         )}
       </div>
-      <div className="flex gap-3 mt-1 text-[10px] text-slate-500">
+      <div className="flex gap-3 mt-1 text-[10px] text-muted">
         <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500 mr-1 align-middle" />Protected ({protPct}%)</span>
         {gapPct > 0 && <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500/60 mr-1 align-middle" />Closeable gap ({gapPct}%)</span>}
       </div>
@@ -182,56 +182,56 @@ function ControlRow({ c, rank }: { c: ControlValueProfile; rank: number }) {
         onClick={() => setOpen(o => !o)}
         className="border-b border-surface-700 hover:bg-surface-700/40 cursor-pointer transition-colors"
       >
-        <td className="px-4 py-3 text-xs text-slate-500 font-mono w-8">{rank}</td>
+        <td className="px-4 py-3 text-xs text-muted font-mono w-8">{rank}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold px-1.5 py-0.5 rounded border flex-shrink-0"
               style={{ color: pc, borderColor: pc + '50', backgroundColor: pc + '15' }}>
               {c.pillar}
             </span>
-            <span className="text-sm font-medium text-slate-200">{c.controlName}</span>
+            <span className="text-sm font-medium text-body">{c.controlName}</span>
           </div>
         </td>
         <td className="px-4 py-3 text-right">
-          <span className="text-sm font-semibold text-green-400">{fmtMoney(c.totalValueProtected)}</span>
-          <div className="text-[10px] text-slate-500">/year</div>
+          <span className="text-sm font-semibold text-a-green">{fmtMoney(c.totalValueProtected)}</span>
+          <div className="text-[10px] text-muted">/year</div>
         </td>
         <td className="px-4 py-3 text-right">
-          <span className="text-sm font-semibold text-amber-400">{fmtMoney(c.potentialAdditionalValue)}</span>
-          <div className="text-[10px] text-slate-500">if gaps closed</div>
+          <span className="text-sm font-semibold text-a-amber">{fmtMoney(c.potentialAdditionalValue)}</span>
+          <div className="text-[10px] text-muted">if gaps closed</div>
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 rounded-full bg-surface-700 max-w-24">
               <div className="h-full rounded-full bg-indigo-500" style={{ width: `${c.coveragePct}%` }} />
             </div>
-            <span className="text-xs text-slate-400 w-10 text-right">{fmtPct(c.coveragePct)}</span>
+            <span className="text-xs text-muted w-10 text-right">{fmtPct(c.coveragePct)}</span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">{c.appsImplemented}/{c.totalApps} apps</div>
+          <div className="text-[10px] text-muted mt-0.5">{c.appsImplemented}/{c.totalApps} apps</div>
         </td>
         <td className="px-4 py-3 text-right">
           <span className="text-sm font-semibold" style={{ color: rc }}>
             {c.controlROI > 0 ? `${c.controlROI}%` : 'N/A'}
           </span>
-          <div className="text-[10px] text-slate-500">ROI</div>
+          <div className="text-[10px] text-muted">ROI</div>
         </td>
         <td className="px-4 py-3 text-right">
-          <span className="text-xs text-slate-500">{fmtPct(Math.round(c.reductionFactor * 100))}</span>
+          <span className="text-xs text-muted">{fmtPct(Math.round(c.reductionFactor * 100))}</span>
         </td>
-        <td className="px-2 py-3 text-slate-500">
+        <td className="px-2 py-3 text-muted">
           {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </td>
       </tr>
       {open && (
         <tr className="bg-surface-900/50">
           <td colSpan={8} className="px-6 py-3">
-            <p className="text-xs text-slate-400 leading-relaxed">{c.insight}</p>
-            <div className="flex gap-3 mt-2 text-[10px] text-slate-500">
-              <span>Cost: <span className="text-slate-300">{fmtMoney(c.estimatedAnnualCost)}/year</span></span>
+            <p className="text-xs text-muted leading-relaxed">{c.insight}</p>
+            <div className="flex gap-3 mt-2 text-[10px] text-muted">
+              <span>Cost: <span className="text-secondary">{fmtMoney(c.estimatedAnnualCost)}/year</span></span>
               <span>·</span>
-              <span>Gap exposure: <span className="text-red-400">{fmtMoney(c.totalGapExposure)}/year</span></span>
+              <span>Gap exposure: <span className="text-a-red">{fmtMoney(c.totalGapExposure)}/year</span></span>
               <span>·</span>
-              <span>Apps missing: <span className="text-slate-300">{c.appsWithGap}</span></span>
+              <span>Apps missing: <span className="text-secondary">{c.appsWithGap}</span></span>
             </div>
           </td>
         </tr>
@@ -249,8 +249,8 @@ function AppRow({ p }: { p: AppValueProfile }) {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: tc }} />
           <div>
-            <div className="text-sm text-slate-200 font-medium">{p.appName}</div>
-            <div className="text-xs text-slate-500">{p.department} · {p.userPopulation.toLocaleString()} users</div>
+            <div className="text-sm text-body font-medium">{p.appName}</div>
+            <div className="text-xs text-muted">{p.department} · {p.userPopulation.toLocaleString()} users</div>
           </div>
         </div>
       </td>
@@ -258,35 +258,35 @@ function AppRow({ p }: { p: AppValueProfile }) {
         <span className="text-xs capitalize font-medium" style={{ color: tc }}>{p.riskTier}</span>
       </td>
       <td className="px-4 py-3 text-right">
-        <span className="text-sm text-slate-400">{fmtMoney(p.baseAnnualExposure)}</span>
+        <span className="text-sm text-muted">{fmtMoney(p.baseAnnualExposure)}</span>
       </td>
       <td className="px-4 py-3 text-right">
-        <span className="text-sm font-medium text-red-400">{fmtMoney(p.currentAnnualExposure)}</span>
+        <span className="text-sm font-medium text-a-red">{fmtMoney(p.currentAnnualExposure)}</span>
       </td>
       <td className="px-4 py-3 text-right">
-        <span className="text-sm font-medium text-green-400">{fmtMoney(p.valueProtected)}</span>
-        <div className="text-[10px] text-slate-500">{p.reductionPct}% reduction</div>
+        <span className="text-sm font-medium text-a-green">{fmtMoney(p.valueProtected)}</span>
+        <div className="text-[10px] text-muted">{p.reductionPct}% reduction</div>
       </td>
       <td className="px-4 py-3 text-right">
         {p.potentialAdditionalValue > 0
-          ? <span className="text-xs text-amber-400">{fmtMoney(p.potentialAdditionalValue)}</span>
+          ? <span className="text-xs text-a-amber">{fmtMoney(p.potentialAdditionalValue)}</span>
           : <span className="text-xs text-green-600">—</span>
         }
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-0.5">
           {p.implementedControls.map(c => (
-            <span key={c} className="text-[10px] bg-green-900/30 border border-green-800/40 text-green-400 px-1 rounded">
+            <span key={c} className="text-[10px] bg-green-900/30 border border-green-800/40 text-a-green px-1 rounded">
               {CTRL_LABEL[c]}
             </span>
           ))}
           {p.gapControls.slice(0, 3).map(c => (
-            <span key={c} className="text-[10px] bg-red-900/20 border border-red-800/30 text-red-400 px-1 rounded">
+            <span key={c} className="text-[10px] bg-red-900/20 border border-red-800/30 text-a-red px-1 rounded">
               {CTRL_LABEL[c]}
             </span>
           ))}
           {p.gapControls.length > 3 && (
-            <span className="text-[10px] text-slate-500">+{p.gapControls.length - 3}</span>
+            <span className="text-[10px] text-muted">+{p.gapControls.length - 3}</span>
           )}
         </div>
       </td>
@@ -372,8 +372,8 @@ export default function ValueDashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <TrendingUp size={32} className="text-indigo-400 animate-pulse mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Computing IAM value model…</p>
+          <TrendingUp size={32} className="text-a-indigo animate-pulse mx-auto mb-3" />
+          <p className="text-muted text-sm">Computing IAM value model…</p>
         </div>
       </div>
     )
@@ -388,18 +388,18 @@ export default function ValueDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <TrendingUp size={20} className="text-indigo-400" />
-            <h1 className="text-xl font-bold text-white">Business Value & Risk Intelligence</h1>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-300">
+            <TrendingUp size={20} className="text-a-indigo" />
+            <h1 className="text-xl font-bold text-heading">Business Value & Risk Intelligence</h1>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-a-indigo">
               Module 10
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1 ml-8">
+          <p className="text-xs text-muted mt-1 ml-8">
             Quantified financial value of IAM controls · probability × impact model
           </p>
         </div>
         <button onClick={refresh} disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-surface-600 hover:border-indigo-500 text-xs text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50">
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-surface-600 hover:border-indigo-500 text-xs text-muted hover:text-body transition-colors disabled:opacity-50">
           <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           Refresh
         </button>
@@ -414,7 +414,7 @@ export default function ValueDashboard() {
         ] as { id: View; label: string; icon: React.ElementType }[]).map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setView(id)}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-              view === id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-700'
+              view === id ? 'bg-indigo-600 text-white' : 'text-muted hover:text-body hover:bg-surface-700'
             }`}>
             <Icon size={14} />
             {label}
@@ -466,29 +466,29 @@ export default function ValueDashboard() {
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-500/15 flex-shrink-0">
-                <Layers size={20} className="text-indigo-400" />
+                <Layers size={20} className="text-a-indigo" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-white">{p.appsWithAnyControl}<span className="text-slate-500 text-base font-normal">/{p.totalApps}</span></div>
-                <div className="text-xs text-slate-500">Apps with ≥1 IAM control</div>
+                <div className="text-2xl font-bold text-heading">{p.appsWithAnyControl}<span className="text-muted text-base font-normal">/{p.totalApps}</span></div>
+                <div className="text-xs text-muted">Apps with ≥1 IAM control</div>
               </div>
             </div>
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-500/10 flex-shrink-0">
-                <Activity size={20} className="text-green-400" />
+                <Activity size={20} className="text-a-green" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-white">{p.coveragePct}%</div>
-                <div className="text-xs text-slate-500">Portfolio coverage rate</div>
+                <div className="text-2xl font-bold text-heading">{p.coveragePct}%</div>
+                <div className="text-xs text-muted">Portfolio coverage rate</div>
               </div>
             </div>
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center bg-amber-500/10 flex-shrink-0">
-                <DollarSign size={20} className="text-amber-400" />
+                <DollarSign size={20} className="text-a-amber" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-white">{fmtMoney(p.totalEstimatedControlCost)}</div>
-                <div className="text-xs text-slate-500">Estimated annual IAM spend</div>
+                <div className="text-2xl font-bold text-heading">{fmtMoney(p.totalEstimatedControlCost)}</div>
+                <div className="text-xs text-muted">Estimated annual IAM spend</div>
               </div>
             </div>
           </div>
@@ -498,9 +498,9 @@ export default function ValueDashboard() {
             {/* Tier breakdown */}
             <div className="lg:col-span-3 rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <BarChart2 size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Risk Exposure by Tier</span>
-                <span className="text-xs text-slate-500 ml-1">— protected vs residual gap</span>
+                <BarChart2 size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Risk Exposure by Tier</span>
+                <span className="text-xs text-muted ml-1">— protected vs residual gap</span>
               </div>
               {p.byTier.map(t => <TierBar key={t.tier} t={t} />)}
             </div>
@@ -508,14 +508,14 @@ export default function ValueDashboard() {
             {/* Key findings */}
             <div className="lg:col-span-2 rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Key Findings</span>
+                <CheckCircle size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Key Findings</span>
               </div>
               <div className="space-y-2.5">
                 {p.keyFindings.map((f, i) => (
                   <div key={i} className="flex items-start gap-2.5">
-                    <ArrowUpRight size={13} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-slate-300 leading-relaxed">{f}</p>
+                    <ArrowUpRight size={13} className="text-a-indigo flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-secondary leading-relaxed">{f}</p>
                   </div>
                 ))}
               </div>
@@ -525,11 +525,11 @@ export default function ValueDashboard() {
           {/* AI Insight */}
           <div className="rounded-xl border border-indigo-500/20 bg-indigo-900/10 p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info size={14} className="text-indigo-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-indigo-300">Value Analysis Narrative</span>
+              <Info size={14} className="text-a-indigo flex-shrink-0" />
+              <span className="text-sm font-semibold text-a-indigo">Value Analysis Narrative</span>
             </div>
-            <p className="text-sm text-slate-300 leading-relaxed">{p.insight}</p>
-            <div className="mt-3 pt-3 border-t border-indigo-500/20 text-[10px] text-slate-600 flex items-center gap-1">
+            <p className="text-sm text-secondary leading-relaxed">{p.insight}</p>
+            <div className="mt-3 pt-3 border-t border-indigo-500/20 text-[10px] text-faint flex items-center gap-1">
               <Info size={10} />
               Deterministic model · Sources: IBM Cost of a Data Breach 2024, Verizon DBIR 2024, CISA MFA Guidance 2024, Ponemon PAM Study 2023
             </div>
@@ -538,16 +538,16 @@ export default function ValueDashboard() {
           {/* Top risk apps */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle size={15} className="text-red-400" />
-              <span className="text-sm font-semibold text-slate-200">Highest Residual Exposure</span>
-              <span className="text-xs text-slate-500">— apps with most unmitigated risk</span>
+              <AlertTriangle size={15} className="text-a-red" />
+              <span className="text-sm font-semibold text-body">Highest Residual Exposure</span>
+              <span className="text-xs text-muted">— apps with most unmitigated risk</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-surface-700">
                     {['Application', 'Tier', 'Residual Exposure', 'Value Protected', 'Missing Controls', 'ROI'].map(h => (
-                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-muted uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -567,11 +567,11 @@ export default function ValueDashboard() {
           {/* Controls value table */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-1">
-              <Shield size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Control Value Attribution</span>
-              <span className="text-xs text-slate-500 ml-1">— ranked by value protected (click row to expand insight)</span>
+              <Shield size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Control Value Attribution</span>
+              <span className="text-xs text-muted ml-1">— ranked by value protected (click row to expand insight)</span>
             </div>
-            <p className="text-xs text-slate-500 mb-4 ml-6">
+            <p className="text-xs text-muted mb-4 ml-6">
               Value is the marginal contribution of each control — the risk reduction it personally delivers within each app's control set.
             </p>
             <div className="overflow-x-auto">
@@ -579,7 +579,7 @@ export default function ValueDashboard() {
                 <thead>
                   <tr className="border-b border-surface-700">
                     {['#', 'Control', 'Value Protected', 'Potential Add\'l', 'Coverage', 'ROI', 'Reduction Factor', ''].map(h => (
-                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-muted uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -594,16 +594,16 @@ export default function ValueDashboard() {
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
               <div className="flex items-center gap-2">
-                <Activity size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Application Risk Register</span>
-                <span className="text-xs text-slate-500 ml-1">({apps.length} apps)</span>
+                <Activity size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Application Risk Register</span>
+                <span className="text-xs text-muted ml-1">({apps.length} apps)</span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {/* Tier filter */}
                 <select
                   value={appTier}
                   onChange={e => { setAppTier(e.target.value); loadApps() }}
-                  className="text-xs bg-surface-700 border border-surface-600 rounded-lg px-2 py-1.5 text-slate-300 focus:border-indigo-500 focus:outline-none">
+                  className="text-xs bg-surface-700 border border-surface-600 rounded-lg px-2 py-1.5 text-secondary focus:border-indigo-500 focus:outline-none">
                   <option value="all">All Tiers</option>
                   {['critical', 'high', 'medium', 'low'].map(t => (
                     <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
@@ -613,7 +613,7 @@ export default function ValueDashboard() {
                 <select
                   value={appSort}
                   onChange={e => { setAppSort(e.target.value); loadApps() }}
-                  className="text-xs bg-surface-700 border border-surface-600 rounded-lg px-2 py-1.5 text-slate-300 focus:border-indigo-500 focus:outline-none">
+                  className="text-xs bg-surface-700 border border-surface-600 rounded-lg px-2 py-1.5 text-secondary focus:border-indigo-500 focus:outline-none">
                   <option value="exposure">Sort: Residual Exposure</option>
                   <option value="base">Sort: Base Exposure</option>
                   <option value="value">Sort: Value Protected</option>
@@ -627,7 +627,7 @@ export default function ValueDashboard() {
                 <thead>
                   <tr className="border-b border-surface-700">
                     {['Application', 'Tier', 'Base Exposure', 'Residual Exposure', 'Value Protected', 'Potential Saving', 'Controls', 'ROI'].map(h => (
-                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2 text-left text-[10px] font-semibold text-muted uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -638,7 +638,7 @@ export default function ValueDashboard() {
             </div>
             {apps.length > 15 && (
               <button onClick={() => setShowAll(s => !s)}
-                className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                className="mt-3 text-xs text-a-indigo hover:text-a-indigo flex items-center gap-1">
                 {showAll ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show all {apps.length} apps</>}
               </button>
             )}
@@ -653,10 +653,10 @@ export default function ValueDashboard() {
           {/* Explainer */}
           <div className="rounded-xl border border-indigo-500/20 bg-indigo-900/10 p-5">
             <div className="flex items-start gap-3">
-              <Zap size={16} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+              <Zap size={16} className="text-a-indigo flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-indigo-300 mb-1">What-If Scenario Analysis</p>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className="text-sm font-semibold text-a-indigo mb-1">What-If Scenario Analysis</p>
+                <p className="text-xs text-muted leading-relaxed">
                   Select a scenario to model the financial impact of extending IAM controls to additional applications.
                   The engine re-runs the probability × impact calculation with the new control set and shows you the exact delta.
                   Results are deterministic — same inputs always produce the same outputs.
@@ -668,8 +668,8 @@ export default function ValueDashboard() {
           {/* Scenario selector */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Target size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Run a Scenario</span>
+              <Target size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Run a Scenario</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -683,11 +683,11 @@ export default function ValueDashboard() {
                   }`}>
                   <div className="flex items-center gap-2 mb-1">
                     {selectedPreset === preset.scenarioId
-                      ? <CheckCircle size={13} className="text-indigo-400 flex-shrink-0" />
+                      ? <CheckCircle size={13} className="text-a-indigo flex-shrink-0" />
                       : <div className="w-3 h-3 rounded-full border border-slate-600 flex-shrink-0" />
                     }
                     <span className={`text-xs font-medium ${
-                      selectedPreset === preset.scenarioId ? 'text-indigo-300' : 'text-slate-300'
+                      selectedPreset === preset.scenarioId ? 'text-a-indigo' : 'text-secondary'
                     }`}>{preset.scenarioName}</span>
                   </div>
                 </button>
@@ -705,14 +705,14 @@ export default function ValueDashboard() {
                 }
               </button>
               {selectedPreset && (
-                <span className="text-xs text-slate-500">
-                  Selected: <span className="text-slate-300">{presets.find(p => p.scenarioId === selectedPreset)?.scenarioName}</span>
+                <span className="text-xs text-muted">
+                  Selected: <span className="text-secondary">{presets.find(p => p.scenarioId === selectedPreset)?.scenarioName}</span>
                 </span>
               )}
             </div>
 
             {simError && (
-              <p className="mt-3 text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{simError}</p>
+              <p className="mt-3 text-xs text-a-red bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{simError}</p>
             )}
           </div>
 
@@ -723,23 +723,23 @@ export default function ValueDashboard() {
               {/* Delta KPIs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-xl border border-green-500/30 bg-green-900/10 p-4">
-                  <div className="text-xs text-slate-500 mb-1">Exposure Reduction</div>
-                  <div className="text-2xl font-bold text-green-400">{fmtMoney(simResult.delta.exposureReduction)}</div>
+                  <div className="text-xs text-muted mb-1">Exposure Reduction</div>
+                  <div className="text-2xl font-bold text-a-green">{fmtMoney(simResult.delta.exposureReduction)}</div>
                   <div className="text-xs text-green-600">{simResult.delta.exposureReductionPct}% of current exposure</div>
                 </div>
                 <div className="rounded-xl border border-indigo-500/30 bg-indigo-900/10 p-4">
-                  <div className="text-xs text-slate-500 mb-1">Additional Value</div>
-                  <div className="text-2xl font-bold text-indigo-400">{fmtMoney(simResult.delta.additionalValue)}</div>
+                  <div className="text-xs text-muted mb-1">Additional Value</div>
+                  <div className="text-2xl font-bold text-a-indigo">{fmtMoney(simResult.delta.additionalValue)}</div>
                   <div className="text-xs text-indigo-600">/year in new protection</div>
                 </div>
                 <div className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4">
-                  <div className="text-xs text-slate-500 mb-1">ROI Improvement</div>
-                  <div className="text-2xl font-bold text-amber-400">+{simResult.delta.roiImprovement}pp</div>
+                  <div className="text-xs text-muted mb-1">ROI Improvement</div>
+                  <div className="text-2xl font-bold text-a-amber">+{simResult.delta.roiImprovement}pp</div>
                   <div className="text-xs text-amber-600">percentage points</div>
                 </div>
                 <div className="rounded-xl border border-cyan-500/30 bg-cyan-900/10 p-4">
-                  <div className="text-xs text-slate-500 mb-1">Apps Affected</div>
-                  <div className="text-2xl font-bold text-cyan-400">{simResult.affectedApps.length}</div>
+                  <div className="text-xs text-muted mb-1">Apps Affected</div>
+                  <div className="text-2xl font-bold text-a-cyan">{simResult.affectedApps.length}</div>
                   <div className="text-xs text-cyan-600">{simResult.delta.additionalAppsCovered} newly covered</div>
                 </div>
               </div>
@@ -753,7 +753,7 @@ export default function ValueDashboard() {
                   <div key={label} className="rounded-xl border border-surface-600 bg-surface-800 p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="text-sm font-semibold text-slate-200">{label}</span>
+                      <span className="text-sm font-semibold text-body">{label}</span>
                     </div>
                     <div className="space-y-2">
                       {[
@@ -763,7 +763,7 @@ export default function ValueDashboard() {
                         { k: 'Coverage',          v: `${d.coveragePct}%`, c: '#6366f1' },
                       ].map(({ k, v, c }) => (
                         <div key={k} className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">{k}</span>
+                          <span className="text-muted">{k}</span>
                           <span className="font-semibold" style={{ color: c }}>{v}</span>
                         </div>
                       ))}
@@ -775,8 +775,8 @@ export default function ValueDashboard() {
               {/* Narrative */}
               <div className="rounded-xl border border-indigo-500/20 bg-indigo-900/10 p-4">
                 <div className="flex items-start gap-2">
-                  <Info size={13} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-slate-300 leading-relaxed">{simResult.narrative}</p>
+                  <Info size={13} className="text-a-indigo flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-secondary leading-relaxed">{simResult.narrative}</p>
                 </div>
               </div>
 
@@ -784,19 +784,19 @@ export default function ValueDashboard() {
               {simResult.affectedApps.length > 0 && (
                 <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
                   <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle size={15} className="text-green-400" />
-                    <span className="text-sm font-semibold text-slate-200">Impacted Applications</span>
-                    <span className="text-xs text-slate-500">— sorted by saving</span>
+                    <CheckCircle size={15} className="text-a-green" />
+                    <span className="text-sm font-semibold text-body">Impacted Applications</span>
+                    <span className="text-xs text-muted">— sorted by saving</span>
                   </div>
                   <div className="space-y-1.5">
                     {simResult.affectedApps.slice(0, 10).map(a => (
                       <div key={a.appId} className="flex items-center gap-3 py-1.5 border-b border-surface-700/50 last:border-0">
-                        <span className="flex-1 text-sm text-slate-300">{a.appName}</span>
-                        <span className="text-xs font-semibold text-green-400">{fmtMoney(a.saving)}/yr saved</span>
+                        <span className="flex-1 text-sm text-secondary">{a.appName}</span>
+                        <span className="text-xs font-semibold text-a-green">{fmtMoney(a.saving)}/yr saved</span>
                       </div>
                     ))}
                     {simResult.affectedApps.length > 10 && (
-                      <p className="text-xs text-slate-500 pt-1">
+                      <p className="text-xs text-muted pt-1">
                         + {simResult.affectedApps.length - 10} more applications
                       </p>
                     )}

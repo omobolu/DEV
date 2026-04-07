@@ -63,23 +63,23 @@ function MarkdownContent({ content }: { content: string }) {
 
   lines.forEach((line, i) => {
     if (line.startsWith('### ')) {
-      elements.push(<h3 key={i} className="text-sm font-semibold text-slate-200 mt-4 mb-1">{line.slice(4)}</h3>)
+      elements.push(<h3 key={i} className="text-sm font-semibold text-body mt-4 mb-1">{line.slice(4)}</h3>)
     } else if (line.startsWith('## ')) {
-      elements.push(<h2 key={i} className="text-base font-semibold text-white mt-5 mb-2">{line.slice(3)}</h2>)
+      elements.push(<h2 key={i} className="text-base font-semibold text-heading mt-5 mb-2">{line.slice(3)}</h2>)
     } else if (line.startsWith('# ')) {
-      elements.push(<h1 key={i} className="text-lg font-bold text-white mt-4 mb-3">{line.slice(2)}</h1>)
+      elements.push(<h1 key={i} className="text-lg font-bold text-heading mt-4 mb-3">{line.slice(2)}</h1>)
     } else if (line.startsWith('```')) {
       // skip fence markers (simplified)
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       const text = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       elements.push(
-        <li key={i} className="text-sm text-slate-300 ml-4 list-disc"
+        <li key={i} className="text-sm text-secondary ml-4 list-disc"
           dangerouslySetInnerHTML={{ __html: text }} />
       )
     } else if (line.match(/^\d+\. /)) {
       const text = line.replace(/^\d+\. /, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       elements.push(
-        <li key={i} className="text-sm text-slate-300 ml-4 list-decimal"
+        <li key={i} className="text-sm text-secondary ml-4 list-decimal"
           dangerouslySetInnerHTML={{ __html: text }} />
       )
     } else if (line.startsWith('|')) {
@@ -87,7 +87,7 @@ function MarkdownContent({ content }: { content: string }) {
       const cells = line.split('|').filter(c => c.trim())
       const isHeader = lines[i + 1]?.includes('---')
       elements.push(
-        <div key={i} className={`flex gap-px text-xs ${isHeader ? 'font-semibold text-slate-300' : 'text-slate-400'}`}>
+        <div key={i} className={`flex gap-px text-xs ${isHeader ? 'font-semibold text-secondary' : 'text-muted'}`}>
           {cells.map((c, j) => (
             <div key={j} className="flex-1 bg-surface-700/50 px-3 py-1.5">{c.trim()}</div>
           ))}
@@ -97,9 +97,9 @@ function MarkdownContent({ content }: { content: string }) {
       elements.push(<div key={i} className="h-2" />)
     } else {
       const text = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`(.*?)`/g, '<code class="bg-surface-700 px-1 rounded text-xs font-mono text-violet-300">$1</code>')
+        .replace(/`(.*?)`/g, '<code class="bg-surface-700 px-1 rounded text-xs font-mono text-a-purple">$1</code>')
       elements.push(
-        <p key={i} className="text-sm text-slate-300 leading-relaxed"
+        <p key={i} className="text-sm text-secondary leading-relaxed"
           dangerouslySetInnerHTML={{ __html: text }} />
       )
     }
@@ -155,15 +155,15 @@ export default function DocumentDetail({ documentId, onBack }: {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-500 text-sm">Loading…</div>
+      <div className="flex items-center justify-center h-64 text-muted text-sm">Loading…</div>
     )
   }
 
   if (!doc) {
     return (
       <div className="text-center py-20">
-        <p className="text-slate-400">Document not found.</p>
-        <button onClick={onBack} className="mt-4 text-sm text-violet-400 hover:underline">← Back</button>
+        <p className="text-muted">Document not found.</p>
+        <button onClick={onBack} className="mt-4 text-sm text-a-purple hover:underline">← Back</button>
       </div>
     )
   }
@@ -177,17 +177,17 @@ export default function DocumentDetail({ documentId, onBack }: {
       <div>
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 mb-4 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-muted hover:text-body mb-4 transition-colors"
         >
           <ArrowLeft size={12} /> Back to Documents
         </button>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">{doc.title}</h1>
+              <h1 className="text-2xl font-bold text-heading">{doc.title}</h1>
               <Badge label={statusLabel[doc.status]} variant={statusVariant[doc.status]} />
             </div>
-            <p className="text-slate-500 mt-1 text-sm">
+            <p className="text-muted mt-1 text-sm">
               {doc.category} · v{doc.currentVersion} · Owner: {doc.owner}
             </p>
           </div>
@@ -198,7 +198,7 @@ export default function DocumentDetail({ documentId, onBack }: {
               <button
                 onClick={() => doAction('submit')}
                 disabled={actionLoading}
-                className="flex items-center gap-1.5 text-xs text-amber-400 border border-amber-800/50
+                className="flex items-center gap-1.5 text-xs text-a-amber border border-amber-800/50
                            px-3 py-1.5 rounded-lg hover:bg-amber-900/20 disabled:opacity-50 transition-colors"
               >
                 <Send size={11} /> Submit for Review
@@ -209,7 +209,7 @@ export default function DocumentDetail({ documentId, onBack }: {
                 <button
                   onClick={() => doAction('review', 'POST', { outcome: 'approved', comments: 'Approved' })}
                   disabled={actionLoading}
-                  className="flex items-center gap-1.5 text-xs text-green-400 border border-green-800/50
+                  className="flex items-center gap-1.5 text-xs text-a-green border border-green-800/50
                              px-3 py-1.5 rounded-lg hover:bg-green-900/20 disabled:opacity-50 transition-colors"
                 >
                   <CheckCircle size={11} /> Approve
@@ -217,7 +217,7 @@ export default function DocumentDetail({ documentId, onBack }: {
                 <button
                   onClick={() => doAction('review', 'POST', { outcome: 'rejected', comments: 'Needs revision' })}
                   disabled={actionLoading}
-                  className="flex items-center gap-1.5 text-xs text-red-400 border border-red-800/50
+                  className="flex items-center gap-1.5 text-xs text-a-red border border-red-800/50
                              px-3 py-1.5 rounded-lg hover:bg-red-900/20 disabled:opacity-50 transition-colors"
                 >
                   <XCircle size={11} /> Reject
@@ -238,7 +238,7 @@ export default function DocumentDetail({ documentId, onBack }: {
               <button
                 onClick={() => doAction('archive')}
                 disabled={actionLoading}
-                className="flex items-center gap-1.5 text-xs text-slate-400 border border-surface-600
+                className="flex items-center gap-1.5 text-xs text-muted border border-surface-600
                            px-3 py-1.5 rounded-lg hover:bg-surface-700 disabled:opacity-50 transition-colors"
               >
                 <Archive size={11} /> Archive
@@ -248,7 +248,7 @@ export default function DocumentDetail({ documentId, onBack }: {
         </div>
 
         {actionError && (
-          <p className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-2">
+          <p className="mt-2 text-xs text-a-red bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-2">
             {actionError}
           </p>
         )}
@@ -257,7 +257,7 @@ export default function DocumentDetail({ documentId, onBack }: {
         {doc.tags.length > 0 && (
           <div className="flex gap-2 mt-3 flex-wrap">
             {doc.tags.map(tag => (
-              <span key={tag} className="text-xs text-slate-400 bg-surface-700 px-2 py-0.5 rounded-full">
+              <span key={tag} className="text-xs text-muted bg-surface-700 px-2 py-0.5 rounded-full">
                 {tag}
               </span>
             ))}
@@ -273,8 +273,8 @@ export default function DocumentDetail({ documentId, onBack }: {
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px capitalize
               ${activeTab === tab
-                ? 'text-violet-400 border-violet-400'
-                : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                ? 'text-a-purple border-violet-400'
+                : 'text-muted border-transparent hover:text-secondary'}`}
           >
             {tab === 'versions' ? `Versions (${doc.versions.length})` :
              tab === 'reviews' ? `Reviews (${doc.reviews.length})` : 'Content'}
@@ -288,16 +288,16 @@ export default function DocumentDetail({ documentId, onBack }: {
           {currentVersionContent ? (
             <>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                   Version {currentVersionContent.version} · {currentVersionContent.changedBy} ·{' '}
                   {new Date(currentVersionContent.changedAt).toLocaleDateString()}
                 </p>
-                <p className="text-xs text-slate-600 italic">{currentVersionContent.changeNote}</p>
+                <p className="text-xs text-faint italic">{currentVersionContent.changeNote}</p>
               </div>
               <MarkdownContent content={currentVersionContent.content} />
             </>
           ) : (
-            <p className="text-slate-500 text-sm">No content available</p>
+            <p className="text-muted text-sm">No content available</p>
           )}
         </div>
       )}
@@ -312,13 +312,13 @@ export default function DocumentDetail({ documentId, onBack }: {
                 onClick={() => setReviewingVersion(reviewingVersion === v.version ? null : v.version)}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono bg-surface-700 text-slate-300 px-2 py-0.5 rounded">v{v.version}</span>
-                  <span className="text-sm text-slate-300">{v.changeNote}</span>
+                  <span className="text-xs font-mono bg-surface-700 text-secondary px-2 py-0.5 rounded">v{v.version}</span>
+                  <span className="text-sm text-secondary">{v.changeNote}</span>
                   {v.version === doc.currentVersion && (
-                    <span className="text-xs text-violet-400 border border-violet-700 px-1.5 py-0.5 rounded">current</span>
+                    <span className="text-xs text-a-purple border border-violet-700 px-1.5 py-0.5 rounded">current</span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-muted">
                   <span>{v.changedBy}</span>
                   <span>{new Date(v.changedAt).toLocaleDateString()}</span>
                   {reviewingVersion === v.version ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -340,11 +340,11 @@ export default function DocumentDetail({ documentId, onBack }: {
       {activeTab === 'reviews' && (
         <div className="space-y-3">
           {doc.reviews.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted">
               <User size={24} />
               <p className="text-sm">No reviews yet</p>
               {doc.status === 'draft' && (
-                <p className="text-xs text-slate-600">Submit for review first</p>
+                <p className="text-xs text-faint">Submit for review first</p>
               )}
             </div>
           ) : (
@@ -352,8 +352,8 @@ export default function DocumentDetail({ documentId, onBack }: {
               <div key={r.reviewId}
                 className="bg-surface-800 border border-surface-700 rounded-xl px-5 py-4 flex items-start gap-4">
                 <div className={`mt-0.5 flex-shrink-0 ${
-                  r.outcome === 'approved' ? 'text-green-400' :
-                  r.outcome === 'rejected' ? 'text-red-400' : 'text-amber-400'
+                  r.outcome === 'approved' ? 'text-a-green' :
+                  r.outcome === 'rejected' ? 'text-a-red' : 'text-a-amber'
                 }`}>
                   {r.outcome === 'approved' ? <CheckCircle size={16} /> :
                    r.outcome === 'rejected' ? <XCircle size={16} /> :
@@ -361,17 +361,17 @@ export default function DocumentDetail({ documentId, onBack }: {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-200">{r.reviewedBy}</span>
-                    <span className="text-xs text-slate-500">v{r.version}</span>
+                    <span className="text-sm font-medium text-body">{r.reviewedBy}</span>
+                    <span className="text-xs text-muted">v{r.version}</span>
                     <span className={`text-xs capitalize ${
-                      r.outcome === 'approved' ? 'text-green-400' :
-                      r.outcome === 'rejected' ? 'text-red-400' : 'text-amber-400'
+                      r.outcome === 'approved' ? 'text-a-green' :
+                      r.outcome === 'rejected' ? 'text-a-red' : 'text-a-amber'
                     }`}>{r.outcome}</span>
                   </div>
                   {r.comments && (
-                    <p className="text-sm text-slate-400 mt-1">{r.comments}</p>
+                    <p className="text-sm text-muted mt-1">{r.comments}</p>
                   )}
-                  <p className="text-xs text-slate-600 mt-1">
+                  <p className="text-xs text-faint mt-1">
                     {new Date(r.reviewedAt).toLocaleString()}
                   </p>
                 </div>

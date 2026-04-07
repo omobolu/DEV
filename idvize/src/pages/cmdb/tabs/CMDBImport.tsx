@@ -103,11 +103,11 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-400">Choose how to import your CMDB data.</p>
+          <p className="text-sm text-muted">Choose how to import your CMDB data.</p>
         </div>
         <button
           onClick={downloadSampleCsv}
-          className="flex items-center gap-2 text-xs text-violet-400 border border-violet-800/50 px-3 py-1.5 rounded-lg hover:bg-violet-900/20 transition-colors"
+          className="flex items-center gap-2 text-xs text-a-purple border border-violet-800/50 px-3 py-1.5 rounded-lg hover:bg-violet-900/20 transition-colors"
         >
           <Download size={12} /> Download Sample CSV
         </button>
@@ -119,10 +119,10 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
           className="flex flex-col items-center gap-4 p-8 bg-surface-800 border-2 border-surface-700
                      rounded-xl hover:border-violet-600 hover:bg-violet-900/10 transition-all group"
         >
-          <FileSpreadsheet size={36} className="text-violet-400 group-hover:scale-110 transition-transform" />
+          <FileSpreadsheet size={36} className="text-a-purple group-hover:scale-110 transition-transform" />
           <div className="text-center">
-            <p className="font-semibold text-white">CSV File</p>
-            <p className="text-xs text-slate-500 mt-1">Upload a .csv file from your system</p>
+            <p className="font-semibold text-heading">CSV File</p>
+            <p className="text-xs text-muted mt-1">Upload a .csv file from your system</p>
           </div>
         </button>
         <button
@@ -130,10 +130,10 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
           className="flex flex-col items-center gap-4 p-8 bg-surface-800 border-2 border-surface-700
                      rounded-xl hover:border-violet-600 hover:bg-violet-900/10 transition-all group"
         >
-          <Globe size={36} className="text-violet-400 group-hover:scale-110 transition-transform" />
+          <Globe size={36} className="text-a-purple group-hover:scale-110 transition-transform" />
           <div className="text-center">
-            <p className="font-semibold text-white">REST API</p>
-            <p className="text-xs text-slate-500 mt-1">Connect to an endpoint with custom headers</p>
+            <p className="font-semibold text-heading">REST API</p>
+            <p className="text-xs text-muted mt-1">Connect to an endpoint with custom headers</p>
           </div>
         </button>
       </div>
@@ -144,10 +144,10 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
   if (step === 'configure') return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
-        <button onClick={() => setStep('source')} className="text-slate-500 hover:text-slate-300">
+        <button onClick={() => setStep('source')} className="text-muted hover:text-secondary">
           <ArrowLeft size={16} />
         </button>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           {source === 'csv' ? 'Upload your CSV file' : 'Configure API connection'}
         </p>
       </div>
@@ -172,10 +172,10 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => setStep('configure')} className="text-slate-500 hover:text-slate-300">
+          <button onClick={() => setStep('configure')} className="text-muted hover:text-secondary">
             <ArrowLeft size={16} />
           </button>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Map the {parsedData?.headers.length} detected columns to CMDB fields
           </p>
         </div>
@@ -203,10 +203,10 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
       <div className="space-y-6 max-w-4xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => setStep('map')} className="text-slate-500 hover:text-slate-300">
+            <button onClick={() => setStep('map')} className="text-muted hover:text-secondary">
               <ArrowLeft size={16} />
             </button>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted">
               Preview — first 5 rows after mapping ({parsedData?.rows.length.toLocaleString()} total)
             </p>
           </div>
@@ -222,18 +222,18 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
             <thead>
               <tr className="bg-surface-900 border-b border-surface-700">
                 {['App ID','App Name','Dept','Type','Criticality','SSO','MFA','PAM'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-slate-400 uppercase tracking-wide font-medium">{h}</th>
+                  <th key={h} className="text-left px-3 py-2 text-muted uppercase tracking-wide font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {preview.map((app, i) => (
                 <tr key={i} className={`border-b border-surface-700 ${i % 2 === 0 ? 'bg-surface-800' : 'bg-surface-800/60'}`}>
-                  <td className="px-3 py-2 font-mono text-slate-400">{app.appId}</td>
-                  <td className="px-3 py-2 text-slate-200 font-medium">{app.appName}</td>
-                  <td className="px-3 py-2 text-slate-400">{app.department}</td>
-                  <td className="px-3 py-2 text-slate-400">{app.appType}</td>
-                  <td className="px-3 py-2 text-slate-400">{app.businessCriticality}</td>
+                  <td className="px-3 py-2 font-mono text-muted">{app.appId}</td>
+                  <td className="px-3 py-2 text-body font-medium">{app.appName}</td>
+                  <td className="px-3 py-2 text-muted">{app.department}</td>
+                  <td className="px-3 py-2 text-muted">{app.appType}</td>
+                  <td className="px-3 py-2 text-muted">{app.businessCriticality}</td>
                   <td className="px-3 py-2">{app.ssoEnabled ? '✓' : '✗'}</td>
                   <td className="px-3 py-2">{app.mfaRequired ? '✓' : '✗'}</td>
                   <td className="px-3 py-2">{app.pamVaulted ? '✓' : '✗'}</td>
@@ -249,16 +249,16 @@ export default function CMDBImport({ onComplete }: { onComplete?: () => void }) 
   // ── Step: Done ───────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col items-center justify-center gap-6 h-64">
-      <CheckCircle size={48} className="text-green-400" />
+      <CheckCircle size={48} className="text-a-green" />
       <div className="text-center">
-        <p className="text-xl font-bold text-white">Import Complete</p>
-        <p className="text-slate-400 mt-1">
+        <p className="text-xl font-bold text-heading">Import Complete</p>
+        <p className="text-muted mt-1">
           {parsedData?.rows.length.toLocaleString()} applications loaded into idvize
         </p>
       </div>
       <div className="flex gap-3">
         <button onClick={reset}
-          className="px-4 py-2 border border-surface-600 text-slate-300 hover:bg-surface-700 text-sm rounded-lg transition-colors">
+          className="px-4 py-2 border border-surface-600 text-secondary hover:bg-surface-700 text-sm rounded-lg transition-colors">
           Import Another File
         </button>
         {onComplete && (

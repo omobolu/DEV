@@ -17,7 +17,7 @@ const statusVariant: Record<OnboardingStatus, 'success' | 'info' | 'neutral' | '
 }
 
 const BoolCell = ({ v }: { v: boolean }) => (
-  <span className={`text-xs font-semibold ${v ? 'text-green-400' : 'text-slate-600'}`}>
+  <span className={`text-xs font-semibold ${v ? 'text-a-green' : 'text-faint'}`}>
     {v ? '✓' : '✗'}
   </span>
 )
@@ -28,17 +28,17 @@ const COLUMNS: Column<CMDBApp>[] = [
   { key: 'appId',               header: 'App ID',
     render: (v) => (
       <span className="flex items-center gap-1.5">
-        <span className="font-mono text-xs text-slate-400">{String(v)}</span>
+        <span className="font-mono text-xs text-muted">{String(v)}</span>
         {detailIds.has(String(v)) && (
           <ExternalLink size={10} className="text-violet-500" />
         )}
       </span>
     )},
   { key: 'appName',             header: 'Application',
-    render: v => <span className="font-medium text-slate-200">{String(v)}</span> },
+    render: v => <span className="font-medium text-body">{String(v)}</span> },
   { key: 'department',          header: 'Dept' },
   { key: 'appType',             header: 'Type',
-    render: v => <span className="text-xs text-slate-400">{String(v)}</span> },
+    render: v => <span className="text-xs text-muted">{String(v)}</span> },
   { key: 'businessCriticality', header: 'Criticality',
     render: v => <Badge label={String(v)} variant={critVariant[v as Criticality]} /> },
   { key: 'ssoEnabled',   header: 'SSO',  render: v => <BoolCell v={v as boolean} /> },
@@ -46,7 +46,7 @@ const COLUMNS: Column<CMDBApp>[] = [
   { key: 'pamVaulted',   header: 'PAM',  render: v => <BoolCell v={v as boolean} /> },
   { key: 'rbacEnabled',  header: 'RBAC', render: v => <BoolCell v={v as boolean} /> },
   { key: 'orphanAccounts', header: 'Orphans',
-    render: v => <span className={Number(v) > 0 ? 'text-red-400 font-semibold' : 'text-slate-500'}>{String(v)}</span> },
+    render: v => <span className={Number(v) > 0 ? 'text-a-red font-semibold' : 'text-muted'}>{String(v)}</span> },
   { key: 'onboardingStatus', header: 'Status',
     render: v => <Badge label={String(v)} variant={statusVariant[v as OnboardingStatus]} /> },
 ]
@@ -83,26 +83,26 @@ export default function CMDBDataView() {
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter by name, department, type, criticality…"
           className="flex-1 max-w-sm bg-surface-900 border border-surface-700 rounded-lg px-3 py-2
-                     text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500"
+                     text-sm text-secondary placeholder-faint focus:outline-none focus:border-violet-500"
         />
-        <span className="text-xs text-slate-500">{filtered.length} of {apps.length} apps</span>
+        <span className="text-xs text-muted">{filtered.length} of {apps.length} apps</span>
         <div className="flex gap-2 ml-auto">
           <button
             onClick={resetToMock}
-            className="flex items-center gap-1.5 text-xs text-slate-400 border border-surface-600 px-3 py-1.5 rounded-lg hover:bg-surface-700 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-muted border border-surface-600 px-3 py-1.5 rounded-lg hover:bg-surface-700 transition-colors"
           >
             <RefreshCw size={11} /> Reset to Mock
           </button>
           <button
             onClick={exportCsv}
-            className="flex items-center gap-1.5 text-xs text-violet-400 border border-violet-800/50 px-3 py-1.5 rounded-lg hover:bg-violet-900/20 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-a-purple border border-violet-800/50 px-3 py-1.5 rounded-lg hover:bg-violet-900/20 transition-colors"
           >
             <Download size={11} /> Export CSV
           </button>
         </div>
       </div>
 
-      <p className="text-xs text-slate-600 -mt-2">
+      <p className="text-xs text-faint -mt-2">
         Apps marked with <span className="text-violet-500">↗</span> have a detailed dashboard — click to open.
       </p>
 

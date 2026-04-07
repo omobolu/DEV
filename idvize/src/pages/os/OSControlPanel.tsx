@@ -115,11 +115,11 @@ function KpiTile({ label, value, sub, color, icon: Icon, onClick }: {
       className={`rounded-xl border border-surface-600 bg-surface-800 p-4 ${onClick ? 'cursor-pointer hover:border-indigo-500/50' : ''} transition-all`}
     >
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-slate-500 uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-muted uppercase tracking-wider">{label}</span>
         {Icon && <Icon size={14} style={{ color: color ?? '#64748b' }} />}
       </div>
       <div className="text-2xl font-bold" style={{ color: color ?? '#e2e8f0' }}>{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+      {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
     </div>
   )
 }
@@ -134,9 +134,9 @@ function DriverCard({ driver, onConfigure }: { driver: Driver; onConfigure: () =
         <div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sc }} />
-            <span className="text-sm font-semibold text-slate-200">{driver.name}</span>
+            <span className="text-sm font-semibold text-body">{driver.name}</span>
           </div>
-          <span className="text-xs text-slate-500 ml-4">{driver.vendor} · {driver.version}</span>
+          <span className="text-xs text-muted ml-4">{driver.vendor} · {driver.version}</span>
         </div>
         <span className="text-xs px-2 py-0.5 rounded-full font-medium"
           style={{ backgroundColor: sc + '20', color: sc }}>
@@ -145,21 +145,21 @@ function DriverCard({ driver, onConfigure }: { driver: Driver; onConfigure: () =
       </div>
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="text-center p-2 rounded-lg bg-surface-900/60">
-          <div className="text-lg font-bold text-slate-200">{driver.appsCovered}</div>
-          <div className="text-xs text-slate-500">Apps Covered</div>
+          <div className="text-lg font-bold text-body">{driver.appsCovered}</div>
+          <div className="text-xs text-muted">Apps Covered</div>
         </div>
         <div className="text-center p-2 rounded-lg bg-surface-900/60">
-          <div className="text-lg font-bold text-slate-200">{driver.identitiesManaged.toLocaleString()}</div>
-          <div className="text-xs text-slate-500">Identities</div>
+          <div className="text-lg font-bold text-body">{driver.identitiesManaged.toLocaleString()}</div>
+          <div className="text-xs text-muted">Identities</div>
         </div>
       </div>
       <div className="flex flex-wrap gap-1 mb-3">
         {driver.capabilities.slice(0, 4).map(c => (
-          <span key={c} className="text-xs bg-surface-700 text-slate-400 px-1.5 py-0.5 rounded">{c}</span>
+          <span key={c} className="text-xs bg-surface-700 text-muted px-1.5 py-0.5 rounded">{c}</span>
         ))}
       </div>
       <button onClick={onConfigure}
-        className="w-full text-xs text-indigo-400 hover:text-indigo-300 border border-surface-600 hover:border-indigo-500/50 rounded-lg py-1.5 transition-colors">
+        className="w-full text-xs text-a-indigo hover:text-a-indigo border border-surface-600 hover:border-indigo-500/50 rounded-lg py-1.5 transition-colors">
         Configure Driver
       </button>
     </div>
@@ -177,7 +177,7 @@ function CoverageBar({ tier, total, covered, pct, gaps }: CoverageTier) {
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: sc }} />
       </div>
       <div className="text-xs font-semibold w-10 text-right" style={{ color: sc }}>{pct}%</div>
-      <div className="text-xs text-slate-500 w-16 text-right">{covered}/{total} apps</div>
+      <div className="text-xs text-muted w-16 text-right">{covered}/{total} apps</div>
       <div className="text-xs w-14 text-right" style={{ color: gaps > 0 ? '#ef4444' : '#22c55e' }}>
         {gaps} gaps
       </div>
@@ -238,25 +238,25 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
                   style={{ color: pillarColor, borderColor: pillarColor + '40', backgroundColor: pillarColor + '15' }}>
                   {data?.pillar ?? '…'}
                 </span>
-                <span className="text-xs text-slate-500">{controlId}</span>
+                <span className="text-xs text-muted">{controlId}</span>
                 {data && (
                   <span className={`text-xs px-1.5 py-0.5 rounded border capitalize ${
-                    data.riskReduction === 'critical' ? 'text-red-400 border-red-800/40 bg-red-900/20' :
-                    data.riskReduction === 'high'     ? 'text-amber-400 border-amber-800/40 bg-amber-900/20' :
-                    'text-slate-400 border-slate-700 bg-slate-800/40'
+                    data.riskReduction === 'critical' ? 'text-a-red border-red-800/40 bg-red-900/20' :
+                    data.riskReduction === 'high'     ? 'text-a-amber border-amber-800/40 bg-amber-900/20' :
+                    'text-muted border-slate-700 bg-slate-800/40'
                   }`}>{data.riskReduction} risk reduction</span>
                 )}
               </div>
-              <h2 className="text-base font-bold text-white mt-1.5">{data?.name ?? 'Loading…'}</h2>
-              {data && <p className="text-xs text-slate-500 mt-0.5">{data.category}</p>}
+              <h2 className="text-base font-bold text-heading mt-1.5">{data?.name ?? 'Loading…'}</h2>
+              {data && <p className="text-xs text-muted mt-0.5">{data.category}</p>}
             </div>
-            <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0 mt-1">
+            <button onClick={onClose} className="text-muted hover:text-secondary transition-colors flex-shrink-0 mt-1">
               <X size={18} />
             </button>
           </div>
 
           {data && (
-            <p className="text-xs text-slate-400 mt-3 leading-relaxed">{data.description}</p>
+            <p className="text-xs text-muted mt-3 leading-relaxed">{data.description}</p>
           )}
 
           {/* Summary bar */}
@@ -279,7 +279,7 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
           {tabs.map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`flex-1 py-2.5 text-xs font-medium transition-colors border-b-2 ${
-                activeTab === t.key ? 'border-current' : 'border-transparent text-slate-500 hover:text-slate-300'
+                activeTab === t.key ? 'border-current' : 'border-transparent text-muted hover:text-secondary'
               }`}
               style={{ color: activeTab === t.key ? t.color : undefined, borderColor: activeTab === t.key ? t.color : undefined }}>
               {t.label}
@@ -291,10 +291,10 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
         {/* App list */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-slate-500 text-sm">Loading…</div>
+            <div className="flex items-center justify-center h-32 text-muted text-sm">Loading…</div>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
-              <CheckCircle size={20} className={activeTab === 'implemented' ? 'text-green-400' : undefined} />
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted">
+              <CheckCircle size={20} className={activeTab === 'implemented' ? 'text-a-green' : undefined} />
               <p className="text-sm">
                 {activeTab === 'gap' ? 'No confirmed gaps — good coverage' :
                  activeTab === 'implemented' ? 'No apps detected with this control yet' :
@@ -314,18 +314,18 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: tc }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-200 font-medium truncate">{app.appName}</span>
+                        <span className="text-sm text-body font-medium truncate">{app.appName}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0"
                           style={{ backgroundColor: tc + '20', color: tc }}>{app.riskTier}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-500">{app.appId}</span>
-                        <span className="text-xs text-slate-600">·</span>
-                        <span className="text-xs text-slate-500">{app.department}</span>
+                        <span className="text-xs text-muted">{app.appId}</span>
+                        <span className="text-xs text-faint">·</span>
+                        <span className="text-xs text-muted">{app.department}</span>
                       </div>
                     </div>
                     {isClickable && (
-                      <ArrowRight size={14} className="text-slate-600 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+                      <ArrowRight size={14} className="text-faint group-hover:text-a-indigo transition-colors flex-shrink-0" />
                     )}
                   </div>
                 )
@@ -337,7 +337,7 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
         {/* Footer */}
         {activeTab === 'gap' && rows.length > 0 && (
           <div className="px-5 py-3 border-t border-surface-700 flex-shrink-0">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               Click any app to open its IAM Controls Assessment page
             </p>
           </div>
@@ -401,13 +401,13 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
           <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" style={{ color: sc }} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">{gap.actionLabel}</h3>
+              <h3 className="text-sm font-bold text-heading">{gap.actionLabel}</h3>
               <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                 style={{ backgroundColor: sc + '20', color: sc }}>{gap.riskTier}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{gap.appName} · {gap.department} · Risk {gap.riskScore}/100</p>
+            <p className="text-xs text-muted mt-0.5">{gap.appName} · {gap.department} · Risk {gap.riskScore}/100</p>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+          <button onClick={onClose} className="text-muted hover:text-secondary transition-colors flex-shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -417,21 +417,21 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
           {phase !== 'done' ? (
             <>
               {/* Action description */}
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-muted leading-relaxed">
                 {ACTION_DESC[gap.recommendedAction] ?? gap.actionLabel}
               </p>
 
               {/* Control status */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Control Status</p>
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Control Status</p>
                 <div className="flex flex-wrap gap-1.5">
                   {gap.missingControls.map(c => (
-                    <span key={c} className="text-xs bg-red-900/20 border border-red-800/30 text-red-400 px-2 py-0.5 rounded-full">
+                    <span key={c} className="text-xs bg-red-900/20 border border-red-800/30 text-a-red px-2 py-0.5 rounded-full">
                       Missing: {c}
                     </span>
                   ))}
                   {gap.presentControls.map(c => (
-                    <span key={c} className="text-xs bg-green-900/20 border border-green-800/30 text-green-400 px-2 py-0.5 rounded-full">
+                    <span key={c} className="text-xs bg-green-900/20 border border-green-800/30 text-a-green px-2 py-0.5 rounded-full">
                       ✓ {c}
                     </span>
                   ))}
@@ -440,7 +440,7 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
 
               {/* Workflow */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">What Happens Next</p>
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider">What Happens Next</p>
                 <div className="flex items-start gap-2">
                   <div className="flex flex-col items-center gap-1 pt-0.5">
                     {[Mail, ClipboardList, Bot, UserCog].map((Icon, i) => (
@@ -462,8 +462,8 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
                       { title: 'Engineer review & sign-off', sub: 'Alert sent to the assigned engineer to review and approve the configuration' },
                     ].map((s, i) => (
                       <div key={i}>
-                        <p className="text-xs font-medium text-slate-200">{s.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{s.sub}</p>
+                        <p className="text-xs font-medium text-body">{s.title}</p>
+                        <p className="text-[11px] text-muted mt-0.5">{s.sub}</p>
                       </div>
                     ))}
                   </div>
@@ -471,50 +471,50 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
               </div>
 
               {error && (
-                <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
+                <p className="text-xs text-a-red bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
               )}
             </>
           ) : result && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-green-900/20 border border-green-800/40 rounded-xl">
-                <CheckCircle size={20} className="text-green-400 flex-shrink-0" />
+                <CheckCircle size={20} className="text-a-green flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-green-300">Workflow initiated</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{result.message}</p>
+                  <p className="text-sm font-semibold text-a-green">Workflow initiated</p>
+                  <p className="text-xs text-muted mt-0.5">{result.message}</p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Notified</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Notified</p>
                 {result.sentTo.map((r, i) => (
                   <div key={i} className="flex items-center gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
-                    <Mail size={13} className="text-indigo-400 flex-shrink-0" />
+                    <Mail size={13} className="text-a-indigo flex-shrink-0" />
                     <div>
-                      <span className="text-xs font-medium text-slate-200">{r.name}</span>
-                      <span className="text-[10px] text-slate-500 ml-2">{r.role}</span>
-                      <p className="text-[11px] text-slate-500">{r.email}</p>
+                      <span className="text-xs font-medium text-body">{r.name}</span>
+                      <span className="text-[10px] text-muted ml-2">{r.role}</span>
+                      <p className="text-[11px] text-muted">{r.email}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Processes Created</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Processes Created</p>
                 <div className="flex gap-2 flex-wrap">
-                  <span className="flex items-center gap-1.5 text-xs text-violet-300 bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
+                  <span className="flex items-center gap-1.5 text-xs text-a-purple bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
                     <ClipboardList size={11} /> Approval: {result.approvalId}
                   </span>
-                  <span className="flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-900/20 border border-cyan-800/40 px-2.5 py-1.5 rounded-lg">
+                  <span className="flex items-center gap-1.5 text-xs text-a-cyan bg-cyan-900/20 border border-cyan-800/40 px-2.5 py-1.5 rounded-lg">
                     <Bot size={11} /> Build: {result.buildId}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Steps</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Next Steps</p>
                 {result.nextSteps.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
-                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-slate-600" />
+                  <div key={i} className="flex items-start gap-2 text-xs text-muted">
+                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-faint" />
                     <span>{s}</span>
                   </div>
                 ))}
@@ -526,7 +526,7 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-surface-700">
           <button onClick={onClose}
-            className="px-4 py-2 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors">
+            className="px-4 py-2 text-xs text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors">
             {phase === 'done' ? 'Close' : 'Cancel'}
           </button>
           {phase !== 'done' && (
@@ -553,20 +553,20 @@ function GapRow({ gap, onConfigure }: { gap: Gap; onConfigure: (gap: Gap) => voi
       <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: sc }} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="text-sm font-medium text-slate-200">{gap.appName}</span>
+          <span className="text-sm font-medium text-body">{gap.appName}</span>
           <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
             style={{ backgroundColor: sc + '20', color: sc }}>{gap.riskTier}</span>
-          <span className="text-xs text-slate-500">{gap.department}</span>
-          <span className="text-xs text-amber-400 ml-auto">Risk {gap.riskScore}/100</span>
+          <span className="text-xs text-muted">{gap.department}</span>
+          <span className="text-xs text-a-amber ml-auto">Risk {gap.riskScore}/100</span>
         </div>
         <div className="flex flex-wrap gap-1">
           {gap.missingControls.map(c => (
-            <span key={c} className="text-xs bg-red-900/20 border border-red-800/30 text-red-400 px-1.5 py-0.5 rounded">
+            <span key={c} className="text-xs bg-red-900/20 border border-red-800/30 text-a-red px-1.5 py-0.5 rounded">
               Missing: {c}
             </span>
           ))}
           {gap.presentControls.map(c => (
-            <span key={c} className="text-xs bg-green-900/20 border border-green-800/30 text-green-400 px-1.5 py-0.5 rounded">
+            <span key={c} className="text-xs bg-green-900/20 border border-green-800/30 text-a-green px-1.5 py-0.5 rounded">
               ✓ {c}
             </span>
           ))}
@@ -589,12 +589,12 @@ function EventRow({ event }: { event: OsEvent }) {
   const oc = outcomeColor(event.outcome)
   return (
     <div className="flex items-center gap-3 py-2 border-b border-surface-700/50 last:border-0 text-xs">
-      <span className="text-slate-500 font-mono shrink-0 w-18">{fmtTime(event.timestamp)}</span>
+      <span className="text-muted font-mono shrink-0 w-18">{fmtTime(event.timestamp)}</span>
       <span className="px-1.5 py-0.5 rounded text-xs shrink-0 font-medium"
         style={{ backgroundColor: sc + '20', color: sc }}>{event.severity}</span>
-      <span className="text-slate-500 shrink-0 w-16 truncate">[{event.driver}]</span>
-      <span className="text-slate-400 font-mono shrink-0">{event.type}</span>
-      <span className="text-slate-300 flex-1 truncate">{event.actor} → {event.resource}</span>
+      <span className="text-muted shrink-0 w-16 truncate">[{event.driver}]</span>
+      <span className="text-muted font-mono shrink-0">{event.type}</span>
+      <span className="text-secondary flex-1 truncate">{event.actor} → {event.resource}</span>
       <span className="shrink-0 font-mono" style={{ color: oc }}>
         {event.outcome === 'success' ? '✓' : event.outcome === 'failure' ? '✗' : '—'}
       </span>
@@ -614,12 +614,12 @@ function AlertCard({ alert, onAction }: { alert: Alert; onAction?: () => void })
       style={{ borderColor: sc + '30' }}>
       <Icon size={14} style={{ color: sc }} className="shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-slate-200 mb-0.5">{alert.title}</div>
-        <div className="text-xs text-slate-500 leading-snug">{alert.detail}</div>
+        <div className="text-xs font-medium text-body mb-0.5">{alert.title}</div>
+        <div className="text-xs text-muted leading-snug">{alert.detail}</div>
       </div>
       {onAction && (
         <button onClick={onAction}
-          className="text-xs text-indigo-400 hover:text-indigo-300 shrink-0 underline">
+          className="text-xs text-a-indigo hover:text-a-indigo shrink-0 underline">
           {alert.action}
         </button>
       )}
@@ -642,16 +642,16 @@ function ModuleCard({ mod, onClick }: { mod: OsModule; onClick: () => void }) {
       className="text-left rounded-xl border border-surface-600 bg-surface-800 p-4 hover:border-indigo-500/40 transition-all group">
       <div className="flex items-start justify-between mb-3">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-indigo-500/10">
-          <Icon size={18} className="text-indigo-400" />
+          <Icon size={18} className="text-a-indigo" />
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sc }} />
           <span className="text-xs" style={{ color: sc }}>{mod.status}</span>
         </div>
       </div>
-      <div className="text-xs font-medium text-slate-200 leading-tight mb-1">{mod.name}</div>
-      <div className="text-xs text-slate-500">v{mod.version} · {mod.category}</div>
-      <div className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity mt-2">
+      <div className="text-xs font-medium text-body leading-tight mb-1">{mod.name}</div>
+      <div className="text-xs text-muted">v{mod.version} · {mod.category}</div>
+      <div className="text-xs text-a-indigo opacity-0 group-hover:opacity-100 transition-opacity mt-2">
         Open module →
       </div>
     </button>
@@ -677,11 +677,11 @@ function ProcessRow({ proc }: { proc: Process }) {
     <div className="flex items-center gap-3 py-2.5 border-b border-surface-700 last:border-0 text-xs">
       <span className="px-1.5 py-0.5 rounded font-medium uppercase shrink-0"
         style={{ backgroundColor: tc + '20', color: tc }}>{proc.type}</span>
-      <span className="flex-1 text-slate-300 truncate">{proc.name}</span>
+      <span className="flex-1 text-secondary truncate">{proc.name}</span>
       <span className="px-2 py-0.5 rounded-full text-xs shrink-0"
         style={{ backgroundColor: sc + '20', color: sc }}>{proc.state}</span>
       <span className="shrink-0" style={{ color: pc }}>{proc.priority}</span>
-      <span className="text-slate-500 shrink-0">{fmtTime(proc.startedAt)}</span>
+      <span className="text-muted shrink-0">{fmtTime(proc.startedAt)}</span>
     </div>
   )
 }
@@ -764,8 +764,8 @@ export default function OSControlPanel() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Cpu size={32} className="text-indigo-400 animate-pulse mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Initialising IAM OS Kernel…</p>
+          <Cpu size={32} className="text-a-indigo animate-pulse mx-auto mb-3" />
+          <p className="text-muted text-sm">Initialising IAM OS Kernel…</p>
         </div>
       </div>
     )
@@ -781,23 +781,23 @@ export default function OSControlPanel() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <Cpu size={20} className="text-indigo-400" />
-            <h1 className="text-xl font-bold text-white">IAM OS Control Panel</h1>
+            <Cpu size={20} className="text-a-indigo" />
+            <h1 className="text-xl font-bold text-heading">IAM OS Control Panel</h1>
             {status && (
-              <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/20 text-green-400 font-medium">
+              <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/20 text-a-green font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 KERNEL RUNNING
               </span>
             )}
           </div>
           {status && (
-            <p className="text-xs text-slate-500 mt-1 ml-8">
+            <p className="text-xs text-muted mt-1 ml-8">
               v{status.kernel.version} · Uptime {fmtUptime(status.kernel.uptimeSeconds)} · Engine: {status.kernel.engine}
             </p>
           )}
         </div>
         <button onClick={refresh} disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-surface-600 hover:border-indigo-500 text-xs text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50">
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-surface-600 hover:border-indigo-500 text-xs text-muted hover:text-body transition-colors disabled:opacity-50">
           <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           Refresh
         </button>
@@ -814,7 +814,7 @@ export default function OSControlPanel() {
             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === id
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-surface-700'
+                : 'text-muted hover:text-body hover:bg-surface-700'
             }`}>
             <Icon size={14} />
             {label}
@@ -885,22 +885,22 @@ export default function OSControlPanel() {
             {/* Coverage by Tier */}
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Shield size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">IAM Coverage by Risk Tier</span>
+                <Shield size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">IAM Coverage by Risk Tier</span>
               </div>
               {coverage?.byRiskTier.map(t => (
                 <CoverageBar key={t.tier} {...t} />
               ))}
               {(!coverage?.byRiskTier.length) && (
-                <p className="text-xs text-slate-500">No application data. Import apps via Identity CMDB.</p>
+                <p className="text-xs text-muted">No application data. Import apps via Identity CMDB.</p>
               )}
             </div>
 
             {/* Driver Health */}
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Plug size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Loaded Drivers</span>
+                <Plug size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Loaded Drivers</span>
               </div>
               <div className="space-y-3">
                 {drivers.map(d => {
@@ -909,15 +909,15 @@ export default function OSControlPanel() {
                     <div key={d.driverId} className="flex items-center gap-3 py-2 border-b border-surface-700 last:border-0">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sc }} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-200">{d.name}</div>
-                        <div className="text-xs text-slate-500">{d.vendor} · {d.appsCovered} apps · {d.identitiesManaged.toLocaleString()} identities</div>
+                        <div className="text-sm font-medium text-body">{d.name}</div>
+                        <div className="text-xs text-muted">{d.vendor} · {d.appsCovered} apps · {d.identitiesManaged.toLocaleString()} identities</div>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                           style={{ backgroundColor: sc + '20', color: sc }}>{d.status}</span>
                         {d.status === 'degraded' && (
                           <button onClick={() => navigate('/integrations')}
-                            className="block text-xs text-orange-400 hover:text-orange-300 mt-0.5">
+                            className="block text-xs text-a-orange hover:text-a-orange mt-0.5">
                             Reconnect →
                           </button>
                         )}
@@ -933,11 +933,11 @@ export default function OSControlPanel() {
           {coverage?.byControlType && (
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">IAM Control Coverage</span>
-                <span className="text-xs text-slate-500 ml-2">— percentage of apps with each control applied</span>
+                <CheckCircle size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">IAM Control Coverage</span>
+                <span className="text-xs text-muted ml-2">— percentage of apps with each control applied</span>
               </div>
-              <p className="text-xs text-slate-500 mb-3">Click any control to see which apps have it implemented vs. which have a gap.</p>
+              <p className="text-xs text-muted mb-3">Click any control to see which apps have it implemented vs. which have a gap.</p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {coverage.byControlType.map(c => {
                   const col = c.pct !== null && c.pct >= 70 ? '#22c55e' : c.pct !== null && c.pct >= 40 ? '#eab308' : '#ef4444'
@@ -946,8 +946,8 @@ export default function OSControlPanel() {
                       onClick={() => setSelectedControl(c.controlId ?? c.control)}
                       className="text-center p-3 rounded-lg bg-surface-900/60 hover:bg-surface-700/60 hover:ring-1 hover:ring-indigo-500/40 transition-all cursor-pointer text-left">
                       <div className="text-xl font-bold mb-1" style={{ color: col }}>{c.pct !== null ? `${c.pct}%` : '—'}</div>
-                      <div className="text-xs text-slate-400 font-medium">{c.control}</div>
-                      <div className="text-xs text-slate-600">{c.apps} apps</div>
+                      <div className="text-xs text-muted font-medium">{c.control}</div>
+                      <div className="text-xs text-faint">{c.apps} apps</div>
                       <div className="h-1.5 rounded-full bg-surface-700 mt-2">
                         <div className="h-full rounded-full" style={{ width: `${c.pct ?? 0}%`, backgroundColor: col }} />
                       </div>
@@ -964,11 +964,11 @@ export default function OSControlPanel() {
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={15} className="text-red-400" />
-                  <span className="text-sm font-semibold text-slate-200">Top Unprotected Applications</span>
+                  <AlertTriangle size={15} className="text-a-red" />
+                  <span className="text-sm font-semibold text-body">Top Unprotected Applications</span>
                 </div>
                 <button onClick={() => handleTabChange('operate')}
-                  className="text-xs text-indigo-400 hover:text-indigo-300">View all →</button>
+                  className="text-xs text-a-indigo hover:text-a-indigo">View all →</button>
               </div>
               <div className="space-y-2">
                 {gaps.slice(0, 6).map(g => {
@@ -976,18 +976,18 @@ export default function OSControlPanel() {
                   return (
                     <div key={g.gapId} className="flex items-center gap-3 py-1.5 border-b border-surface-700 last:border-0">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sc }} />
-                      <span className="flex-1 text-sm text-slate-300 truncate">{g.appName}</span>
+                      <span className="flex-1 text-sm text-secondary truncate">{g.appName}</span>
                       <span className="text-xs capitalize" style={{ color: sc }}>{g.riskTier}</span>
-                      <span className="text-xs text-slate-500">{g.missingControls.length} missing</span>
+                      <span className="text-xs text-muted">{g.missingControls.length} missing</span>
                       <button onClick={() => handleTabChange('operate')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 shrink-0">
+                        className="text-xs text-a-indigo hover:text-a-indigo shrink-0">
                         <ArrowRight size={12} />
                       </button>
                     </div>
                   )
                 })}
                 {gaps.length === 0 && (
-                  <p className="text-xs text-green-400">All applications are within policy. No gaps detected.</p>
+                  <p className="text-xs text-a-green">All applications are within policy. No gaps detected.</p>
                 )}
               </div>
             </div>
@@ -995,9 +995,9 @@ export default function OSControlPanel() {
             {/* Alerts */}
             <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertCircle size={15} className="text-red-400" />
-                <span className="text-sm font-semibold text-slate-200">Alert Feed</span>
-                <span className="ml-auto text-xs text-red-400">{alerts.filter(a => a.severity === 'critical').length} critical</span>
+                <AlertCircle size={15} className="text-a-red" />
+                <span className="text-sm font-semibold text-body">Alert Feed</span>
+                <span className="ml-auto text-xs text-a-red">{alerts.filter(a => a.severity === 'critical').length} critical</span>
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {alerts.slice(0, 8).map(a => (
@@ -1005,7 +1005,7 @@ export default function OSControlPanel() {
                     onAction={a.gapId ? () => handleTabChange('operate') : undefined} />
                 ))}
                 {alerts.length === 0 && (
-                  <p className="text-xs text-green-400">No active alerts. IAM posture is healthy.</p>
+                  <p className="text-xs text-a-green">No active alerts. IAM posture is healthy.</p>
                 )}
               </div>
             </div>
@@ -1015,18 +1015,18 @@ export default function OSControlPanel() {
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Activity size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Live IAM Event Stream</span>
-                <span className="text-xs text-slate-500">— last {events.length} events across all drivers</span>
+                <Activity size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Live IAM Event Stream</span>
+                <span className="text-xs text-muted">— last {events.length} events across all drivers</span>
               </div>
-              <span className="flex items-center gap-1 text-xs text-green-400">
+              <span className="flex items-center gap-1 text-xs text-a-green">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 live
               </span>
             </div>
             <div className="max-h-64 overflow-y-auto font-mono">
               {events.length === 0
-                ? <p className="text-xs text-slate-500">No events recorded yet. Events appear as IAM activity occurs.</p>
+                ? <p className="text-xs text-muted">No events recorded yet. Events appear as IAM activity occurs.</p>
                 : events.map(e => <EventRow key={e.eventId} event={e} />)
               }
             </div>
@@ -1063,11 +1063,11 @@ export default function OSControlPanel() {
           {/* Success toast */}
           {toast && (
             <div className="flex items-center gap-3 p-3 bg-green-900/30 border border-green-700/50 rounded-xl text-sm">
-              <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
-              <span className="text-green-300 font-medium">{toast.message}</span>
-              <span className="text-slate-400">workflow started for</span>
-              <span className="text-white font-medium">{toast.appName}</span>
-              <span className="text-slate-500 ml-auto text-xs">Processes updated ↓</span>
+              <CheckCircle size={16} className="text-a-green flex-shrink-0" />
+              <span className="text-a-green font-medium">{toast.message}</span>
+              <span className="text-muted">workflow started for</span>
+              <span className="text-heading font-medium">{toast.appName}</span>
+              <span className="text-muted ml-auto text-xs">Processes updated ↓</span>
             </div>
           )}
 
@@ -1075,20 +1075,20 @@ export default function OSControlPanel() {
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-red-400" />
-                <span className="text-sm font-semibold text-slate-200">IAM Gap Remediation Queue</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-medium">
+                <AlertTriangle size={15} className="text-a-red" />
+                <span className="text-sm font-semibold text-body">IAM Gap Remediation Queue</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-a-red font-medium">
                   {gaps.length} gaps
                 </span>
               </div>
-              <div className="flex gap-2 text-xs text-slate-500">
-                <span className="text-red-400 font-medium">{gaps.filter(g => g.riskTier === 'critical').length} critical</span>
+              <div className="flex gap-2 text-xs text-muted">
+                <span className="text-a-red font-medium">{gaps.filter(g => g.riskTier === 'critical').length} critical</span>
                 <span>·</span>
-                <span className="text-orange-400">{gaps.filter(g => g.riskTier === 'high').length} high</span>
+                <span className="text-a-orange">{gaps.filter(g => g.riskTier === 'high').length} high</span>
               </div>
             </div>
             {gaps.length === 0
-              ? <p className="text-sm text-green-400">All applications are within IAM control policy. No remediation required.</p>
+              ? <p className="text-sm text-a-green">All applications are within IAM control policy. No remediation required.</p>
               : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {gaps.map(g => (
@@ -1102,22 +1102,22 @@ export default function OSControlPanel() {
           {/* Pending Approvals */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Clock size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Pending Approvals</span>
-              <span className="text-xs text-slate-500">— actioned directly from the OS</span>
+              <Clock size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Pending Approvals</span>
+              <span className="text-xs text-muted">— actioned directly from the OS</span>
             </div>
             {(() => {
               const pendingApprovals = processes.filter(p => p.type === 'approval' && p.state === 'pending')
               if (pendingApprovals.length === 0) {
-                return <p className="text-xs text-slate-500">No pending approvals.</p>
+                return <p className="text-xs text-muted">No pending approvals.</p>
               }
               return (
                 <div className="space-y-2">
                   {pendingApprovals.map(p => (
                     <div key={p.processId} className="flex items-center gap-4 p-3 rounded-lg border border-surface-600 bg-surface-900/40">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-slate-200 truncate">{p.name}</div>
-                        <div className="text-xs text-slate-500">{fmtTime(p.startedAt)} · {p.priority} priority</div>
+                        <div className="text-sm text-body truncate">{p.name}</div>
+                        <div className="text-xs text-muted">{fmtTime(p.startedAt)} · {p.priority} priority</div>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => handleApproval(p.processId, 'approved')}
@@ -1125,7 +1125,7 @@ export default function OSControlPanel() {
                           Approve
                         </button>
                         <button onClick={() => handleApproval(p.processId, 'rejected')}
-                          className="px-3 py-1.5 rounded-lg border border-red-600/50 text-red-400 hover:bg-red-900/20 text-xs font-medium transition-colors">
+                          className="px-3 py-1.5 rounded-lg border border-red-600/50 text-a-red hover:bg-red-900/20 text-xs font-medium transition-colors">
                           Deny
                         </button>
                       </div>
@@ -1139,12 +1139,12 @@ export default function OSControlPanel() {
           {/* Active Processes */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Activity size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Active IAM Processes</span>
-              <span className="text-xs text-slate-500">— builds, rotations, approvals</span>
+              <Activity size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Active IAM Processes</span>
+              <span className="text-xs text-muted">— builds, rotations, approvals</span>
             </div>
             {processes.length === 0
-              ? <p className="text-xs text-slate-500">No active processes.</p>
+              ? <p className="text-xs text-muted">No active processes.</p>
               : (
                 <div className="max-h-72 overflow-y-auto">
                   {processes.map(p => <ProcessRow key={p.processId} proc={p} />)}
@@ -1165,12 +1165,12 @@ export default function OSControlPanel() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Plug size={15} className="text-indigo-400" />
-                <span className="text-sm font-semibold text-slate-200">Installed Drivers</span>
-                <span className="text-xs text-slate-500">— IAM platform adapters loaded into the kernel</span>
+                <Plug size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Installed Drivers</span>
+                <span className="text-xs text-muted">— IAM platform adapters loaded into the kernel</span>
               </div>
               <button onClick={() => navigate('/integrations')}
-                className="text-xs text-indigo-400 hover:text-indigo-300">
+                className="text-xs text-a-indigo hover:text-a-indigo">
                 Driver Settings →
               </button>
             </div>
@@ -1184,9 +1184,9 @@ export default function OSControlPanel() {
           {/* Coverage Policies */}
           <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Shield size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Coverage Policies</span>
-              <span className="text-xs text-slate-500 ml-2">— IAM control requirements per application risk tier</span>
+              <Shield size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Coverage Policies</span>
+              <span className="text-xs text-muted ml-2">— IAM control requirements per application risk tier</span>
             </div>
             <div className="space-y-2">
               {[
@@ -1205,7 +1205,7 @@ export default function OSControlPanel() {
                       </span>
                     ))}
                   </div>
-                  <span className="ml-auto text-xs text-slate-600">Required</span>
+                  <span className="ml-auto text-xs text-faint">Required</span>
                 </div>
               ))}
             </div>
@@ -1214,9 +1214,9 @@ export default function OSControlPanel() {
           {/* Installed Modules */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Layers size={15} className="text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-200">Installed Modules</span>
-              <span className="text-xs text-slate-500">— {modules.filter(m => m.status === 'healthy').length}/{modules.length} healthy</span>
+              <Layers size={15} className="text-a-indigo" />
+              <span className="text-sm font-semibold text-body">Installed Modules</span>
+              <span className="text-xs text-muted">— {modules.filter(m => m.status === 'healthy').length}/{modules.length} healthy</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {modules.map(m => (

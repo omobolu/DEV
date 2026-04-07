@@ -16,13 +16,13 @@ interface KpiItemProps {
   border?: boolean
 }
 
-function KpiItem({ label, value, valueClass = 'text-cyan-400', border = true }: KpiItemProps) {
+function KpiItem({ label, value, valueClass = 'text-a-cyan', border = true }: KpiItemProps) {
   return (
     <div
       className={`flex-1 bg-surface-800 px-6 py-4 flex flex-col gap-1
         ${border ? 'border-r border-surface-700' : ''}`}
     >
-      <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">{label}</p>
+      <p className="text-xs text-muted uppercase tracking-wider font-medium">{label}</p>
       <p className={`text-3xl font-bold leading-none ${valueClass}`}>{
         typeof value === 'number' ? value.toLocaleString() : value
       }</p>
@@ -31,15 +31,15 @@ function KpiItem({ label, value, valueClass = 'text-cyan-400', border = true }: 
 }
 
 export default function AppKpiBar({ users, orphanAccounts, privilegedAccounts, compliance }: AppKpiBarProps) {
-  const orphanClass = orphanAccounts > 20 ? 'text-red-400' : orphanAccounts > 5 ? 'text-amber-400' : 'text-green-400'
-  const privClass   = privilegedAccounts > 100 ? 'text-red-400' : privilegedAccounts > 30 ? 'text-amber-400' : 'text-slate-200'
+  const orphanClass = orphanAccounts > 20 ? 'text-a-red' : orphanAccounts > 5 ? 'text-a-amber' : 'text-a-green'
+  const privClass   = privilegedAccounts > 100 ? 'text-a-red' : privilegedAccounts > 30 ? 'text-a-amber' : 'text-body'
 
   return (
     <div className="flex rounded-xl overflow-hidden border border-surface-700">
-      <KpiItem label="Users"          value={users}              valueClass="text-cyan-400" />
+      <KpiItem label="Users"          value={users}              valueClass="text-a-cyan" />
       <KpiItem label="Orphan Accts"   value={orphanAccounts}     valueClass={orphanClass} />
       <KpiItem label="Privileged"     value={privilegedAccounts} valueClass={privClass} />
-      <KpiItem label="Compliance"     value={compliance}         valueClass="text-violet-400" border={false} />
+      <KpiItem label="Compliance"     value={compliance}         valueClass="text-a-purple" border={false} />
     </div>
   )
 }

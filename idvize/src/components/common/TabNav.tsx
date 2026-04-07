@@ -32,8 +32,8 @@ export default function TabNav({ tabs, active, onChange }: TabNavProps) {
           tabIndex={active === tab.value ? 0 : -1}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors
             ${active === tab.value
-              ? 'bg-surface-800 text-white shadow-sm border border-surface-700'
-              : 'text-slate-500 hover:text-slate-300'}`}
+              ? 'bg-surface-800 text-heading shadow-sm border border-surface-700'
+              : 'text-muted hover:text-secondary'}`}
         >
           {tab.label}
         </button>

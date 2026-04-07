@@ -50,7 +50,7 @@ export default function CMDBOverview() {
 
   if (!n) return (
     <div className="flex items-center justify-center h-64">
-      <p className="text-slate-600">No CMDB data loaded — use the Import tab to load data.</p>
+      <p className="text-faint">No CMDB data loaded — use the Import tab to load data.</p>
     </div>
   )
 
@@ -61,9 +61,9 @@ export default function CMDBOverview() {
   return (
     <div className="space-y-6">
       {lastImportMeta && (
-        <div className="flex items-center gap-2 text-xs text-slate-500 bg-surface-800 border border-surface-700 rounded-lg px-4 py-2 w-fit">
+        <div className="flex items-center gap-2 text-xs text-muted bg-surface-800 border border-surface-700 rounded-lg px-4 py-2 w-fit">
           <Clock size={12} />
-          Last import: <span className="text-slate-400 font-medium">{lastImportMeta.source}</span>
+          Last import: <span className="text-muted font-medium">{lastImportMeta.source}</span>
           &nbsp;·&nbsp;{lastImportMeta.count.toLocaleString()} apps
           &nbsp;·&nbsp;{new Date(lastImportMeta.timestamp).toLocaleString()}
         </div>

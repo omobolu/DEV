@@ -6,6 +6,8 @@ import ChartCard from '@/components/common/ChartCard'
 import DonutChart from '@/components/charts/DonutChart'
 import SolidPieChart from '@/components/charts/SolidPieChart'
 import ComboChart from '@/components/charts/ComboChart'
+import SNOWTicketsTab from './SNOWTicketsTab'
+import AccessCertificationsTab from './AccessCertificationsTab'
 import {
   IGA_KPIS, ACTIVE_IDENTITIES_DATA, APP_TYPE_DATA,
   HIRE_TREND_DATA, APPS_PORTFOLIO_DATA, ORPHAN_PIE_DATA
@@ -16,8 +18,12 @@ const TABS = [
   { label: 'Identity Warehouse', value: 'warehouse' },
   { label: 'User Lifecycle', value: 'lifecycle' },
   { label: 'Access Requests', value: 'access' },
+  { label: 'Access Certifications', value: 'certifications' },
+  { label: 'SNOW Tickets', value: 'snow' },
   { label: 'Governance', value: 'governance' },
 ]
+
+const STUB_TABS = ['warehouse', 'lifecycle', 'access', 'governance']
 
 export default function IdentityWarehouse() {
   const [tab, setTab] = useState('home')
@@ -32,10 +38,10 @@ export default function IdentityWarehouse() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <BarChart2 size={20} className="text-indigo-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Identity Governance & Administration</h1>
+          <BarChart2 size={20} className="text-a-indigo" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading">Identity Governance & Administration</h1>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">IGA Dashboard</p>
+        <p className="text-muted mt-1 text-sm">IGA Dashboard</p>
       </div>
 
       <TabNav tabs={TABS} active={tab} onChange={setTab} />
@@ -87,21 +93,33 @@ export default function IdentityWarehouse() {
         </div>
       )}
 
-      {tab !== 'home' && (
+      {tab === 'certifications' && (
+        <div role="tabpanel" aria-label="Access Certifications">
+          <AccessCertificationsTab />
+        </div>
+      )}
+
+      {tab === 'snow' && (
+        <div role="tabpanel" aria-label="SNOW Tickets">
+          <SNOWTicketsTab />
+        </div>
+      )}
+
+      {STUB_TABS.includes(tab) && (
         <div className="flex items-center justify-center h-64" role="tabpanel" aria-label={TABS.find(t => t.value === tab)?.label}>
           <div className="text-center max-w-sm">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-surface-800 border border-surface-700 mb-3">
-              <Construction size={24} className="text-slate-500" aria-hidden="true" />
+              <Construction size={24} className="text-muted" aria-hidden="true" />
             </div>
-            <p className="text-base font-medium text-slate-400">
+            <p className="text-base font-medium text-muted">
               {TABS.find(t => t.value === tab)?.label}
             </p>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-faint mt-1">
               This view is under development and will be available in a future release.
             </p>
             <div className="flex items-center justify-center gap-2 mt-3">
               <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              <span className="text-xs text-slate-600">In development</span>
+              <span className="text-xs text-faint">In development</span>
             </div>
           </div>
         </div>

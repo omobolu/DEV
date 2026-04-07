@@ -25,6 +25,7 @@ import TopRisks from '@/pages/os/TopRisks'
 import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import ValueDashboard  from '@/pages/value/ValueDashboard'
 import { CMDBProvider } from '@/context/CMDBContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import { SESSION_EXPIRED_EVENT } from '@/lib/apiClient'
 
 export default function App() {
@@ -59,18 +60,21 @@ export default function App() {
 
   if (!token) {
     return (
-      <ErrorBoundary>
-        {sessionExpired && (
-          <SessionExpiredBanner onLogin={() => setSessionExpired(false)} />
-        )}
-        <LoginPage onLogin={(t, n, tn) => handleLogin(t, n, tn)} />
-      </ErrorBoundary>
+      <ThemeProvider>
+        <ErrorBoundary>
+          {sessionExpired && (
+            <SessionExpiredBanner onLogin={() => setSessionExpired(false)} />
+          )}
+          <LoginPage onLogin={(t, n, tn) => handleLogin(t, n, tn)} />
+        </ErrorBoundary>
+      </ThemeProvider>
     )
   }
 
   return (
-    <ErrorBoundary>
-      <CMDBProvider>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <CMDBProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<AppLayout onLogout={handleLogout} />}>
@@ -105,7 +109,8 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </CMDBProvider>
-    </ErrorBoundary>
+        </CMDBProvider>
+      </ErrorBoundary>
+    </ThemeProvider>
   )
 }

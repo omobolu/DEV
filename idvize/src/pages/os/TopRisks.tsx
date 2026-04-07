@@ -57,17 +57,17 @@ interface PortfolioRiskSummary {
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const RISK_CFG: Record<RiskLevel, { label: string; color: string; bg: string; border: string; dot: string }> = {
-  CRITICAL: { label: 'CRITICAL', color: 'text-red-400',    bg: 'bg-red-900/25',    border: 'border-red-700/50',    dot: 'bg-red-400'    },
-  HIGH:     { label: 'HIGH',     color: 'text-orange-400', bg: 'bg-orange-900/20', border: 'border-orange-700/40', dot: 'bg-orange-400' },
-  MEDIUM:   { label: 'MEDIUM',   color: 'text-yellow-400', bg: 'bg-yellow-900/15', border: 'border-yellow-700/40', dot: 'bg-yellow-400' },
-  LOW:      { label: 'LOW',      color: 'text-slate-400',  bg: 'bg-slate-800/40',  border: 'border-slate-700',     dot: 'bg-slate-500'  },
+  CRITICAL: { label: 'CRITICAL', color: 'text-a-red',    bg: 'bg-red-900/25',    border: 'border-red-700/50',    dot: 'bg-red-400'    },
+  HIGH:     { label: 'HIGH',     color: 'text-a-orange', bg: 'bg-orange-900/20', border: 'border-orange-700/40', dot: 'bg-orange-400' },
+  MEDIUM:   { label: 'MEDIUM',   color: 'text-a-amber', bg: 'bg-yellow-900/15', border: 'border-yellow-700/40', dot: 'bg-yellow-400' },
+  LOW:      { label: 'LOW',      color: 'text-muted',  bg: 'bg-slate-800/40',  border: 'border-slate-700',     dot: 'bg-slate-500'  },
 }
 
 const TIER_CFG: Record<string, { color: string; bg: string; border: string }> = {
-  critical: { color: 'text-red-400',    bg: 'bg-red-900/20',    border: 'border-red-800/40'    },
-  high:     { color: 'text-orange-400', bg: 'bg-orange-900/15', border: 'border-orange-800/40' },
-  medium:   { color: 'text-yellow-400', bg: 'bg-yellow-900/15', border: 'border-yellow-800/40' },
-  low:      { color: 'text-slate-400',  bg: 'bg-slate-800/30',  border: 'border-slate-700'     },
+  critical: { color: 'text-a-red',    bg: 'bg-red-900/20',    border: 'border-red-800/40'    },
+  high:     { color: 'text-a-orange', bg: 'bg-orange-900/15', border: 'border-orange-800/40' },
+  medium:   { color: 'text-a-amber', bg: 'bg-yellow-900/15', border: 'border-yellow-800/40' },
+  low:      { color: 'text-muted',  bg: 'bg-slate-800/30',  border: 'border-slate-700'     },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,8 +101,8 @@ function KpiTile({ label, value, sub, color }: { label: string; value: string; s
   return (
     <div className="bg-surface-800 border border-surface-700 rounded-xl px-4 py-3 flex flex-col gap-0.5">
       <span className={`text-xl font-bold ${color}`}>{value}</span>
-      <span className="text-xs font-medium text-slate-300">{label}</span>
-      {sub && <span className="text-[11px] text-slate-500">{sub}</span>}
+      <span className="text-xs font-medium text-secondary">{label}</span>
+      {sub && <span className="text-[11px] text-muted">{sub}</span>}
     </div>
   )
 }
@@ -120,7 +120,7 @@ function RiskRow({ app, onDrillDown }: { app: AppRiskSummary; onDrillDown: (id: 
     >
       {/* Rank */}
       <td className="px-4 py-3 text-center">
-        <span className={`text-xs font-bold ${app.priorityRank <= 3 ? 'text-red-400' : app.priorityRank <= 10 ? 'text-orange-400' : 'text-slate-500'}`}>
+        <span className={`text-xs font-bold ${app.priorityRank <= 3 ? 'text-a-red' : app.priorityRank <= 10 ? 'text-a-orange' : 'text-muted'}`}>
           #{app.priorityRank}
         </span>
       </td>
@@ -130,8 +130,8 @@ function RiskRow({ app, onDrillDown }: { app: AppRiskSummary; onDrillDown: (id: 
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${risk.dot}`} />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">{app.appName}</p>
-            <p className="text-[11px] text-slate-500">{app.department}</p>
+            <p className="text-sm font-medium text-body truncate">{app.appName}</p>
+            <p className="text-[11px] text-muted">{app.department}</p>
           </div>
           <span className={`hidden sm:inline text-[10px] font-bold px-1.5 py-0.5 rounded border capitalize flex-shrink-0 ${tier.color} ${tier.bg} ${tier.border}`}>
             {app.riskTier}
@@ -152,11 +152,11 @@ function RiskRow({ app, onDrillDown }: { app: AppRiskSummary; onDrillDown: (id: 
       {/* Exposure */}
       <td className="px-4 py-3">
         <div>
-          <p className={`text-sm font-semibold ${app.riskLevel === 'CRITICAL' ? 'text-red-300' : app.riskLevel === 'HIGH' ? 'text-orange-300' : 'text-slate-300'}`}>
+          <p className={`text-sm font-semibold ${app.riskLevel === 'CRITICAL' ? 'text-a-red' : app.riskLevel === 'HIGH' ? 'text-a-orange' : 'text-secondary'}`}>
             {fmt$(app.estimatedExposure)}
           </p>
           {app.gapExposure > 0 && (
-            <p className="text-[11px] text-slate-500">+{fmt$(app.gapExposure)} closeable</p>
+            <p className="text-[11px] text-muted">+{fmt$(app.gapExposure)} closeable</p>
           )}
         </div>
       </td>
@@ -165,12 +165,12 @@ function RiskRow({ app, onDrillDown }: { app: AppRiskSummary; onDrillDown: (id: 
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1">
           {app.riskDrivers.slice(0, 3).map((d, i) => (
-            <span key={i} className="text-[10px] px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded text-slate-400">
+            <span key={i} className="text-[10px] px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded text-muted">
               {d}
             </span>
           ))}
           {app.riskDrivers.length > 3 && (
-            <span className="text-[10px] text-slate-500">+{app.riskDrivers.length - 3}</span>
+            <span className="text-[10px] text-muted">+{app.riskDrivers.length - 3}</span>
           )}
           {app.riskDrivers.length === 0 && (
             <span className="text-[10px] text-green-500">No gaps</span>
@@ -180,7 +180,7 @@ function RiskRow({ app, onDrillDown }: { app: AppRiskSummary; onDrillDown: (id: 
 
       {/* Action */}
       <td className="px-4 py-3 text-right">
-        <span className="inline-flex items-center gap-1 text-xs text-indigo-400 group-hover:text-indigo-300 transition-colors">
+        <span className="inline-flex items-center gap-1 text-xs text-a-indigo group-hover:text-a-indigo transition-colors">
           Investigate <ChevronRight size={12} />
         </span>
       </td>
@@ -229,17 +229,17 @@ export default function TopRisks() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <AlertTriangle size={18} className="text-red-400" />
-            <h1 className="text-lg font-bold text-white">Top IAM Risks</h1>
+            <AlertTriangle size={18} className="text-a-red" />
+            <h1 className="text-lg font-bold text-heading">Top IAM Risks</h1>
           </div>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <p className="text-sm text-muted mt-0.5">
             Every application ranked by IAM risk score — highest urgency first
           </p>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors disabled:opacity-50"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -247,7 +247,7 @@ export default function TopRisks() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-900/20 border border-red-800/40 rounded-lg text-sm text-red-400">{error}</div>
+        <div className="p-3 bg-red-900/20 border border-red-800/40 rounded-lg text-sm text-a-red">{error}</div>
       )}
 
       {/* Summary KPIs */}
@@ -255,27 +255,27 @@ export default function TopRisks() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiTile
             label="CRITICAL Apps" value={String(summary.critical)}
-            sub={`of ${summary.totalApps} total`} color="text-red-400"
+            sub={`of ${summary.totalApps} total`} color="text-a-red"
           />
           <KpiTile
             label="HIGH Risk Apps" value={String(summary.high)}
-            sub="requires attention" color="text-orange-400"
+            sub="requires attention" color="text-a-orange"
           />
           <KpiTile
             label="Total Exposure" value={fmt$(summary.totalExposure)}
-            sub="current annual" color="text-rose-300"
+            sub="current annual" color="text-a-red"
           />
           <KpiTile
             label="Gap Exposure" value={fmt$(summary.totalGapExposure)}
-            sub="closeable with IAM" color="text-amber-400"
+            sub="closeable with IAM" color="text-a-amber"
           />
           <KpiTile
             label="Apps With Gaps" value={String(summary.appsWithGaps)}
-            sub={`${Math.round((summary.appsWithGaps / summary.totalApps) * 100)}% of portfolio`} color="text-yellow-400"
+            sub={`${Math.round((summary.appsWithGaps / summary.totalApps) * 100)}% of portfolio`} color="text-a-amber"
           />
           <KpiTile
             label="Clean Apps" value={String(summary.totalApps - summary.appsWithGaps)}
-            sub="fully protected" color="text-green-400"
+            sub="fully protected" color="text-a-green"
           />
         </div>
       )}
@@ -283,15 +283,15 @@ export default function TopRisks() {
       {/* Top risk drivers */}
       {summary && summary.topRiskDrivers.length > 0 && (
         <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
             Most Common Risk Drivers Across Portfolio
           </p>
           <div className="flex flex-wrap gap-2">
             {summary.topRiskDrivers.map((d, i) => (
               <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-surface-700 border border-surface-600 rounded-lg">
-                <TrendingDown size={11} className="text-red-400 flex-shrink-0" />
-                <span className="text-xs text-slate-300">{d.driver}</span>
-                <span className="text-[10px] text-slate-500 bg-surface-800 px-1.5 py-0.5 rounded">{d.count} apps</span>
+                <TrendingDown size={11} className="text-a-red flex-shrink-0" />
+                <span className="text-xs text-secondary">{d.driver}</span>
+                <span className="text-[10px] text-muted bg-surface-800 px-1.5 py-0.5 rounded">{d.count} apps</span>
               </div>
             ))}
           </div>
@@ -301,7 +301,7 @@ export default function TopRisks() {
       {/* Controls: filter + sort */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-1">
-          <Filter size={13} className="text-slate-500 mr-1" />
+          <Filter size={13} className="text-muted mr-1" />
           {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(lvl => {
             const active = filter === lvl
             const cfg    = lvl !== 'ALL' ? RISK_CFG[lvl as RiskLevel] : null
@@ -313,8 +313,8 @@ export default function TopRisks() {
                   ${active
                     ? cfg
                       ? `${cfg.color} ${cfg.bg} ${cfg.border} font-semibold`
-                      : 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-semibold'
-                    : 'text-slate-400 border-surface-600 hover:bg-surface-700'}`}
+                      : 'bg-indigo-600/30 text-a-indigo border-indigo-500/50 font-semibold'
+                    : 'text-muted border-surface-600 hover:bg-surface-700'}`}
               >
                 {lvl}
                 {summary && lvl !== 'ALL' && (
@@ -331,7 +331,7 @@ export default function TopRisks() {
         </div>
         <button
           onClick={() => setSortBy(s => s === 'rank' ? 'exposure' : 'rank')}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
         >
           <ArrowUpDown size={12} />
           Sort: {sortBy === 'rank' ? 'Risk Score' : 'Exposure'}
@@ -341,7 +341,7 @@ export default function TopRisks() {
       {/* Risk table */}
       <div className="bg-surface-800 border border-surface-700 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
+          <div className="flex items-center justify-center py-16 text-muted text-sm">
             <RefreshCw size={16} className="animate-spin mr-2" /> Loading risk data…
           </div>
         ) : (
@@ -349,11 +349,11 @@ export default function TopRisks() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-surface-700 bg-surface-900/40">
-                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-12">Rank</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Application</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-36">IAM Risk</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-28">Exposure</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Key Issues</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wider w-12">Rank</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wider">Application</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wider w-36">IAM Risk</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wider w-28">Exposure</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wider">Key Issues</th>
                   <th className="px-4 py-2.5 w-24" />
                 </tr>
               </thead>
@@ -367,7 +367,7 @@ export default function TopRisks() {
                 ))}
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-slate-500 text-sm">
+                    <td colSpan={6} className="text-center py-12 text-muted text-sm">
                       No apps at {filter} risk level.
                     </td>
                   </tr>
@@ -380,7 +380,7 @@ export default function TopRisks() {
 
       {/* Footer hint */}
       {!loading && visible.length > 0 && (
-        <p className="text-xs text-slate-600 text-center">
+        <p className="text-xs text-faint text-center">
           Click any row to open the full IAM control detail for that application.
         </p>
       )}

@@ -76,14 +76,14 @@ export default function CSVDropZone({ onParsed }: CSVDropZoneProps) {
   if (parsed) {
     return (
       <div className="flex items-center gap-4 p-4 bg-green-900/20 border border-green-800/50 rounded-xl">
-        <FileText size={20} className="text-green-400 flex-shrink-0" />
+        <FileText size={20} className="text-a-green flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-green-300 truncate">{parsed.fileName}</p>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {parsed.rows.length.toLocaleString()} rows · {parsed.headers.length} columns detected
           </p>
         </div>
-        <button onClick={clear} className="text-slate-500 hover:text-slate-300 transition-colors">
+        <button onClick={clear} className="text-muted hover:text-secondary transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -103,15 +103,15 @@ export default function CSVDropZone({ onParsed }: CSVDropZoneProps) {
             ? 'border-violet-500 bg-violet-900/20'
             : 'border-surface-600 hover:border-surface-500 hover:bg-surface-700/30'}`}
       >
-        <Upload size={28} className={dragging ? 'text-violet-400' : 'text-slate-500'} />
+        <Upload size={28} className={dragging ? 'text-a-purple' : 'text-muted'} />
         <div className="text-center">
-          <p className="text-sm font-medium text-slate-300">
-            Drop your CSV here, or <span className="text-violet-400">browse</span>
+          <p className="text-sm font-medium text-secondary">
+            Drop your CSV here, or <span className="text-a-purple">browse</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">Accepts .csv files</p>
+          <p className="text-xs text-muted mt-1">Accepts .csv files</p>
         </div>
       </div>
-      {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+      {error && <p className="text-xs text-a-red mt-2">{error}</p>}
       <input
         ref={inputRef}
         type="file"

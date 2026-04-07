@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { TOOLTIP_BG, TOOLTIP_BORDER } from '@/constants/colors'
+import { useTheme } from '@/context/ThemeContext'
+import { getChartTheme } from '@/constants/colors'
 
 interface PostureChartCardProps {
   ok: number
@@ -7,26 +8,9 @@ interface PostureChartCardProps {
   gap: number
 }
 
-const CustomTooltip = ({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number }>
-}) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div
-      style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}` }}
-      className="px-3 py-2 rounded-lg text-sm"
-    >
-      <p className="text-slate-300 font-medium">{payload[0].name}</p>
-      <p className="text-white font-bold">{payload[0].value} controls</p>
-    </div>
-  )
-}
-
 export default function PostureChartCard({ ok, attention, gap }: PostureChartCardProps) {
+  const { theme } = useTheme()
+  const ct = getChartTheme(theme)
   const total = ok + attention + gap
   const data = [
     { name: 'OK',   value: ok,        fill: '#22c55e' },
@@ -39,8 +23,8 @@ export default function PostureChartCard({ ok, attention, gap }: PostureChartCar
   return (
     <div className="bg-surface-800 border border-surface-700 rounded-xl p-5 flex flex-col gap-4">
       <div>
-        <p className="text-sm font-semibold text-slate-200">IAM Control Posture</p>
-        <p className="text-xs text-slate-500 mt-0.5">{total} controls evaluated</p>
+        <p className="text-sm font-semibold text-body">IAM Control Posture</p>
+        <p className="text-xs text-muted mt-0.5">{total} controls evaluated</p>
       </div>
 
       <div className="flex-1" style={{ height: 200 }}>
@@ -67,7 +51,15 @@ export default function PostureChartCard({ ok, attention, gap }: PostureChartCar
                 posture score
               </tspan>
             </text>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={({ active, payload }: { active?: boolean; payload?: readonly { name: string; value: number }[] }) => {
+              if (!active || !payload?.length) return null
+              return (
+                <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }} className="px-3 py-2 rounded-lg text-sm">
+                  <p className="text-secondary font-medium">{payload[0].name}</p>
+                  <p className="text-heading font-bold">{payload[0].value} controls</p>
+                </div>
+              )
+            }} />
             <Legend
               iconType="circle"
               iconSize={8}
@@ -81,16 +73,16 @@ export default function PostureChartCard({ ok, attention, gap }: PostureChartCar
 
       <div className="grid grid-cols-3 gap-2 pt-1 border-t border-surface-700">
         <div className="text-center">
-          <p className="text-lg font-bold text-green-400">{ok}</p>
-          <p className="text-xs text-slate-500">OK</p>
+          <p className="text-lg font-bold text-a-green">{ok}</p>
+          <p className="text-xs text-muted">OK</p>
         </div>
         <div className="text-center">
-          <p className="text-lg font-bold text-amber-400">{attention}</p>
-          <p className="text-xs text-slate-500">ATTN</p>
+          <p className="text-lg font-bold text-a-amber">{attention}</p>
+          <p className="text-xs text-muted">ATTN</p>
         </div>
         <div className="text-center">
-          <p className="text-lg font-bold text-red-400">{gap}</p>
-          <p className="text-xs text-slate-500">GAP</p>
+          <p className="text-lg font-bold text-a-red">{gap}</p>
+          <p className="text-xs text-muted">GAP</p>
         </div>
       </div>
     </div>

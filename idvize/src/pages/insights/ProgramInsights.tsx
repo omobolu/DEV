@@ -16,10 +16,10 @@ export default function ProgramInsights() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <DollarSign size={20} className="text-orange-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Program Maturity</h1>
+          <DollarSign size={20} className="text-a-orange" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading">Program Maturity</h1>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">Insights → Program Maturity</p>
+        <p className="text-muted mt-1 text-sm">Insights → Program Maturity</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -62,21 +62,21 @@ interface ControlsSummary {
 
 // ── Config ─────────────────────────────────────────────────────────────────
 const PILLAR_CFG: Record<IamPillar, { icon: React.ElementType; color: string; bg: string; border: string }> = {
-  AM:   { icon: ShieldCheck, color: 'text-cyan-400',   bg: 'bg-cyan-900/20',   border: 'border-cyan-800/40' },
-  IGA:  { icon: Shield,      color: 'text-indigo-400', bg: 'bg-indigo-900/20', border: 'border-indigo-800/40' },
-  PAM:  { icon: ShieldAlert, color: 'text-amber-400',  bg: 'bg-amber-900/20',  border: 'border-amber-800/40' },
-  CIAM: { icon: UserCheck,   color: 'text-green-400',  bg: 'bg-green-900/20',  border: 'border-green-800/40' },
+  AM:   { icon: ShieldCheck, color: 'text-a-cyan',   bg: 'bg-cyan-900/20',   border: 'border-cyan-800/40' },
+  IGA:  { icon: Shield,      color: 'text-a-indigo', bg: 'bg-indigo-900/20', border: 'border-indigo-800/40' },
+  PAM:  { icon: ShieldAlert, color: 'text-a-amber',  bg: 'bg-amber-900/20',  border: 'border-amber-800/40' },
+  CIAM: { icon: UserCheck,   color: 'text-a-green',  bg: 'bg-green-900/20',  border: 'border-green-800/40' },
 }
 
 const STATUS_CFG: Record<CtrlStatus, { label: string; icon: React.ElementType; color: string; bg: string; border: string }> = {
-  implemented:    { label: 'Implemented',    icon: CheckCircle,  color: 'text-green-400',  bg: 'bg-green-900/20',  border: 'border-green-800/40' },
-  gap:            { label: 'Gap',            icon: XCircle,      color: 'text-red-400',    bg: 'bg-red-900/20',    border: 'border-red-800/40' },
-  not_applicable: { label: 'Not Applicable', icon: MinusCircle,  color: 'text-slate-400',  bg: 'bg-slate-800/40',  border: 'border-slate-700' },
-  undetected:     { label: 'Not Assessed',   icon: HelpCircle,   color: 'text-slate-500',  bg: 'bg-surface-700/40',border: 'border-surface-600' },
+  implemented:    { label: 'Implemented',    icon: CheckCircle,  color: 'text-a-green',  bg: 'bg-green-900/20',  border: 'border-green-800/40' },
+  gap:            { label: 'Gap',            icon: XCircle,      color: 'text-a-red',    bg: 'bg-red-900/20',    border: 'border-red-800/40' },
+  not_applicable: { label: 'Not Applicable', icon: MinusCircle,  color: 'text-muted',  bg: 'bg-slate-800/40',  border: 'border-slate-700' },
+  undetected:     { label: 'Not Assessed',   icon: HelpCircle,   color: 'text-muted',  bg: 'bg-surface-700/40',border: 'border-surface-600' },
 }
 
 const RISK_COLOR: Record<string, string> = {
-  critical: 'text-red-400', high: 'text-amber-400', medium: 'text-yellow-400', low: 'text-slate-400',
+  critical: 'text-a-red', high: 'text-a-amber', medium: 'text-yellow-400', low: 'text-muted',
 }
 
 // ── Edit Modal ─────────────────────────────────────────────────────────────
@@ -126,21 +126,21 @@ function EditModal({
           <PIcon size={18} className={`mt-0.5 flex-shrink-0 ${pillar.color}`} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold text-white">{control.name}</h3>
+              <h3 className="text-sm font-semibold text-heading">{control.name}</h3>
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pillar.color} ${pillar.bg} ${pillar.border}`}>
                 {control.pillar}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">{control.controlId} · {control.category}</p>
+            <p className="text-xs text-muted mt-0.5">{control.controlId} · {control.category}</p>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+          <button onClick={onClose} className="text-muted hover:text-secondary transition-colors flex-shrink-0">
             <X size={16} />
           </button>
         </div>
 
         {/* Body */}
         <div className="px-5 py-4 space-y-4">
-          <p className="text-xs text-slate-400 leading-relaxed">{control.description}</p>
+          <p className="text-xs text-muted leading-relaxed">{control.description}</p>
 
           {/* Not Applicable toggle */}
           <div className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors
@@ -152,8 +152,8 @@ function EditModal({
               {notApplicable && <span className="text-white text-[10px] font-bold">✓</span>}
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-200">Mark as Not Applicable</p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-body">Mark as Not Applicable</p>
+              <p className="text-xs text-muted mt-0.5">
                 Use when this control does not apply to this application (e.g. PAM for a read-only reporting tool).
                 This excludes the control from gap calculations.
               </p>
@@ -162,19 +162,19 @@ function EditModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Notes / Justification</label>
+            <label className="block text-xs font-medium text-muted mb-1.5">Notes / Justification</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
               placeholder="Add context, justification, or remediation notes…"
-              className="w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-slate-200
-                         placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+              className="w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-body
+                         placeholder-faint focus:outline-none focus:border-indigo-500 transition-colors resize-none"
             />
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-xs text-a-red bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
           )}
         </div>
 
@@ -182,7 +182,7 @@ function EditModal({
         <div className="flex items-center justify-end gap-2 px-5 pb-5">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
+            className="px-4 py-2 text-xs text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
           >
             Cancel
           </button>
@@ -248,22 +248,22 @@ function ConfigureModal({ control, appId, onClose }: {
           <PIcon size={18} className={`mt-0.5 flex-shrink-0 ${pillar.color}`} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold text-white">Configure {control.name}</h3>
+              <h3 className="text-sm font-semibold text-heading">Configure {control.name}</h3>
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pillar.color} ${pillar.bg} ${pillar.border}`}>
                 {control.pillar}
               </span>
               {control.platform && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-600 bg-slate-800/50 text-slate-300">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-600 bg-slate-800/50 text-secondary">
                   {control.platform.platformName}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{control.controlId} · {control.category}</p>
+            <p className="text-xs text-muted mt-0.5">{control.controlId} · {control.category}</p>
             {control.platform && (
-              <p className="text-[11px] text-indigo-400 mt-0.5 font-medium">{control.platform.featureName}</p>
+              <p className="text-[11px] text-a-indigo mt-0.5 font-medium">{control.platform.featureName}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+          <button onClick={onClose} className="text-muted hover:text-secondary transition-colors flex-shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -274,19 +274,19 @@ function ConfigureModal({ control, appId, onClose }: {
           {phase !== 'done' ? (
             <>
               {/* Description */}
-              <p className="text-xs text-slate-400 leading-relaxed">{control.description}</p>
+              <p className="text-xs text-muted leading-relaxed">{control.description}</p>
 
               {/* Workflow steps */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Configuration Workflow</p>
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Configuration Workflow</p>
                 <div className="flex items-start gap-2">
                   <div className="flex flex-col items-center gap-1 pt-0.5">
                     <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center flex-shrink-0">
-                      <Mail size={11} className="text-indigo-300" />
+                      <Mail size={11} className="text-a-indigo" />
                     </div>
                     <div className="w-px h-4 bg-surface-600" />
                     <div className="w-6 h-6 rounded-full bg-violet-600/30 border border-violet-500/50 flex items-center justify-center flex-shrink-0">
-                      <ClipboardList size={11} className="text-violet-300" />
+                      <ClipboardList size={11} className="text-a-purple" />
                     </div>
                     <div className="w-px h-4 bg-surface-600" />
                     <div className="w-6 h-6 rounded-full bg-cyan-600/30 border border-cyan-500/50 flex items-center justify-center flex-shrink-0">
@@ -299,20 +299,20 @@ function ConfigureModal({ control, appId, onClose }: {
                   </div>
                   <div className="flex-1 space-y-3 pt-0.5">
                     <div>
-                      <p className="text-xs font-medium text-slate-200">Email sent to Business Owner & Technical Admin</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">A configuration form is sent to the app owner and IAM team requesting the required technical details</p>
+                      <p className="text-xs font-medium text-body">Email sent to Business Owner & Technical Admin</p>
+                      <p className="text-[11px] text-muted mt-0.5">A configuration form is sent to the app owner and IAM team requesting the required technical details</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-200">Owner completes configuration form</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">They provide the {control.pillar}-specific information listed below</p>
+                      <p className="text-xs font-medium text-body">Owner completes configuration form</p>
+                      <p className="text-[11px] text-muted mt-0.5">They provide the {control.pillar}-specific information listed below</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-200">AI agent configures and builds</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">The agent uses the submitted data to configure {control.name} automatically</p>
+                      <p className="text-xs font-medium text-body">AI agent configures and builds</p>
+                      <p className="text-[11px] text-muted mt-0.5">The agent uses the submitted data to configure {control.name} automatically</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-200">Engineer review &amp; sign-off</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">An alert is sent to the assigned engineer to review and approve the configuration</p>
+                      <p className="text-xs font-medium text-body">Engineer review &amp; sign-off</p>
+                      <p className="text-[11px] text-muted mt-0.5">An alert is sent to the assigned engineer to review and approve the configuration</p>
                     </div>
                   </div>
                 </div>
@@ -321,15 +321,15 @@ function ConfigureModal({ control, appId, onClose }: {
               {/* Platform agent actions */}
               {control.platform && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
                     AI Agent Actions in {control.platform.platformName}
                   </p>
                   <div className="p-2.5 bg-surface-800 border border-surface-700 rounded-lg space-y-1.5">
-                    <p className="text-[11px] text-indigo-300 font-medium">{control.platform.featurePath}</p>
+                    <p className="text-[11px] text-a-indigo font-medium">{control.platform.featurePath}</p>
                     {control.platform.agentActions.map((action, i) => (
                       <div key={i} className="flex items-start gap-2">
-                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 flex-shrink-0">{i + 1}.</span>
-                        <span className="text-[11px] text-slate-400">{action}</span>
+                        <span className="text-[10px] text-muted font-mono mt-0.5 flex-shrink-0">{i + 1}.</span>
+                        <span className="text-[11px] text-muted">{action}</span>
                       </div>
                     ))}
                   </div>
@@ -338,7 +338,7 @@ function ConfigureModal({ control, appId, onClose }: {
 
               {/* Form fields that will be requested */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
                   Information Requested from App / IAM Team
                 </p>
                 <div className="space-y-1.5">
@@ -347,16 +347,16 @@ function ConfigureModal({ control, appId, onClose }: {
                       <div className={`mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${f.required ? 'bg-red-400' : 'bg-slate-600'}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-medium text-slate-200">{f.label}</span>
-                          {f.required && <span className="text-[10px] text-red-400">required</span>}
-                          <span className="text-[10px] text-slate-600 bg-surface-700 px-1 py-0.5 rounded font-mono">{f.type}</span>
+                          <span className="text-xs font-medium text-body">{f.label}</span>
+                          {f.required && <span className="text-[10px] text-a-red">required</span>}
+                          <span className="text-[10px] text-faint bg-surface-700 px-1 py-0.5 rounded font-mono">{f.type}</span>
                         </div>
-                        {f.placeholder && <p className="text-[11px] text-slate-600 mt-0.5 italic">{f.placeholder}</p>}
-                        {f.hint && <p className="text-[11px] text-slate-500 mt-0.5">{f.hint}</p>}
+                        {f.placeholder && <p className="text-[11px] text-faint mt-0.5 italic">{f.placeholder}</p>}
+                        {f.hint && <p className="text-[11px] text-muted mt-0.5">{f.hint}</p>}
                         {f.options && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {f.options.map(opt => (
-                              <span key={opt} className="text-[10px] px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded text-slate-400">{opt}</span>
+                              <span key={opt} className="text-[10px] px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded text-muted">{opt}</span>
                             ))}
                           </div>
                         )}
@@ -367,30 +367,30 @@ function ConfigureModal({ control, appId, onClose }: {
               </div>
 
               {error && (
-                <p className="text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
+                <p className="text-xs text-a-red bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">{error}</p>
               )}
             </>
           ) : result && (
             /* Done state */
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-green-900/20 border border-green-800/40 rounded-xl">
-                <CheckCircle size={20} className="text-green-400 flex-shrink-0" />
+                <CheckCircle size={20} className="text-a-green flex-shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-green-300">Configuration request sent</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{result.message}</p>
+                  <p className="text-xs text-muted mt-0.5">{result.message}</p>
                 </div>
               </div>
 
               {/* Who was notified */}
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Notified</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Notified</p>
                 {result.sentTo.map((r, i) => (
                   <div key={i} className="flex items-center gap-3 p-2.5 bg-surface-800 border border-surface-700 rounded-lg">
-                    <Mail size={13} className="text-indigo-400 flex-shrink-0" />
+                    <Mail size={13} className="text-a-indigo flex-shrink-0" />
                     <div>
-                      <span className="text-xs font-medium text-slate-200">{r.name}</span>
-                      <span className="text-[10px] text-slate-500 ml-2">{r.role}</span>
-                      <p className="text-[11px] text-slate-500">{r.email}</p>
+                      <span className="text-xs font-medium text-body">{r.name}</span>
+                      <span className="text-[10px] text-muted ml-2">{r.role}</span>
+                      <p className="text-[11px] text-muted">{r.email}</p>
                     </div>
                   </div>
                 ))}
@@ -398,9 +398,9 @@ function ConfigureModal({ control, appId, onClose }: {
 
               {/* Process IDs */}
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Processes Created</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Processes Created</p>
                 <div className="flex gap-2 flex-wrap">
-                  <span className="flex items-center gap-1.5 text-xs text-violet-300 bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
+                  <span className="flex items-center gap-1.5 text-xs text-a-purple bg-violet-900/20 border border-violet-800/40 px-2.5 py-1.5 rounded-lg">
                     <ClipboardList size={11} /> Approval: {result.approvalId}
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-900/20 border border-cyan-800/40 px-2.5 py-1.5 rounded-lg">
@@ -411,10 +411,10 @@ function ConfigureModal({ control, appId, onClose }: {
 
               {/* Next steps */}
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Steps</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Next Steps</p>
                 {result.nextSteps.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
-                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-slate-600" />
+                  <div key={i} className="flex items-start gap-2 text-xs text-muted">
+                    <ArrowRight size={11} className="mt-0.5 flex-shrink-0 text-faint" />
                     <span>{s}</span>
                   </div>
                 ))}
@@ -427,7 +427,7 @@ function ConfigureModal({ control, appId, onClose }: {
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-surface-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
+            className="px-4 py-2 text-xs text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
           >
             {phase === 'done' ? 'Close' : 'Cancel'}
           </button>
@@ -491,11 +491,11 @@ function ControlRow({
             onClick={() => setExpanded(v => !v)}
             className="flex-1 flex items-center gap-2 text-left min-w-0"
           >
-            <span className="text-sm text-slate-200 font-medium truncate">{control.name}</span>
+            <span className="text-sm text-body font-medium truncate">{control.name}</span>
             <span className={`hidden sm:inline text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${pillar.color} ${pillar.bg} ${pillar.border}`}>
               {control.pillar}
             </span>
-            <span className="hidden md:inline text-[10px] text-slate-600 flex-shrink-0">{control.controlId}</span>
+            <span className="hidden md:inline text-[10px] text-faint flex-shrink-0">{control.controlId}</span>
           </button>
 
           {/* Risk reduction */}
@@ -511,14 +511,14 @@ function ControlRow({
 
           {/* Notes indicator */}
           {control.notes && (
-            <span className="text-[10px] text-slate-500 bg-surface-700 px-1.5 py-0.5 rounded hidden md:block">note</span>
+            <span className="text-[10px] text-muted bg-surface-700 px-1.5 py-0.5 rounded hidden md:block">note</span>
           )}
 
           {/* Configure — only shown for gap controls */}
           {control.status === 'gap' && (
             <button
               onClick={e => { e.stopPropagation(); setConfiguring(true) }}
-              className="flex items-center gap-1 text-[11px] font-medium text-indigo-300 bg-indigo-900/20 border border-indigo-800/40
+              className="flex items-center gap-1 text-[11px] font-medium text-a-indigo bg-indigo-900/20 border border-indigo-800/40
                          hover:bg-indigo-900/40 hover:border-indigo-700/60 px-2 py-0.5 rounded-full flex-shrink-0 transition-colors"
               title={`Configure ${control.name} on this application`}
             >
@@ -529,7 +529,7 @@ function ControlRow({
           {/* Edit */}
           <button
             onClick={() => setEditing(true)}
-            className="flex-shrink-0 p-1.5 text-slate-500 hover:text-slate-300 hover:bg-surface-700 rounded transition-colors"
+            className="flex-shrink-0 p-1.5 text-muted hover:text-secondary hover:bg-surface-700 rounded transition-colors"
             title="Edit status / notes"
           >
             <Pencil size={12} />
@@ -538,7 +538,7 @@ function ControlRow({
           {/* Expand */}
           <button
             onClick={() => setExpanded(v => !v)}
-            className="flex-shrink-0 text-slate-600 hover:text-slate-400 transition-colors"
+            className="flex-shrink-0 text-faint hover:text-muted transition-colors"
           >
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
@@ -547,11 +547,11 @@ function ControlRow({
         {/* Expanded detail */}
         {expanded && (
           <div className="px-4 pb-4 pt-2 border-t border-surface-700/60 space-y-3">
-            <p className="text-xs text-slate-400 leading-relaxed">{control.description}</p>
+            <p className="text-xs text-muted leading-relaxed">{control.description}</p>
 
             <div className="flex flex-wrap gap-1">
               {control.capabilities.map(cap => (
-                <span key={cap} className="text-[11px] text-slate-400 bg-surface-700 border border-surface-600 px-2 py-0.5 rounded-full">
+                <span key={cap} className="text-[11px] text-muted bg-surface-700 border border-surface-600 px-2 py-0.5 rounded-full">
                   {cap}
                 </span>
               ))}
@@ -559,41 +559,41 @@ function ControlRow({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <p className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold mb-1">Policy Drivers</p>
+                <p className="text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">Policy Drivers</p>
                 <div className="flex flex-wrap gap-1">
                   {control.policyDrivers.map(pd => (
-                    <span key={pd} className="text-violet-300 bg-violet-900/20 border border-violet-800/40 px-1.5 py-0.5 rounded text-[10px]">{pd}</span>
+                    <span key={pd} className="text-a-purple bg-violet-900/20 border border-violet-800/40 px-1.5 py-0.5 rounded text-[10px]">{pd}</span>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold mb-1">Applicable Tiers</p>
+                <p className="text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">Applicable Tiers</p>
                 <div className="flex flex-wrap gap-1">
                   {control.applicableTiers.map(t => (
                     <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded border capitalize ${
                       t === 'critical' ? 'text-red-300 bg-red-900/20 border-red-800/40' :
                       t === 'high'     ? 'text-amber-300 bg-amber-900/20 border-amber-800/40' :
                       t === 'medium'   ? 'text-yellow-300 bg-yellow-900/20 border-yellow-800/40' :
-                                        'text-slate-400 bg-slate-800/40 border-slate-700'
+                                        'text-muted bg-slate-800/40 border-slate-700'
                     }`}>{t}</span>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold mb-1">Complexity</p>
+                <p className="text-muted uppercase tracking-wider text-[10px] font-semibold mb-1">Complexity</p>
                 <span className={`text-xs capitalize ${
-                  control.implementationComplexity === 'high' ? 'text-red-400' :
-                  control.implementationComplexity === 'medium' ? 'text-amber-400' : 'text-green-400'
+                  control.implementationComplexity === 'high' ? 'text-a-red' :
+                  control.implementationComplexity === 'medium' ? 'text-a-amber' : 'text-a-green'
                 }`}>{control.implementationComplexity}</span>
               </div>
             </div>
 
             {control.notes && (
               <div className="bg-surface-700/40 border border-surface-600 rounded-lg px-3 py-2">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Notes</p>
-                <p className="text-xs text-slate-300">{control.notes}</p>
+                <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-1">Notes</p>
+                <p className="text-xs text-secondary">{control.notes}</p>
                 {control.updatedBy && (
-                  <p className="text-[10px] text-slate-600 mt-1">Updated by {control.updatedBy} · {control.updatedAt ? new Date(control.updatedAt).toLocaleDateString() : ''}</p>
+                  <p className="text-[10px] text-faint mt-1">Updated by {control.updatedBy} · {control.updatedAt ? new Date(control.updatedAt).toLocaleDateString() : ''}</p>
                 )}
               </div>
             )}
@@ -658,7 +658,7 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
   const pillars: IamPillar[] = ['AM', 'IGA', 'PAM', 'CIAM']
 
   if (loading) {
-    return <div className="flex items-center justify-center h-32 text-slate-500 text-sm">Loading controls…</div>
+    return <div className="flex items-center justify-center h-32 text-muted text-sm">Loading controls…</div>
   }
 
   return (
@@ -667,10 +667,10 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
-            { key: 'implemented',    label: 'Implemented',    color: 'text-green-400 border-green-800/40 bg-green-900/10' },
-            { key: 'gap',            label: 'Gap',            color: 'text-red-400 border-red-800/40 bg-red-900/10' },
-            { key: 'not_applicable', label: 'Not Applicable', color: 'text-slate-400 border-slate-700 bg-slate-800/20' },
-            { key: 'undetected',     label: 'Not Assessed',   color: 'text-slate-500 border-surface-600 bg-surface-700/20' },
+            { key: 'implemented',    label: 'Implemented',    color: 'text-a-green border-green-800/40 bg-green-900/10' },
+            { key: 'gap',            label: 'Gap',            color: 'text-a-red border-red-800/40 bg-red-900/10' },
+            { key: 'not_applicable', label: 'Not Applicable', color: 'text-muted border-slate-700 bg-slate-800/20' },
+            { key: 'undetected',     label: 'Not Assessed',   color: 'text-muted border-surface-600 bg-surface-700/20' },
           ] as const).map(({ key, label, color }) => (
             <button
               key={key}
@@ -688,20 +688,20 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-44">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search controls…"
             className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-8 pr-3 py-1.5 text-xs
-                       text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                       text-body placeholder-faint focus:outline-none focus:border-indigo-500 transition-colors"
           />
         </div>
         <div className="flex gap-1 flex-wrap">
           <button
             onClick={() => setPillar('ALL')}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors border
-              ${pillar === 'ALL' ? 'bg-indigo-600 border-indigo-600 text-white' : 'text-slate-400 border-surface-700 hover:border-surface-500'}`}
+              ${pillar === 'ALL' ? 'bg-indigo-600 border-indigo-600 text-white' : 'text-muted border-surface-700 hover:border-surface-500'}`}
           >
             <Layers size={11} /> All
           </button>
@@ -711,20 +711,20 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
             return (
               <button key={p} onClick={() => setPillar(pillar === p ? 'ALL' : p)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors border
-                  ${pillar === p ? `${cfg.bg} ${cfg.border} ${cfg.color}` : 'text-slate-400 border-surface-700 hover:border-surface-500'}`}
+                  ${pillar === p ? `${cfg.bg} ${cfg.border} ${cfg.color}` : 'text-muted border-surface-700 hover:border-surface-500'}`}
               >
                 <Icon size={11} /> {p}
               </button>
             )
           })}
         </div>
-        <span className="text-xs text-slate-600">{filtered.length} of {controls.length}</span>
+        <span className="text-xs text-faint">{filtered.length} of {controls.length}</span>
       </div>
 
       {/* Control list */}
       <div className="space-y-1.5">
         {filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-24 text-slate-500 text-sm">No controls match your filters</div>
+          <div className="flex items-center justify-center h-24 text-muted text-sm">No controls match your filters</div>
         ) : (
           filtered.map(c => (
             <ControlRow key={c.controlId} control={c} appId={appId} onUpdate={updateControl}  />

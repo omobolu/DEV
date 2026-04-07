@@ -1,4 +1,6 @@
 import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer, Legend } from 'recharts'
+import { useTheme } from '@/context/ThemeContext'
+import { getChartTheme } from '@/constants/colors'
 
 interface GaugeSegment { name: string; value: number; fill: string }
 
@@ -9,6 +11,8 @@ interface GaugeChartProps {
 }
 
 export default function GaugeChart({ segments, totalCount, height = 280 }: GaugeChartProps) {
+  const { theme } = useTheme()
+  const ct = getChartTheme(theme)
   // RadialBarChart: each entry is one arc, values represent percentage 0-100
   const chartData = segments.map(s => ({ ...s }))
 
@@ -29,7 +33,7 @@ export default function GaugeChart({ segments, totalCount, height = 280 }: Gauge
           <RadialBar
             dataKey="value"
             cornerRadius={4}
-            background={{ fill: '#1e293b' }}
+            background={{ fill: ct.grid }}
           />
           <Legend
             iconType="circle"

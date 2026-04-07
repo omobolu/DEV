@@ -19,8 +19,8 @@ function MetaRow({ label, value }: MetaRowProps) {
 
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 border-b border-surface-700 last:border-0">
-      <p className="text-xs text-slate-500 font-medium flex-shrink-0 w-40">{label}</p>
-      <p className="text-sm text-slate-300 text-right">{display}</p>
+      <p className="text-xs text-muted font-medium flex-shrink-0 w-40">{label}</p>
+      <p className="text-sm text-secondary text-right">{display}</p>
     </div>
   )
 }
@@ -32,7 +32,7 @@ interface AppMetadataCardProps {
 export default function AppMetadataCard({ metadata }: AppMetadataCardProps) {
   return (
     <div className="bg-surface-800 border border-surface-700 rounded-xl p-5 flex flex-col gap-4">
-      <p className="text-sm font-semibold text-slate-200">Application Metadata</p>
+      <p className="text-sm font-semibold text-body">Application Metadata</p>
 
       <div className="flex flex-col">
         <MetaRow label="Auth Method"           value={metadata.authMethod} />

@@ -2,7 +2,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts'
-import { CHART_GRID, CHART_AXIS, TOOLTIP_BG, TOOLTIP_BORDER } from '@/constants/colors'
+import { useTheme } from '@/context/ThemeContext'
+import { getChartTheme } from '@/constants/colors'
 
 interface BarSeries {
   key: string
@@ -20,34 +21,37 @@ interface VerticalBarChartProps {
   showLegend?: boolean
 }
 
-const CustomTooltip = ({ active, payload, label }: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number; color: string }>
-  label?: string
-}) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}` }}
-         className="px-3 py-2 rounded-lg text-sm space-y-1">
-      <p className="text-slate-400 text-xs mb-1">{label}</p>
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-slate-300">{p.name}:</span>
-          <span className="text-white font-semibold">{p.value.toLocaleString()}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function VerticalBarChart({ data, xKey, series, height = 280, colorByValue, showLegend = true }: VerticalBarChartProps) {
+  const { theme } = useTheme()
+  const ct = getChartTheme(theme)
+
+  const CustomTooltip = ({ active, payload, label }: {
+    active?: boolean
+    payload?: Array<{ name: string; value: number; color: string }>
+    label?: string
+  }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+           className="px-3 py-2 rounded-lg text-sm space-y-1">
+        <p className="text-muted text-xs mb-1">{label}</p>
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+            <span className="text-secondary">{p.name}:</span>
+            <span className="text-heading font-semibold">{p.value.toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} opacity={0.5} vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fill: CHART_AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: CHART_AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} opacity={0.5} vertical={false} />
+        <XAxis dataKey={xKey} tick={{ fill: ct.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: ct.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
         {showLegend && series.length > 1 && (
           <Legend

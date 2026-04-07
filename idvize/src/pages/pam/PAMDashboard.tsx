@@ -26,10 +26,10 @@ export default function PAMDashboard() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <ShieldAlert size={20} className="text-amber-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Privileged Access Management</h1>
+          <ShieldAlert size={20} className="text-a-amber" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading">Privileged Access Management</h1>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">PAM Dashboard — credential vaulting, session monitoring & policy compliance</p>
+        <p className="text-muted mt-1 text-sm">PAM Dashboard — credential vaulting, session monitoring & policy compliance</p>
       </div>
 
       {/* KPIs */}

@@ -35,7 +35,7 @@ const SECTION_INTEL = [
 function SectionLabel({ label }: { label: string }) {
   return (
     <div className="px-3 pt-3 pb-1">
-      <span className="text-[10px] font-semibold tracking-widest text-slate-600 uppercase">{label}</span>
+      <span className="text-[10px] font-semibold tracking-widest text-faint uppercase">{label}</span>
     </div>
   )
 }
@@ -50,8 +50,8 @@ function NavItem({ icon: Icon, label, path, color, onClick }: {
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors text-sm
          ${isActive
-           ? 'bg-indigo-600/20 text-white'
-           : 'text-slate-400 hover:bg-surface-700 hover:text-slate-200'}`
+           ? 'bg-indigo-600/20 text-heading'
+           : 'text-muted hover:bg-surface-700 hover:text-body'}`
       }
     >
       {({ isActive }) => (
@@ -93,16 +93,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Wordmark */}
       <div className="flex items-center justify-between gap-2 px-4 h-14 border-b border-surface-700 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-white font-bold text-base tracking-tight">
-            id<span className="text-indigo-400">vize</span>
+          <span className="text-heading font-bold text-base tracking-tight">
+            id<span className="text-a-indigo">vize</span>
           </span>
-          <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-semibold bg-indigo-600/30 text-a-indigo border border-indigo-500/40 px-1.5 py-0.5 rounded">
             OS
           </span>
         </div>
         <button
           onClick={onClose}
-          className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:bg-surface-700 hover:text-white transition-colors"
+          className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg text-muted hover:bg-surface-700 hover:text-heading transition-colors"
           aria-label="Close navigation"
         >
           <X size={16} />
@@ -118,7 +118,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors
              ${isActive
                ? 'bg-indigo-600 text-white'
-               : 'text-slate-300 hover:bg-surface-700 hover:text-white'}`
+               : 'text-secondary hover:bg-surface-700 hover:text-heading'}`
           }
         >
           <MonitorDot size={16} className="flex-shrink-0" />

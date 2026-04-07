@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Bell, Settings, LogOut, Building2, Menu } from 'lucide-react'
+import { Bell, Settings, LogOut, Building2, Menu, Sun, Moon } from 'lucide-react'
+import { useTheme } from '@/context/ThemeContext'
 
 const API = 'http://localhost:3001'
 const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'demo-key' }
 
 export default function Header({ onLogout, onMenuClick }: { onLogout?: () => void; onMenuClick?: () => void }) {
+  const { theme, toggleTheme } = useTheme()
   const name       = localStorage.getItem('idvize_user')   ?? 'User'
   const tenantName = localStorage.getItem('idvize_tenant') ?? ''
   const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -35,7 +37,7 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
       {onMenuClick && (
         <button
           onClick={onMenuClick}
-          className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-surface-700 hover:text-white transition-colors"
+          className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-heading transition-colors"
           aria-label="Open navigation menu"
         >
           <Menu size={18} />
@@ -45,8 +47,8 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
       {/* Logo wordmark + OS badge + kernel dot */}
       <div className="flex items-center gap-2 mr-2 md:mr-4">
         <div className="relative">
-          <span className="text-white font-bold text-lg tracking-tight">
-            id<span className="text-indigo-400">vize</span>
+          <span className="text-heading font-bold text-lg tracking-tight">
+            id<span className="text-a-indigo">vize</span>
           </span>
         </div>
         <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded hidden sm:inline">
@@ -58,15 +60,15 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
             role="status"
             aria-label={statusLabel}
           />
-          <span className="text-[10px] text-slate-500 hidden lg:block">IAM Operating System</span>
+          <span className="text-[10px] text-muted hidden lg:block">IAM Operating System</span>
         </div>
       </div>
 
       {/* Tenant badge */}
       {tenantName && (
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-700/50 border border-surface-600">
-          <Building2 size={12} className="text-indigo-400 flex-shrink-0" />
-          <span className="text-xs text-slate-300 font-medium max-w-[160px] truncate">{tenantName}</span>
+          <Building2 size={12} className="text-a-indigo flex-shrink-0" />
+          <span className="text-xs text-secondary font-medium max-w-[160px] truncate">{tenantName}</span>
         </div>
       )}
 
@@ -75,14 +77,21 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
       {/* Icons */}
       <div className="flex items-center gap-1.5 md:gap-2">
         <button
-          className="relative flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-surface-700 hover:text-slate-200 transition-colors"
+          onClick={toggleTheme}
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-heading transition-colors"
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+        <button
+          className="relative flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-body transition-colors"
           aria-label="Notifications"
         >
           <Bell size={16} />
           <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" aria-label="Unread notifications" />
         </button>
         <button
-          className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-surface-700 hover:text-slate-200 transition-colors"
+          className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-body transition-colors"
           aria-label="Settings"
         >
           <Settings size={16} />
@@ -96,12 +105,12 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
           >
             {initials}
           </div>
-          <span className="text-xs text-slate-400 hidden md:block max-w-[120px] truncate">{name}</span>
+          <span className="text-xs text-muted hidden md:block max-w-[120px] truncate">{name}</span>
           {onLogout && (
             <button
               onClick={onLogout}
               title="Sign out"
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-surface-700 hover:text-red-400 transition-colors"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-muted hover:bg-surface-700 hover:text-red-400 transition-colors"
               aria-label="Sign out"
             >
               <LogOut size={14} />

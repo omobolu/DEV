@@ -54,7 +54,7 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
             <thead>
               <tr className="bg-surface-900 border-b border-surface-700">
                 {columns.map(col => (
-                  <th key={String(col.key)} className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  <th key={String(col.key)} className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wide">
                     {col.header}
                   </th>
                 ))}
@@ -79,8 +79,8 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
-        <Inbox size={32} className="text-slate-600" />
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted">
+        <Inbox size={32} className="text-faint" />
         <p className="text-sm">{emptyMessage}</p>
       </div>
     )
@@ -96,7 +96,7 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
                 <th
                   key={String(col.key)}
                   onClick={() => handleSort(col.key)}
-                  className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide cursor-pointer hover:text-slate-200 select-none"
+                  className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wide cursor-pointer hover:text-body select-none"
                   scope="col"
                   aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                 >
@@ -125,7 +125,7 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
                 role={clickable ? 'button' : undefined}
               >
                 {columns.map(col => (
-                  <td key={String(col.key)} className="px-4 py-3 text-slate-300">
+                  <td key={String(col.key)} className="px-4 py-3 text-secondary">
                     {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}
                   </td>
                 ))}
@@ -137,7 +137,7 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
       </div>
 
       {pages > 1 && (
-        <nav className="flex items-center justify-between text-xs text-slate-500" aria-label="Table pagination">
+        <nav className="flex items-center justify-between text-xs text-muted" aria-label="Table pagination">
           <span>Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}</span>
           <div className="flex gap-1">
             {Array.from({ length: pages }, (_, i) => (
@@ -145,7 +145,7 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
                 key={i}
                 onClick={() => setPage(i)}
                 className={`w-7 h-7 rounded text-xs font-medium transition-colors
-                  ${page === i ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-surface-700'}`}
+                  ${page === i ? 'bg-indigo-600 text-white' : 'text-muted hover:bg-surface-700'}`}
                 aria-label={`Page ${i + 1}`}
                 aria-current={page === i ? 'page' : undefined}
               >

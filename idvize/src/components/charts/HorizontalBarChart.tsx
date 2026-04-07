@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { CHART_AXIS, TOOLTIP_BG, TOOLTIP_BORDER } from '@/constants/colors'
+import { useTheme } from '@/context/ThemeContext'
+import { getChartTheme } from '@/constants/colors'
 
 interface HorizontalBarChartProps {
   data: { name: string; value: number }[]
@@ -9,29 +10,31 @@ interface HorizontalBarChartProps {
   colorByValue?: boolean
 }
 
-const CustomTooltip = ({ active, payload, unit }: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number }>
-  unit?: string
-}) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}` }}
-         className="px-3 py-2 rounded-lg text-sm">
-      <p className="text-white font-bold">{payload[0].value.toLocaleString()}{unit ?? ''}</p>
-    </div>
-  )
-}
-
 export default function HorizontalBarChart({ data, color = '#6366f1', height, unit, colorByValue }: HorizontalBarChartProps) {
+  const { theme } = useTheme()
+  const ct = getChartTheme(theme)
+
+  const CustomTooltip = ({ active, payload, unit: u }: {
+    active?: boolean
+    payload?: Array<{ name: string; value: number }>
+    unit?: string
+  }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+           className="px-3 py-2 rounded-lg text-sm">
+        <p className="text-heading font-bold">{payload[0].value.toLocaleString()}{u ?? ''}</p>
+      </div>
+    )
+  }
   const calcHeight = height ?? Math.max(200, data.length * 36 + 40)
   return (
     <ResponsiveContainer width="100%" height={calcHeight}>
       <BarChart data={data} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.4} horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} opacity={0.4} horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fill: CHART_AXIS, fontSize: 11 }}
+          tick={{ fill: ct.axis, fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           domain={[0, 'dataMax']}
@@ -39,7 +42,7 @@ export default function HorizontalBarChart({ data, color = '#6366f1', height, un
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fill: '#94a3b8', fontSize: 11 }}
+          tick={{ fill: ct.axis, fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           width={110}

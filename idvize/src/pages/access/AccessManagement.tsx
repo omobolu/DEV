@@ -27,10 +27,10 @@ export default function AccessManagement() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <ShieldCheck size={20} className="text-cyan-400" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-white">Access Management</h1>
+            <ShieldCheck size={20} className="text-a-cyan" aria-hidden="true" />
+            <h1 className="text-2xl font-bold text-heading">Access Management</h1>
           </div>
-          <p className="text-slate-500 mt-1 text-sm">Authentication, SSO & MFA analytics</p>
+          <p className="text-muted mt-1 text-sm">Authentication, SSO & MFA analytics</p>
         </div>
       </div>
 

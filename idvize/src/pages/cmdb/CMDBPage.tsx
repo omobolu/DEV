@@ -18,8 +18,8 @@ export default function CMDBPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">CMDB Integration</h1>
-        <p className="text-slate-500 mt-1 text-sm">
+        <h1 className="text-2xl font-bold text-heading">CMDB Integration</h1>
+        <p className="text-muted mt-1 text-sm">
           Configuration Management Database — Application Inventory &amp; IAM Controls
         </p>
       </div>

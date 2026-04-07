@@ -88,8 +88,8 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
     if (rows) onFetched(rows)
   }
 
-  const inputCls = 'w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500'
-  const labelCls = 'block text-xs text-slate-400 mb-1'
+  const inputCls = 'w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-secondary placeholder-faint focus:outline-none focus:border-violet-500'
+  const labelCls = 'block text-xs text-muted mb-1'
 
   return (
     <div className="space-y-5">
@@ -129,7 +129,7 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
                 ${config.authType === t
                   ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-surface-700 border-surface-600 text-slate-400 hover:text-slate-200'}`}
+                  : 'bg-surface-700 border-surface-600 text-muted hover:text-body'}`}
             >
               {t === 'none' ? 'None' : t === 'bearer' ? 'Bearer Token' : t === 'apiKey' ? 'API Key' : 'Basic Auth'}
             </button>
@@ -178,12 +178,12 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
         <div className="flex items-center justify-between mb-2">
           <label className={labelCls + ' mb-0'}>Custom Headers</label>
           <button onClick={addHeader}
-            className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors">
+            className="flex items-center gap-1 text-xs text-a-purple hover:text-a-purple transition-colors">
             <Plus size={12} /> Add Header
           </button>
         </div>
         {config.customHeaders.length === 0 && (
-          <p className="text-xs text-slate-600 italic">No custom headers — click "Add Header" to add one</p>
+          <p className="text-xs text-faint italic">No custom headers — click "Add Header" to add one</p>
         )}
         <div className="space-y-2">
           {config.customHeaders.map(h => (
@@ -192,7 +192,7 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
                 placeholder="Header-Name" className={inputCls + ' flex-1'} />
               <input value={h.value} onChange={e => updateHeader(h.id, 'value', e.target.value)}
                 placeholder="value" className={inputCls + ' flex-1'} />
-              <button onClick={() => removeHeader(h.id)} className="text-slate-600 hover:text-red-400 transition-colors">
+              <button onClick={() => removeHeader(h.id)} className="text-faint hover:text-a-red transition-colors">
                 <X size={14} />
               </button>
             </div>
@@ -202,7 +202,7 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
 
       {/* JSON Path */}
       <div>
-        <label className={labelCls}>JSON Path <span className="text-slate-600">(optional — to reach nested array)</span></label>
+        <label className={labelCls}>JSON Path <span className="text-faint">(optional — to reach nested array)</span></label>
         <input value={config.jsonPath} onChange={e => onChange({ jsonPath: e.target.value })}
           placeholder="e.g.  data.items  or  results.apps"
           className={inputCls} />
@@ -212,8 +212,8 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
       {testResult && (
         <div className={`flex items-center gap-2 text-sm p-3 rounded-lg border
           ${testResult.ok
-            ? 'bg-green-900/20 border-green-800 text-green-400'
-            : 'bg-red-900/20 border-red-800 text-red-400'}`}>
+            ? 'bg-green-900/20 border-green-800 text-a-green'
+            : 'bg-red-900/20 border-red-800 text-a-red'}`}>
           {testResult.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {testResult.message}
         </div>
@@ -224,7 +224,7 @@ export default function APIConnectorForm({ config, onChange, onFetched }: APICon
         <button
           onClick={handleTest}
           disabled={!config.url || testing}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-surface-600 text-sm text-slate-300 hover:bg-surface-700 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-surface-600 text-sm text-secondary hover:bg-surface-700 disabled:opacity-40 transition-colors"
         >
           {testing ? <Loader2 size={14} className="animate-spin" /> : null}
           Test Connection

@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { TOOLTIP_BG, TOOLTIP_BORDER } from '@/constants/colors'
+import { useTheme } from '@/context/ThemeContext'
+import { getChartTheme } from '@/constants/colors'
 
 interface Segment { name: string; value: number; fill: string }
 
@@ -7,17 +8,6 @@ interface SolidPieChartProps {
   data: Segment[]
   height?: number
   showLegend?: boolean
-}
-
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}` }}
-         className="px-3 py-2 rounded-lg text-sm">
-      <p className="text-slate-300 font-medium">{payload[0].name}</p>
-      <p className="text-white font-bold">{payload[0].value}%</p>
-    </div>
-  )
 }
 
 const RADIAN = Math.PI / 180
@@ -37,6 +27,19 @@ const renderCustomLabel = (props: {
 }
 
 export default function SolidPieChart({ data, height = 260, showLegend = true }: SolidPieChartProps) {
+  const { theme } = useTheme()
+  const ct = getChartTheme(theme)
+
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+           className="px-3 py-2 rounded-lg text-sm">
+        <p className="text-secondary font-medium">{payload[0].name}</p>
+        <p className="text-heading font-bold">{payload[0].value}%</p>
+      </div>
+    )
+  }
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>

@@ -38,9 +38,9 @@ function levelColor(score: number): string {
 }
 
 function TrendIcon({ trend }: { trend?: string }) {
-  if (trend === 'improving') return <TrendingUp size={12} className="text-green-400" aria-hidden="true" />
-  if (trend === 'declining') return <TrendingDown size={12} className="text-red-400" aria-hidden="true" />
-  return <Minus size={12} className="text-slate-500" aria-hidden="true" />
+  if (trend === 'improving') return <TrendingUp size={12} className="text-a-green" aria-hidden="true" />
+  if (trend === 'declining') return <TrendingDown size={12} className="text-a-red" aria-hidden="true" />
+  return <Minus size={12} className="text-muted" aria-hidden="true" />
 }
 
 function ConfidenceBar({ value }: { value: number }) {
@@ -51,7 +51,7 @@ function ConfidenceBar({ value }: { value: number }) {
       <div className="flex-1 h-1 rounded-full bg-slate-700">
         <div className={`h-full rounded-full ${cls}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-slate-500">{pct}%</span>
+      <span className="text-xs text-muted">{pct}%</span>
     </div>
   )
 }
@@ -75,7 +75,7 @@ function MaturityBadge({ domain }: { domain?: DomainScore }) {
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-1.5">
           <span className="text-2xl font-bold" style={{ color: sc }}>{domain.score}</span>
-          <span className="text-xs text-slate-400">/100</span>
+          <span className="text-xs text-muted">/100</span>
         </div>
         <div className="flex items-center gap-1">
           {/* 5-dot level indicator */}
@@ -120,10 +120,10 @@ function OverallMaturityStrip({ summary, onRecalc, recalcing }: {
       <Award size={28} style={{ color: sc }} className="shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-semibold text-slate-200">IAM Program Maturity</span>
+          <span className="text-sm font-semibold text-body">IAM Program Maturity</span>
           <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
             style={{ backgroundColor: sc + '25', color: sc }}>{label}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${Math.round(summary.confidence * 100) >= 70 ? 'bg-green-500/15 text-green-400' : 'bg-amber-500/15 text-amber-400'}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${Math.round(summary.confidence * 100) >= 70 ? 'bg-green-500/15 text-a-green' : 'bg-amber-500/15 text-a-amber'}`}>
             {Math.round(summary.confidence * 100)}% confidence
           </span>
         </div>
@@ -136,22 +136,22 @@ function OverallMaturityStrip({ summary, onRecalc, recalcing }: {
                 style={{ backgroundColor: idx < lnum ? sc : 'transparent', opacity: idx + 1 === lnum ? 1 : 0.6 }} />
             </div>
           ))}
-          <span className="text-xs text-slate-400 ml-2 shrink-0 font-mono">{summary.overall}/100</span>
+          <span className="text-xs text-muted ml-2 shrink-0 font-mono">{summary.overall}/100</span>
         </div>
         <div className="flex gap-3 mt-1">
           {['L1','L2','L3','L4','L5'].map(l => (
-            <span key={l} className="flex-1 text-center text-xs text-slate-600">{l}</span>
+            <span key={l} className="flex-1 text-center text-xs text-faint">{l}</span>
           ))}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <button onClick={e => { e.preventDefault(); onRecalc() }} disabled={recalcing}
           aria-label={recalcing ? 'Recalculating maturity score' : 'Recalculate maturity score'}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-surface-500 hover:border-indigo-500 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors">
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-surface-500 hover:border-indigo-500 text-xs text-muted hover:text-body disabled:opacity-50 transition-colors">
           <RefreshCw size={12} className={recalcing ? 'animate-spin' : ''} aria-hidden="true" />
           {recalcing ? 'Running…' : 'Recalculate'}
         </button>
-        <span className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-xs text-a-indigo opacity-0 group-hover:opacity-100 transition-opacity">
           View full report →
         </span>
       </div>
@@ -186,8 +186,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">IAM Overview</h1>
-        <p className="text-slate-500 mt-1 text-sm">Identity posture across all OS modules</p>
+        <h1 className="text-2xl font-bold text-heading">IAM Overview</h1>
+        <p className="text-muted mt-1 text-sm">Identity posture across all OS modules</p>
       </div>
 
       {/* Overall Maturity Strip */}
@@ -195,7 +195,7 @@ export default function Dashboard() {
 
       {/* IAM Domain Cards with embedded maturity scores */}
       <div>
-        <h2 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">IAM Domains</h2>
+        <h2 className="text-sm font-medium text-muted mb-3 uppercase tracking-wider">IAM Domains</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {DOMAIN_CARDS.map(({ domainId, icon: Icon, label, title, path, color, bg }) => {
             const domain = getDomain(domainId)
@@ -208,9 +208,9 @@ export default function Dashboard() {
                     style={{ backgroundColor: `${color}20` }}>
                     <Icon size={18} style={{ color }} aria-hidden="true" />
                   </div>
-                  <span className="font-semibold text-white text-sm">{label}</span>
+                  <span className="font-semibold text-heading text-sm">{label}</span>
                 </div>
-                <p className="text-slate-400 text-xs leading-snug">{title}</p>
+                <p className="text-muted text-xs leading-snug">{title}</p>
 
                 {/* Maturity score bubble */}
                 <MaturityBadge domain={domain} />
@@ -221,7 +221,7 @@ export default function Dashboard() {
                   {domain && (
                     <button onClick={e => { e.stopPropagation(); navigate(`/maturity/domains/${domainId}`) }}
                       aria-label={`View ${label} maturity detail`}
-                      className="text-xs text-slate-500 hover:text-indigo-400 transition-colors">
+                      className="text-xs text-muted hover:text-a-indigo transition-colors">
                       Maturity detail →
                     </button>
                   )}
@@ -235,7 +235,7 @@ export default function Dashboard() {
       {/* Secondary domains strip */}
       {maturity && (
         <div>
-          <h2 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">All Domains</h2>
+          <h2 className="text-sm font-medium text-muted mb-3 uppercase tracking-wider">All Domains</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
             {maturity.domains
               .filter(d => !['iga','am','pam','ciam'].includes(d.domainId))
@@ -247,11 +247,11 @@ export default function Dashboard() {
                   <button key={d.domainId} onClick={() => navigate(`/maturity/domains/${d.domainId}`)}
                     className="text-left p-3 rounded-lg border border-surface-600 bg-surface-800 hover:border-indigo-500/40 transition-all">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-slate-300 leading-tight line-clamp-2">{d.name}</span>
+                      <span className="text-xs font-medium text-secondary leading-tight line-clamp-2">{d.name}</span>
                     </div>
                     <div className="flex items-baseline gap-1 mb-1">
                       <span className="text-lg font-bold" style={{ color: sc }}>{d.score}</span>
-                      <span className="text-xs text-slate-500">/100</span>
+                      <span className="text-xs text-muted">/100</span>
                     </div>
                     <div className="flex items-center gap-0.5 mb-1">
                       {[1,2,3,4,5].map(n => (

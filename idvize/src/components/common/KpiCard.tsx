@@ -27,13 +27,13 @@ export default function KpiCard({ label, value, unit = '', trend, accentColor = 
         style={{ backgroundColor: accentColor }}
         aria-hidden="true"
       />
-      <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">{label}</p>
+      <p className="text-xs text-muted uppercase tracking-wider font-medium">{label}</p>
       <div className="flex items-end gap-1">
-        <span className="text-3xl font-bold text-white leading-none">{value}</span>
-        {unit && <span className="text-sm text-slate-400 mb-0.5">{unit}</span>}
+        <span className="text-3xl font-bold text-heading leading-none">{value}</span>
+        {unit && <span className="text-sm text-muted mb-0.5">{unit}</span>}
       </div>
       {trend !== undefined && (
-        <div className={`flex items-center gap-1 text-xs ${trend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        <div className={`flex items-center gap-1 text-xs ${trend >= 0 ? 'text-a-green' : 'text-a-red'}`}>
           {trend >= 0 ? <TrendingUp size={12} aria-hidden="true" /> : <TrendingDown size={12} aria-hidden="true" />}
           <span>{Math.abs(trend)}% vs last period</span>
         </div>

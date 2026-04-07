@@ -48,8 +48,8 @@ function StatCard({ icon: Icon, label, value, color }: {
         <Icon size={18} style={{ color }} />
       </div>
       <div>
-        <p className="text-xs text-slate-500">{label}</p>
-        <p className="text-2xl font-bold text-white">{value}</p>
+        <p className="text-xs text-muted">{label}</p>
+        <p className="text-2xl font-bold text-heading">{value}</p>
       </div>
     </div>
   )
@@ -89,27 +89,27 @@ function CreateDocumentModal({ onClose, onCreated }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="create-doc-heading">
       <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-2xl p-6 space-y-4 mx-4">
-        <h2 id="create-doc-heading" className="text-lg font-semibold text-white">New Document</h2>
+        <h2 id="create-doc-heading" className="text-lg font-semibold text-heading">New Document</h2>
 
         <div className="space-y-3">
           <div>
-            <label htmlFor="doc-title" className="text-xs text-slate-400 mb-1 block">Title *</label>
+            <label htmlFor="doc-title" className="text-xs text-muted mb-1 block">Title *</label>
             <input
               id="doc-title"
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               placeholder="e.g. Password Policy v2"
-              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-200
-                         placeholder-slate-600 focus:outline-none focus:border-violet-500"
+              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-body
+                         placeholder-faint focus:outline-none focus:border-violet-500"
             />
           </div>
           <div>
-            <label htmlFor="doc-category" className="text-xs text-slate-400 mb-1 block">Category *</label>
+            <label htmlFor="doc-category" className="text-xs text-muted mb-1 block">Category *</label>
             <select
               id="doc-category"
               value={form.category}
               onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-200
+              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-body
                          focus:outline-none focus:border-violet-500"
             >
               {categories.map(c => (
@@ -118,36 +118,36 @@ function CreateDocumentModal({ onClose, onCreated }: {
             </select>
           </div>
           <div>
-            <label htmlFor="doc-content" className="text-xs text-slate-400 mb-1 block">Content (Markdown) *</label>
+            <label htmlFor="doc-content" className="text-xs text-muted mb-1 block">Content (Markdown) *</label>
             <textarea
               id="doc-content"
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
               rows={8}
               placeholder="# Title&#10;&#10;## Section&#10;&#10;Your content here..."
-              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-200
-                         placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono resize-none"
+              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-body
+                         placeholder-faint focus:outline-none focus:border-violet-500 font-mono resize-none"
             />
           </div>
           <div>
-            <label htmlFor="doc-change-note" className="text-xs text-slate-400 mb-1 block">Change Note</label>
+            <label htmlFor="doc-change-note" className="text-xs text-muted mb-1 block">Change Note</label>
             <input
               id="doc-change-note"
               value={form.changeNote}
               onChange={e => setForm(f => ({ ...f, changeNote: e.target.value }))}
               placeholder="e.g. Initial draft"
-              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-200
-                         placeholder-slate-600 focus:outline-none focus:border-violet-500"
+              className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-body
+                         placeholder-faint focus:outline-none focus:border-violet-500"
             />
           </div>
         </div>
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-a-red">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-slate-400 border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
+            className="px-4 py-2 text-sm text-muted border border-surface-600 rounded-lg hover:bg-surface-700 transition-colors"
           >
             Cancel
           </button>
@@ -218,8 +218,8 @@ export default function DocumentsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Document Registry</h1>
-          <p className="text-slate-500 mt-1 text-sm">
+          <h1 className="text-2xl font-bold text-heading">Document Registry</h1>
+          <p className="text-muted mt-1 text-sm">
             Policies, procedures, standards, and runbooks — with versioning &amp; review workflow
           </p>
         </div>
@@ -227,7 +227,7 @@ export default function DocumentsPage() {
           <button
             onClick={fetchDocs}
             aria-label="Refresh document list"
-            className="flex items-center gap-1.5 text-xs text-slate-400 border border-surface-600 px-3 py-1.5
+            className="flex items-center gap-1.5 text-xs text-muted border border-surface-600 px-3 py-1.5
                        rounded-lg hover:bg-surface-700 transition-colors"
           >
             <RefreshCw size={11} aria-hidden="true" /> Refresh
@@ -262,12 +262,12 @@ export default function DocumentsPage() {
           aria-label="Filter documents by title, category, or owner"
           placeholder="Filter by title, category, owner…"
           className="flex-1 max-w-sm bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm
-                     text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500"
+                     text-secondary placeholder-faint focus:outline-none focus:border-violet-500"
         />
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as DocStatus | '')}
-          className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-300
+          className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-secondary
                      focus:outline-none focus:border-violet-500"
         >
           <option value="">All Statuses</option>
@@ -276,14 +276,14 @@ export default function DocumentsPage() {
           <option value="published">Published</option>
           <option value="archived">Archived</option>
         </select>
-        <span className="text-xs text-slate-500">{filtered.length} of {docs.length}</span>
+        <span className="text-xs text-muted">{filtered.length} of {docs.length}</span>
       </div>
 
       {/* Document List */}
       {loading ? (
-        <div className="flex items-center justify-center h-32 text-slate-500 text-sm">Loading documents…</div>
+        <div className="flex items-center justify-center h-32 text-muted text-sm">Loading documents…</div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 gap-2 text-slate-500">
+        <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted">
           <BookOpen size={28} />
           <p className="text-sm">No documents found</p>
         </div>
@@ -297,24 +297,24 @@ export default function DocumentsPage() {
                          hover:border-violet-700 cursor-pointer transition-all group"
             >
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-900/30 flex-shrink-0">
-                <FileText size={16} className="text-violet-400" />
+                <FileText size={16} className="text-a-purple" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-200 group-hover:text-white truncate">
+                <p className="text-sm font-medium text-body group-hover:text-heading truncate">
                   {doc.title}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted mt-0.5">
                   {doc.category} · v{doc.currentVersion} · {doc.owner}
                 </p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
                 {doc.tags.slice(0, 2).map(tag => (
-                  <span key={tag} className="text-xs text-slate-500 bg-surface-700 px-2 py-0.5 rounded-full">
+                  <span key={tag} className="text-xs text-muted bg-surface-700 px-2 py-0.5 rounded-full">
                     {tag}
                   </span>
                 ))}
                 <Badge label={statusLabel[doc.status]} variant={statusVariant[doc.status]} />
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-faint">
                   {new Date(doc.updatedAt).toLocaleDateString()}
                 </span>
               </div>

@@ -28,10 +28,10 @@ export default function CIAMDashboard() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <UserCheck size={20} className="text-green-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Customer Identity & Access Management</h1>
+          <UserCheck size={20} className="text-a-green" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading">Customer Identity & Access Management</h1>
         </div>
-        <p className="text-slate-500 mt-1 text-sm">CIAM Dashboard — registration, login methods & customer journey</p>
+        <p className="text-muted mt-1 text-sm">CIAM Dashboard — registration, login methods & customer journey</p>
       </div>
 
       {/* KPIs */}

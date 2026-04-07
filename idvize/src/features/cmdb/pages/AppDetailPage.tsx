@@ -18,19 +18,19 @@ export default function AppDetailPage() {
   if (!app) {
     return (
       <div className="flex flex-col items-center justify-center min-h-64 gap-4 text-center">
-        <AlertTriangle size={40} className="text-amber-400" />
+        <AlertTriangle size={40} className="text-a-amber" />
         <div>
-          <p className="text-lg font-semibold text-slate-200">
+          <p className="text-lg font-semibold text-body">
             Application Not Found
           </p>
-          <p className="text-sm text-slate-500 mt-1">
-            No detail record for <span className="font-mono text-slate-400">{appId}</span>.
+          <p className="text-sm text-muted mt-1">
+            No detail record for <span className="font-mono text-muted">{appId}</span>.
             Detailed dashboards are available for apps APP-001 through APP-008.
           </p>
         </div>
         <a
           href="/cmdb"
-          className="text-sm text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors"
+          className="text-sm text-a-purple hover:text-a-purple underline underline-offset-2 transition-colors"
         >
           ← Back to CMDB
         </a>
@@ -90,7 +90,7 @@ export default function AppDetailPage() {
 
       {/* ── Full IAM Controls Assessment ── */}
       <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wider">
           IAM Controls Assessment
         </h2>
         <FullControlsPanel appId={app.appId} />
