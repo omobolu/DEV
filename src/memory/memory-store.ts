@@ -15,10 +15,15 @@ export class InMemoryStore implements MemoryStore {
       id,
       createdAt: new Date().toISOString(),
     }
-    this.entries.set(id, full)
 
-    // Also index by composite key for fast lookups
+    // Remove old entry for same composite key if it exists
     const compositeKey = `${entry.type}:${entry.key}`
+    const existing = this.entries.get(compositeKey)
+    if (existing) {
+      this.entries.delete(existing.id)
+    }
+
+    this.entries.set(id, full)
     this.entries.set(compositeKey, full)
 
     return full
@@ -62,6 +67,11 @@ export class InMemoryStore implements MemoryStore {
   }
 
   remove(id: string): boolean {
+    const entry = this.entries.get(id)
+    if (entry) {
+      const compositeKey = `${entry.type}:${entry.key}`
+      this.entries.delete(compositeKey)
+    }
     return this.entries.delete(id)
   }
 
