@@ -1,19 +1,39 @@
 # Contribution Guidelines
 
-## Branch Naming Convention
+## AI Developer Attribution (REQUIRED)
 
-All feature branches MUST follow this format:
+All feature branches and pull requests MUST indicate which AI system generated the work.
 
-feature/<feature-name>-YYYYMMDD-HHMM
+### Required AI Developers
+- Devin.ai (Execution / Full-stack)
+- Claude.ai (UI / Feature Development)
+- Codex (Code Review / Optimization)
 
-Example:
-feature/top-iam-risks-20260425-1530
+### Branch Naming Requirement (Updated)
 
-Rules:
-- Use lowercase only
-- No spaces
-- Use hyphens (-) between words
-- Include timestamp (date and time)
+feature/<feature-name>-<ai>-YYYYMMDD-HHMM
+
+Examples:
+- feature/top-iam-risks-devin-20260425-1700
+- feature/ui-risk-dashboard-claude-20260425-1715
+- feature/api-optimization-codex-20260425-1730
+
+### Rules
+- Must include AI name in branch
+- Must include timestamp
+- Must use lowercase
+- No spaces allowed
+
+---
+
+### Purpose
+
+This ensures:
+- Traceability of AI-generated code
+- Ability to evaluate AI performance
+- Clear ownership of features
+
+
 
 ---
 
@@ -23,6 +43,7 @@ All changes MUST be submitted via Pull Request.
 
 Each PR must include:
 - Feature description
+- AI that developed it
 - Problem statement
 - Solution overview
 - Screenshots (if UI)
