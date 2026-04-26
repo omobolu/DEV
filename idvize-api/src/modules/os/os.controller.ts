@@ -34,6 +34,7 @@ import { requireAuth }                      from '../../middleware/requireAuth';
 import { tenantContext }                    from '../../middleware/tenantContext';
 import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
 import { riskService } from './risk.service';
+import { agentService } from './agents/agent.service';
 import { requirePermission } from '../../middleware/requirePermission';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
@@ -799,6 +800,54 @@ router.get('/risks/:appId', requirePermission('risks.view'), async (req: Request
   } catch (err) {
     console.error('[OS] GET /risks/:appId failed:', (err as Error).message);
     res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
+  }
+});
+
+// ── Agent Framework v1 ────────────────────────────────────────────────────────
+// POST /os/agents/invoke — Invoke an IAM control agent for guidance and remediation.
+// Accepts controlId and applicationId in the body; tenantId from JWT only.
+// No external system integrations — agents return locally-computed guidance.
+router.get('/agents', requirePermission('agents.invoke'), (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: agentService.listAgents(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.post('/agents/invoke', requirePermission('agents.invoke'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { controlId, applicationId } = req.body as { controlId?: string; applicationId?: string };
+
+    if (!controlId || !applicationId) {
+      res.status(400).json({
+        success: false,
+        error: 'controlId and applicationId are required',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const result = await agentService.invoke(tenantId, applicationId, controlId);
+
+    if (!result) {
+      res.status(404).json({
+        success: false,
+        error: 'Agent not available for this control or application not found',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] POST /agents/invoke failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Agent service temporarily unavailable' });
   }
 });
 

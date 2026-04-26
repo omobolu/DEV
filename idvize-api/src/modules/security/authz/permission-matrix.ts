@@ -68,6 +68,8 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   { permissionId: 'tenants.manage',           module: 'tenants',      action: 'manage',              description: 'Create, list, and manage tenant organizations (PlatformAdmin only)', riskLevel: 'high', requiresApproval: true },
   // Risk Engine
   { permissionId: 'risks.view',              module: 'risks',        action: 'view',                description: 'View IAM risk assessments across applications',                    riskLevel: 'low',  requiresApproval: false },
+  // Agents
+  { permissionId: 'agents.invoke',           module: 'agents',       action: 'invoke',              description: 'Invoke IAM control agents for guidance and remediation',           riskLevel: 'low',  requiresApproval: false },
 ];
 
 // ── Role → Permission Matrix ───────────────────────────────────────────────────
@@ -89,6 +91,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
     'tenants.manage',
     'risks.view',
+    'agents.invoke',
   ],
   Manager: [
     'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
@@ -103,6 +106,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
     'risks.view',
+    'agents.invoke',
   ],
   Architect: [
     // NO: cost.view.salary_detail, approval.grant.high_risk, security.manage.access/scim, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -118,6 +122,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
     'risks.view',
+    'agents.invoke',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -132,6 +137,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'vendors.view',
     'secrets.request', 'secrets.view.metadata',
     'risks.view',
+    'agents.invoke',
   ],
   Engineer: [
     // NO: cost module, salary data, tasks.view.all, document.publish, approval.grant.*, security.manage.*, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -144,6 +150,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'approval.request',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
     'risks.view',
+    'agents.invoke',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage
@@ -155,6 +162,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'approval.request',
     'secrets.request',
     'risks.view',
+    'agents.invoke',
   ],
 };
 
