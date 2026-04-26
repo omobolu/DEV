@@ -93,10 +93,6 @@ function driverStatusColor(status: string): string {
   return status === 'healthy' ? '#22c55e' : status === 'degraded' ? '#f97316' : '#64748b'
 }
 
-function outcomeColor(outcome: string): string {
-  return outcome === 'success' ? '#22c55e' : outcome === 'failure' ? '#ef4444' : '#64748b'
-}
-
 // ── KPI Tile ─────────────────────────────────────────────────────────────────
 
 function KpiTile({ label, value, sub, color, icon: Icon, onClick }: {

@@ -142,6 +142,28 @@ async function resolvePassword(): Promise<string> {
   return readPasswordFromStdin();
 }
 
+const COMMON_PASSWORDS = [
+  'password123!', 'Password123!', 'Admin123!@#$', 'admin1234567',
+  'changeme1234', 'qwerty123456', '123456789012', 'Welcome12345',
+  'Passw0rd!@#$', 'letmein123456',
+];
+
+function validatePasswordComplexity(password: string): string[] {
+  const errors: string[] = [];
+  if (password.length < 12) errors.push('Minimum 12 characters');
+  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
+  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
+  if (!/[0-9]/.test(password)) errors.push('At least one number');
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push('At least one special character');
+  // Reject repeated same character (e.g. aaaaaaaaaaaa)
+  if (/^(.)\1+$/.test(password)) errors.push('Must not be a single repeated character');
+  // Reject common patterns
+  if (COMMON_PASSWORDS.some(cp => password.toLowerCase() === cp.toLowerCase())) {
+    errors.push('Must not be a commonly used password');
+  }
+  return errors;
+}
+
 async function parseArgs(): Promise<BootstrapArgs> {
   const args = process.argv.slice(2);
   const map = new Map<string, string>();
@@ -182,8 +204,10 @@ async function parseArgs(): Promise<BootstrapArgs> {
 
   const password = await resolvePassword();
 
-  if (password.length < 12) {
-    console.error('[BOOTSTRAP] Password must be at least 12 characters for production use.');
+  const pwErrors = validatePasswordComplexity(password);
+  if (pwErrors.length > 0) {
+    console.error('[BOOTSTRAP] Password does not meet complexity requirements:');
+    for (const e of pwErrors) console.error(`  - ${e}`);
     process.exit(1);
   }
 

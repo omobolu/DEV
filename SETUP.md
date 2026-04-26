@@ -42,12 +42,26 @@ Copy or create `idvize-api/.env`:
 ```env
 PORT=3001
 NODE_ENV=development
-JWT_SIGNING_SECRET=idvize-dev-secret-2026
+JWT_SIGNING_SECRET=idvize-dev-secret-2026          # DEV ONLY — see production note below
 DATABASE_URL=postgresql://idvize:idvize_dev_2026@localhost:5432/idvize
 SEED_MODE=development
 ```
 
 > **Note:** `.env` is gitignored. Never commit real credentials.
+
+#### Production JWT_SIGNING_SECRET Requirements
+
+The `JWT_SIGNING_SECRET` value above (`idvize-dev-secret-2026`) is **for local development only**. In production, the backend rejects weak/short secrets and known placeholder patterns.
+
+**Production requirements:**
+- Minimum 32 characters of high entropy
+- Must NOT contain common patterns like `change-me`, `secret`, `dev`, `placeholder`, `example`
+- Randomly generated (e.g. `openssl rand -base64 48`)
+
+```bash
+# Generate a production-ready JWT signing secret:
+openssl rand -base64 48
+```
 
 ### 5. Data Initialization Strategy
 
@@ -117,7 +131,7 @@ This creates:
 **Requirements:**
 - `DATABASE_URL` must be explicitly set (refuses to run without it)
 - In `NODE_ENV=production`, rejects local/default database URLs
-- Password must be at least 12 characters
+- Password must meet complexity requirements: minimum 12 characters, uppercase, lowercase, number, special character, no common/repeated patterns
 - `--password` CLI argument is blocked (leaks via shell history / process listings)
 - Refuses to run if a PlatformAdmin already exists
 - Uses atomic PG transaction (tenant + user created together or not at all)
