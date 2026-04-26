@@ -247,7 +247,7 @@ export default function DocumentsPage() {
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={FileText}     label="Total Documents" value={stats.total}                       color="#8b5cf6" />
+          <StatCard icon={FileText}     label="Total Documents" value={stats.total}                       color="#1e40af" />
           <StatCard icon={Clock}        label="In Review"       value={stats.byStatus.in_review ?? 0}    color="#f59e0b" />
           <StatCard icon={CheckCircle}  label="Published"       value={stats.byStatus.published ?? 0}    color="#22c55e" />
           <StatCard icon={Archive}      label="Archived"        value={stats.byStatus.archived ?? 0}     color="#64748b" />

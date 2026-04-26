@@ -35,8 +35,40 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
   }
 
   return (
-    <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div
+      className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden bg-surface-900"
+      style={{
+        // Static dot grid — security/tech feel
+        backgroundImage: 'radial-gradient(rgba(30, 64, 175, 0.06) 1px, transparent 1px)',
+        backgroundSize: '22px 22px',
+      }}
+    >
+      {/* Slowly drifting navy wash — top-left */}
+      <div
+        className="pointer-events-none absolute -inset-[10%] animate-wash-a"
+        style={{
+          background: 'radial-gradient(ellipse 60% 40% at 15% 0%, rgba(30, 64, 175, 0.10), transparent 70%)',
+        }}
+        aria-hidden="true"
+      />
+      {/* Slowly drifting cyan wash — bottom-right */}
+      <div
+        className="pointer-events-none absolute -inset-[10%] animate-wash-b"
+        style={{
+          background: 'radial-gradient(ellipse 50% 40% at 85% 100%, rgba(8, 145, 178, 0.08), transparent 65%)',
+        }}
+        aria-hidden="true"
+      />
+      {/* Subtle vignette to focus center */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: 'radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, rgba(15, 23, 42, 0.04) 100%)',
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative w-full max-w-md animate-fade-up">
         {/* Brand */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 mb-5">
