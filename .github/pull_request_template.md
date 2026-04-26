@@ -1,3 +1,29 @@
+## AI Developer Attribution (REQUIRED)
+
+- [ ] Devin.ai
+- [ ] Claude.ai
+- [ ] Codex
+
+Specify which AI generated this feature.
+
+---
+
+## Branch Naming Validation
+
+- [ ] Branch follows:
+  feature/<feature-name>-<ai>-YYYYMMDD-HHMM
+
+Example:
+feature/top-iam-risks-devin-20260425-1700
+
+## Branch Naming
+- [ ] Branch follows naming convention:
+  feature/<feature-name>-YYYYMMDD-HHMM
+
+Example:
+feature/top-iam-risks-20260425-1530
+
+
 ## Feature
 What is being built?
 
