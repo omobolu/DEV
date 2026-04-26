@@ -57,6 +57,10 @@ class AuditService {
     return auditRepository.queryAll({ limit: 10000 }).find(e => e.eventId === eventId);
   }
 
+  async findByIdPg(eventId: string, tenantId: string): Promise<AuditEvent | undefined> {
+    return auditRepository.findByIdPg(eventId, tenantId);
+  }
+
   count(tenantId: string): number {
     return auditRepository.count(tenantId);
   }

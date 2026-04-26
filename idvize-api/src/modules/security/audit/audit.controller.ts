@@ -40,9 +40,12 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /security/audit/summary
-router.get('/summary', (req: Request, res: Response) => {
+router.get('/summary', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const events = auditService.query(tenantId, { limit: 10000 });
+  const [events, totalEvents] = await Promise.all([
+    auditService.queryPg(tenantId, { limit: 10000 }),
+    auditService.countPg(tenantId),
+  ]);
   const byType = events.reduce<Record<string, number>>((acc, e) => {
     acc[e.eventType] = (acc[e.eventType] ?? 0) + 1;
     return acc;
@@ -51,13 +54,13 @@ router.get('/summary', (req: Request, res: Response) => {
     acc[e.outcome] = (acc[e.outcome] ?? 0) + 1;
     return acc;
   }, {});
-  res.json({ success: true, data: { totalEvents: auditService.count(tenantId), byType, byOutcome }, timestamp: new Date().toISOString() });
+  res.json({ success: true, data: { totalEvents, byType, byOutcome }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/:id
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const event = auditService.findById(id);
+  const event = await auditService.findByIdPg(id, req.tenantId!);
   if (!event) {
     res.status(404).json({ success: false, error: 'Audit event not found', timestamp: new Date().toISOString() });
     return;

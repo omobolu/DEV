@@ -90,6 +90,16 @@ class AuditRepository {
     }
   }
 
+  async findByIdPg(eventId: string, tenantId: string): Promise<AuditEvent | undefined> {
+    try {
+      const result = await pool.query('SELECT * FROM audit_logs WHERE event_id = $1 AND tenant_id = $2', [eventId, tenantId]);
+      if (result.rows.length === 0) return this.findById(tenantId, eventId);
+      return this.rowToEvent(result.rows[0]);
+    } catch {
+      return this.findById(tenantId, eventId);
+    }
+  }
+
   async countPg(tenantId: string): Promise<number> {
     try {
       const result = await pool.query('SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1', [tenantId]);

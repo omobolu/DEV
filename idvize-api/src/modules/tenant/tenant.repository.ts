@@ -101,6 +101,8 @@ class TenantRepository {
   }
 
   async loadCache(): Promise<void> {
+    this.cache.clear();
+    this.slugIndex.clear();
     this.loaded = false;
     this.loadPromise = null;
     await this.ensureLoaded();
