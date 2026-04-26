@@ -9,14 +9,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
 import { requireAuth } from '../../middleware/requireAuth';
 import { requirePermission } from '../../middleware/requirePermission';
-import { tenantService } from './tenant.service';
-import { tenantRepository } from './tenant.repository';
-import { authRepository } from '../security/auth/auth.repository';
-import pool from '../../db/pool';
-import { User } from '../security/security.types';
+import { tenantService, CreateTenantInput } from './tenant.service';
 
 const router = Router();
 
@@ -53,95 +48,36 @@ router.get('/:tenantId', requireAuth, requirePermission('security.manage.access'
 
 // ── POST /tenants — create a new tenant + admin user ──────────────────────────
 router.post('/', requireAuth, requirePermission('security.manage.access'), async (req: Request, res: Response) => {
-  const { name, slug, domain, plan, adminEmail, adminPassword, adminDisplayName } = req.body;
+  const input: CreateTenantInput = req.body;
 
-  if (!name || !slug || !domain || !adminEmail || !adminPassword) {
+  const validationErrors = tenantService.validateCreateInput(input);
+  if (validationErrors.length > 0) {
     res.status(400).json({
       success: false,
-      error: 'Missing required fields: name, slug, domain, adminEmail, adminPassword',
+      errors: validationErrors,
       timestamp: new Date().toISOString(),
     });
     return;
   }
-
-  const tenantId = `ten-${slug}`;
-  const existing = await tenantRepository.findById(tenantId);
-  if (existing) {
-    res.status(409).json({
-      success: false,
-      error: `Tenant already exists: ${tenantId}`,
-      timestamp: new Date().toISOString(),
-    });
-    return;
-  }
-
-  const now = new Date().toISOString();
-  const userId = `usr-${slug}-admin-001`;
-
-  const tenant = {
-    tenantId,
-    name,
-    slug,
-    domain,
-    status: 'active' as const,
-    plan: (plan || 'professional') as 'enterprise' | 'professional' | 'trial',
-    adminUserId: userId,
-    settings: {
-      mfaRequired: false,
-      sessionTimeoutSeconds: 28800,
-      allowedAuthProviders: ['oidc'],
-      maxUsers: 100,
-      maxApps: 50,
-    },
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await tenantRepository.save(tenant);
-
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   try {
-    await pool.query(
-      `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [userId, tenantId, adminEmail, adminDisplayName || 'Admin', 'Admin', 'User', adminEmail, 'IT', 'Administrator', JSON.stringify(['Manager']), JSON.stringify([]), 'active', 'local', false, passwordHash, JSON.stringify({}), now]
-    );
+    const actorId = (req as unknown as { userId?: string }).userId || 'system';
+    const actorName = (req as unknown as { userDisplayName?: string }).userDisplayName || 'System';
+    const result = await tenantService.createTenant(input, actorId, actorName);
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
-    console.warn(`[TenantController] PostgreSQL user insert failed, saving in-memory only:`, (err as Error).message);
+    const statusCode = (err as { statusCode?: number }).statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: (err as Error).message,
+      timestamp: new Date().toISOString(),
+    });
   }
-
-  const user: User = {
-    userId,
-    tenantId,
-    username: adminEmail,
-    displayName: adminDisplayName || 'Admin',
-    firstName: 'Admin',
-    lastName: 'User',
-    email: adminEmail,
-    department: 'IT',
-    title: 'Administrator',
-    roles: ['Manager'],
-    groups: [],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: false,
-    passwordHash,
-    attributes: {},
-    createdAt: now,
-    updatedAt: now,
-  };
-  authRepository.save(tenantId, user);
-
-  res.status(201).json({
-    success: true,
-    data: {
-      tenant: { tenantId, name, slug, domain, status: 'active', plan: tenant.plan },
-      adminUser: { userId, username: adminEmail, role: 'Manager' },
-    },
-    timestamp: new Date().toISOString(),
-  });
 });
 
 export default router;

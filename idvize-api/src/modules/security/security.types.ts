@@ -207,7 +207,10 @@ export type AuditEventType =
   | 'policy.created'
   | 'policy.updated'
   | 'policy.deleted'
-  | 'secret.accessed';
+  | 'secret.accessed'
+  | 'tenant.created'
+  | 'tenant.updated'
+  | 'tenant.suspended';
 
 export interface AuditEvent {
   eventId: string;

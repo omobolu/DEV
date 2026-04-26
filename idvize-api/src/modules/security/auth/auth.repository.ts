@@ -123,6 +123,16 @@ class AuthRepository {
     return this.rowToUser(result.rows[0]);
   }
 
+  async saveUserPg(tenantId: string, user: User): Promise<void> {
+    await pool.query(
+      `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
+       ON CONFLICT (user_id) DO NOTHING`,
+      [user.userId, tenantId, user.username, user.displayName, user.firstName, user.lastName, user.email, user.department ?? 'IT', user.title ?? 'Administrator', JSON.stringify(user.roles), JSON.stringify(user.groups), user.status, user.authProvider, user.mfaEnrolled, user.passwordHash, JSON.stringify(user.attributes), user.createdAt]
+    );
+    this.save(tenantId, user);
+  }
+
   findByIdGlobal(userId: string): User | undefined {
     for (const [, userMap] of this.memStore) {
       const u = userMap.get(userId);

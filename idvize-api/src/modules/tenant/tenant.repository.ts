@@ -18,7 +18,7 @@ class TenantRepository {
   private loadPromise: Promise<void> | null = null;
 
   private async ensureLoaded(): Promise<void> {
-    if (this.loaded || this.cache.size > 0) return;
+    if (this.loaded) return;
     if (!this.loadPromise) {
       this.loadPromise = pool.query('SELECT * FROM tenants').then(result => {
         for (const row of result.rows) {
@@ -89,6 +89,11 @@ class TenantRepository {
   async count(): Promise<number> {
     await this.ensureLoaded();
     return this.cache.size;
+  }
+
+  addToCache(tenant: Tenant): void {
+    this.cache.set(tenant.tenantId, tenant);
+    this.slugIndex.set(tenant.slug, tenant.tenantId);
   }
 
   // Sync accessors for hot-path middleware (cache must already be loaded)
