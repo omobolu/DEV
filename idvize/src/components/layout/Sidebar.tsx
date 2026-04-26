@@ -3,6 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   MonitorDot, Plug, Activity, Users, Briefcase,
   UserRound, UserCheck, ShieldCheck, ShieldAlert, RefreshCw,
+  ClipboardCheck, UserPlus, Network, Workflow,
+  BadgeCheck, KeyRound, KeySquare, Lock, Eye,
   Database, FileText, Award, DollarSign,
   LayoutDashboard, BookOpen, TrendingUp, AlertTriangle, X,
 } from 'lucide-react'
@@ -16,6 +18,10 @@ const SECTION_SYSTEM = [
 /**
  * Identity Domains — organized by business audience (B2E / B2B / B2C),
  * not by IAM acronym. Each domain shows the capabilities relevant to it.
+ *
+ * Sub-paths use parent route wildcards (`iga/*`, `ciam/*`) so each leaf
+ * has its own URL signature for active-state highlighting without adding
+ * new pages — existing parent components render at every sub-path.
  */
 const IDENTITY_DOMAINS = [
   {
@@ -23,9 +29,10 @@ const IDENTITY_DOMAINS = [
     sublabel: 'Employees · B2E',
     icon: Users,
     items: [
-      { icon: RefreshCw,   label: 'Lifecycle Management', path: '/iga',                color: '#2563eb' },
-      { icon: ShieldCheck, label: 'Access Management',    path: '/access-management',  color: '#06b6d4', end: true },
-      { icon: ShieldAlert, label: 'Privileged Access',    path: '/pam',                color: '#d97706' },
+      { icon: RefreshCw,      label: 'Identity Lifecycle', path: '/iga',                color: '#2563eb', end: true },
+      { icon: ShieldCheck,    label: 'Access Management',  path: '/access-management',  color: '#06b6d4', end: true },
+      { icon: ShieldAlert,    label: 'Privileged Access',  path: '/pam',                color: '#d97706' },
+      { icon: ClipboardCheck, label: 'Access Governance',  path: '/iga/governance',     color: '#16a34a' },
     ],
   },
   {
@@ -33,7 +40,10 @@ const IDENTITY_DOMAINS = [
     sublabel: 'Vendors & contractors · B2B',
     icon: Briefcase,
     items: [
-      { icon: ShieldCheck, label: 'Partner Access', path: '/access-management/partners', color: '#06b6d4' },
+      { icon: UserPlus,       label: 'Partner Onboarding',  path: '/iga/partners/onboarding',   color: '#2563eb' },
+      { icon: Network,        label: 'Federated Access',    path: '/access-management/partners', color: '#06b6d4' },
+      { icon: Workflow,       label: 'Access Provisioning', path: '/iga/partners/provisioning', color: '#475569' },
+      { icon: ClipboardCheck, label: 'Partner Governance',  path: '/iga/partners/governance',   color: '#16a34a' },
     ],
   },
   {
@@ -41,7 +51,13 @@ const IDENTITY_DOMAINS = [
     sublabel: 'External users · B2C',
     icon: UserRound,
     items: [
-      { icon: UserCheck,   label: 'Customer Identity', path: '/ciam', color: '#16a34a' },
+      { icon: UserPlus,       label: 'Identity Registration',         path: '/ciam/registration',   color: '#2563eb' },
+      { icon: BadgeCheck,     label: 'Identity Verification',         path: '/ciam/verification',   color: '#06b6d4' },
+      { icon: KeyRound,       label: 'Authentication',                path: '/ciam/authentication', color: '#475569' },
+      { icon: KeySquare,      label: 'Password & Account Management', path: '/ciam/accounts',       color: '#d97706' },
+      { icon: UserCheck,      label: 'Customer Access',               path: '/ciam/access',         color: '#16a34a' },
+      { icon: Lock,           label: 'Consent & Privacy',             path: '/ciam/consent',        color: '#475569' },
+      { icon: Eye,            label: 'Fraud & Risk',                  path: '/ciam/fraud',          color: '#dc2626' },
     ],
   },
 ] as const

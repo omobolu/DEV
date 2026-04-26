@@ -89,7 +89,7 @@ export default function App() {
               <Route path="access-management" element={<AccessManagement />} />
               <Route path="access-management/partners" element={<AccessManagement audience="partners" />} />
               <Route path="pam" element={<PAMDashboard />} />
-              <Route path="ciam" element={<CIAMDashboard />} />
+              <Route path="ciam/*" element={<CIAMDashboard />} />
               <Route path="applications/onboarding" element={<AppOnboarding />} />
               <Route path="applications/management" element={<AppManagement />} />
               <Route path="applications/orphan-accounts" element={<OrphanAccounts />} />
