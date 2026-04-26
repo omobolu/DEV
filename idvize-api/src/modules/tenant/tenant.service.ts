@@ -98,6 +98,10 @@ class TenantService {
     if (existing) {
       throw Object.assign(new Error(`Tenant already exists: ${tenantId}`), { statusCode: 409 });
     }
+    const existingBySlug = await tenantRepository.findBySlug(input.slug);
+    if (existingBySlug) {
+      throw Object.assign(new Error(`Slug already in use: ${input.slug}`), { statusCode: 409 });
+    }
 
     // Prevent duplicate adminEmail across tenants (would cause 409 "Ambiguous login" on auth)
     let existingUser = authRepository.findByUsernameGlobal(input.adminEmail);
@@ -106,6 +110,7 @@ class TenantService {
         existingUser = await authRepository.findByUsernameGlobalPg(input.adminEmail);
       } catch (err) {
         if ((err as { statusCode?: number }).statusCode) throw err;
+        throw Object.assign(new Error('Cannot verify email uniqueness — database temporarily unavailable'), { statusCode: 503 });
       }
     }
     if (existingUser) {
