@@ -16,7 +16,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, RefreshCw, Filter, Search, ArrowUpDown,
   ShieldAlert, ShieldCheck, AlertTriangle, X,
-  ChevronRight, Wrench, BookOpen, Layers, Clock,
+  Wrench, BookOpen, Layers, Clock,
   Bot, Loader2, CheckCircle2,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'

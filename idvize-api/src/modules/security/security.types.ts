@@ -88,7 +88,16 @@ export type PermissionId =
   // Tenant management (PlatformAdmin only)
   | 'tenants.manage'
   // Risk Engine
-  | 'risks.view';
+  | 'risks.view'
+  // Agent Execution
+  | 'agents.use'
+  | 'agents.plan'
+  | 'agents.execute.request'
+  | 'agents.execute.approve'
+  | 'agents.execute.sso'
+  | 'agents.execute.iga'
+  | 'agents.execute.servicenow'
+  | 'agents.admin';
 
 export interface Permission {
   permissionId: PermissionId;
@@ -214,7 +223,15 @@ export type AuditEventType =
   | 'secret.accessed'
   | 'tenant.created'
   | 'tenant.updated'
-  | 'tenant.suspended';
+  | 'tenant.suspended'
+  // Agent Execution
+  | 'agent.plan.created'
+  | 'agent.plan.approved'
+  | 'agent.plan.rejected'
+  | 'agent.execution.started'
+  | 'agent.execution.completed'
+  | 'agent.execution.failed'
+  | 'agent.execution.cancelled';
 
 export interface AuditEvent {
   eventId: string;
