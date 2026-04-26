@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  MonitorDot, Plug, ScrollText, Activity, Users, Briefcase,
+  MonitorDot, Plug, Activity, Users, Briefcase,
   UserRound, UserCheck, ShieldCheck, ShieldAlert, RefreshCw,
   Database, FileText, Award, DollarSign,
   LayoutDashboard, BookOpen, TrendingUp, AlertTriangle, X,
@@ -9,9 +9,8 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 const SECTION_SYSTEM = [
-  { icon: Plug,        label: 'Driver Manager', path: '/integrations' },
-  { icon: ScrollText,  label: 'Audit Log',      path: '/os?tab=monitor' },
-  { icon: Activity,    label: 'System Events',  path: '/system-events' },
+  { icon: Plug,     label: 'Driver Manager', path: '/integrations' },
+  { icon: Activity, label: 'System Events',  path: '/system-events' },
 ]
 
 /**
