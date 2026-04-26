@@ -1,6 +1,10 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import './App.css'
 import { DEFAULT_CMDB_DATA, DEFAULT_CMDB_HEADERS } from './cmdbData'
+import { useAuth } from './context/AuthContext'
+import LoginPage from './components/LoginPage'
+import { getDashboard } from './api/client'
+import type { DashboardData } from './api/client'
 import {
   LayoutDashboard,
   UserCircle,
@@ -33,6 +37,7 @@ import {
   Trash2,
   Check,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -135,6 +140,11 @@ function Sidebar({ activePage, setActivePage, collapsed, setCollapsed }: {
 }
 
 function Header({ title }: { title: string }) {
+  const { user, tenant, logout } = useAuth()
+  const initials = user?.displayName
+    ? user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'U'
+
   return (
     <header
       className="flex items-center justify-between px-6 py-3 sticky top-0 z-20"
@@ -155,8 +165,17 @@ function Header({ title }: { title: string }) {
           <Bell size={20} style={{ color: '#475569' }} />
           <span className="absolute -top-1.5 -right-1.5 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center" style={{ backgroundColor: COLORS.primary, color: '#0a0e1a' }}>0</span>
         </div>
-        <SlidersHorizontal size={20} style={{ color: '#475569' }} />
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium" style={{ backgroundColor: COLORS.primary, color: '#0a0e1a' }}>JD</div>
+        {tenant && (
+          <span className="text-xs px-2 py-1 rounded" style={{ color: COLORS.textSecondary, backgroundColor: '#0a0e1a', border: `1px solid ${COLORS.border}` }}>
+            {tenant.name}
+          </span>
+        )}
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium" style={{ backgroundColor: COLORS.primary, color: '#0a0e1a' }} title={user?.displayName || ''}>
+          {initials}
+        </div>
+        <button onClick={() => logout()} title="Sign out" style={{ color: '#64748b' }} className="hover:opacity-80 transition-opacity">
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   )
@@ -255,7 +274,7 @@ function GaugeChart({ title, total, items, icon }: {
 }
 
 /* ═══ Program Insights ═══ */
-function ProgramInsightsPage({ setActivePage }: { setActivePage: (p: Page) => void }) {
+function ProgramInsightsPage({ setActivePage, dashboardData }: { setActivePage: (p: Page) => void; dashboardData?: DashboardData | null }) {
   const igaItems = [
     { name: 'Access Request', value: 45, color: '#00e5ff' },
     { name: 'Account Management', value: 45, color: '#00ff88' },
@@ -297,10 +316,18 @@ function ProgramInsightsPage({ setActivePage }: { setActivePage: (p: Page) => vo
             </button>
           ))}
         </div>
+        {dashboardData && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <KpiCard label="Total Applications" value={`${dashboardData.totalApplications}`} color="#3b82f6" />
+            <KpiCard label="Total Controls" value={`${dashboardData.totalControls}`} color="#00e5ff" />
+            <KpiCard label="Open Risks" value={`${dashboardData.openRiskFindings}`} color="#ef4444" />
+            <KpiCard label="Controls OK" value={`${dashboardData.controlsByStatus?.OK || 0}`} color="#00ff88" />
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-6">
-          <GaugeChart title="Identity Governance and Administration" total={123} items={igaItems} icon={<ShieldCheck size={14} />} />
-          <GaugeChart title="Access Management" total={123} items={amItems} icon={<KeyRound size={14} />} />
-          <GaugeChart title="Privileged Access Management" total={123} items={pamItems} icon={<Lock size={14} />} />
+          <GaugeChart title="Identity Governance and Administration" total={dashboardData?.totalApplications || 123} items={igaItems} icon={<ShieldCheck size={14} />} />
+          <GaugeChart title="Access Management" total={dashboardData?.totalApplications || 123} items={amItems} icon={<KeyRound size={14} />} />
+          <GaugeChart title="Privileged Access Management" total={dashboardData?.totalApplications || 123} items={pamItems} icon={<Lock size={14} />} />
         </div>
       </div>
     </div>
@@ -334,7 +361,7 @@ const appPortfolioData = [
   { name: 'Other', value: 57.14, color: '#7c3aed' },
 ]
 
-function IGAWarehousePage({ setActivePage }: { setActivePage: (p: Page) => void }) {
+function IGAWarehousePage({ setActivePage, dashboardData }: { setActivePage: (p: Page) => void; dashboardData?: DashboardData | null }) {
   const [activeTab, setActiveTab] = useState('Identity Warehouse')
   return (
     <div>
@@ -342,10 +369,10 @@ function IGAWarehousePage({ setActivePage }: { setActivePage: (p: Page) => void 
       <div className="p-6">
         <TabNav tabs={['Home', 'Identity Warehouse', 'User LifeCycle Management', 'Access Requests', 'Governance']} activeTab={activeTab} setActiveTab={setActiveTab} />
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <KpiCard label="Orphan Accounts" value="34%" color="#ef4444" />
-          <KpiCard label="SOD Coverage" value="23%" color="#f97316" />
-          <KpiCard label="Applications Coverage" value="57.3%" color="#3b82f6" />
-          <KpiCard label="Terminated Users With Active..." value="79%" color="#ef4444" />
+          <KpiCard label="Orphan Accounts" value={dashboardData?.metrics?.orphan_accounts ? `${(dashboardData.metrics.orphan_accounts as Record<string, number>).total || 0}` : '0'} color="#ef4444" />
+          <KpiCard label="SOD Coverage" value={dashboardData?.metrics?.sod_coverage ? `${(dashboardData.metrics.sod_coverage as Record<string, number>).percentage || 0}%` : '0%'} color="#f97316" />
+          <KpiCard label="Total Applications" value={dashboardData ? `${dashboardData.totalApplications}` : '0'} color="#3b82f6" />
+          <KpiCard label="Open Risk Findings" value={dashboardData ? `${dashboardData.openRiskFindings}` : '0'} color="#ef4444" />
         </div>
         <div className="grid grid-cols-2 gap-6 mb-6">
           <ChartCard title="Active Identities Portfolio">
@@ -862,12 +889,20 @@ const terminationCompletionData = [
   { period: 'Q3', completed: 580, pending: 120 }, { period: 'Q4', completed: 720, pending: 30 },
 ]
 
-function AppManagementPage() {
+function AppManagementPage({ dashboardData }: { dashboardData?: DashboardData | null; onDataChange?: () => void }) {
   const [activeTab, setActiveTab] = useState('Key Risk Indicators')
   return (
     <div>
       <Header title="Key Risk & Performance Indicators" />
       <div className="p-6">
+        {dashboardData && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <KpiCard label="Total Applications" value={`${dashboardData.totalApplications}`} color="#3b82f6" />
+            <KpiCard label="Open Risks" value={`${dashboardData.openRiskFindings}`} color="#ef4444" />
+            <KpiCard label="Controls - GAP" value={`${dashboardData.controlsByStatus?.GAP || 0}`} color="#f59e0b" />
+            <KpiCard label="Controls - OK" value={`${dashboardData.controlsByStatus?.OK || 0}`} color="#00ff88" />
+          </div>
+        )}
         <TabNav tabs={['Key Risk Indicators', 'Key Performance Indicators']} activeTab={activeTab} setActiveTab={setActiveTab} />
         <div className="grid grid-cols-2 gap-6 mb-6">
           <ChartCard title="Orphan Accounts">
@@ -1918,11 +1953,53 @@ function CMDBAppDashboardPage({ app, onBack }: { app: CmdbRow; onBack: () => voi
   )
 }
 
+/* ═══ Dashboard Data Hook ═══ */
+function useDashboardData() {
+  const { isAuthenticated } = useAuth()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(() => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    getDashboard()
+      .then(setData)
+      .catch((err) => console.error('[Dashboard] Fetch error:', err))
+      .finally(() => setLoading(false))
+  }, [isAuthenticated])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  return { data, loading, refresh }
+}
+
 /* ═══ Main App ═══ */
 function App() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [activePage, setActivePage] = useState<Page>('insights')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [selectedCmdbApp, setSelectedCmdbApp] = useState<CmdbRow | null>(null)
+  const dashboardState = useDashboardData()
+
+  // Show loading spinner during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: COLORS.pageBg }}>
+        <div className="text-center">
+          <Shield size={40} style={{ color: COLORS.primary }} className="mx-auto mb-3 animate-pulse" />
+          <p style={{ color: COLORS.textSecondary }}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
 
   const handleSelectApp = (app: CmdbRow) => {
     setSelectedCmdbApp(app)
@@ -1934,19 +2011,21 @@ function App() {
     setActivePage('cmdb')
   }
 
+  const db = dashboardState.data
+
   const renderPage = () => {
     switch (activePage) {
-      case 'insights': return <ProgramInsightsPage setActivePage={setActivePage} />
-      case 'iga-warehouse': return <IGAWarehousePage setActivePage={setActivePage} />
+      case 'insights': return <ProgramInsightsPage setActivePage={setActivePage} dashboardData={db} />
+      case 'iga-warehouse': return <IGAWarehousePage setActivePage={setActivePage} dashboardData={db} />
       case 'access-management': return <AccessManagementPage />
       case 'pam': return <PAMDashboardPage />
       case 'ciam': return <CIAMDashboardPage />
       case 'app-onboarding': return <AppOnboardingPage />
-      case 'app-management': return <AppManagementPage />
+      case 'app-management': return <AppManagementPage dashboardData={db} onDataChange={dashboardState.refresh} />
       case 'orphan-accounts': return <OrphanAccountsPage setActivePage={setActivePage} />
       case 'cmdb': return <CMDBPage onSelectApp={handleSelectApp} />
       case 'cmdb-app': return selectedCmdbApp ? <CMDBAppDashboardPage app={selectedCmdbApp} onBack={handleBackToCmdb} /> : <CMDBPage onSelectApp={handleSelectApp} />
-      default: return <ProgramInsightsPage setActivePage={setActivePage} />
+      default: return <ProgramInsightsPage setActivePage={setActivePage} dashboardData={db} />
     }
   }
 
