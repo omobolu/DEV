@@ -43,7 +43,7 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
             <ShieldCheck size={28} className="text-a-indigo" aria-hidden="true" />
           </div>
           <div className="flex items-center justify-center gap-2">
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-heading">
               id<span className="text-a-indigo">vize</span>
             </h1>
             <span className="text-[10px] font-semibold bg-indigo-600/30 text-a-indigo border border-indigo-500/40 px-1.5 py-0.5 rounded uppercase tracking-wider">
