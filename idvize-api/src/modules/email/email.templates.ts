@@ -222,7 +222,8 @@ export function getTemplate(templateId: EmailTemplateId): EmailTemplate | undefi
 export function renderTemplate(template: string, data: Record<string, unknown>): string {
   let result = template;
   for (const [key, value] of Object.entries(data)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(value ?? ''));
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), String(value ?? ''));
   }
   return result;
 }

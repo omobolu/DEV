@@ -107,8 +107,8 @@ export default function EmailSettings() {
     setForm(prev => ({
       ...prev,
       provider,
-      host: p?.defaultHost ?? prev.host,
-      port: p?.defaultPort ?? prev.port,
+      host: p?.defaultHost || prev.host,
+      port: p?.defaultPort || prev.port,
     }))
   }
 

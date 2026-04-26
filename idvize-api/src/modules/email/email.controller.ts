@@ -21,7 +21,6 @@ import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
 import { emailService } from './email.service';
-import { emailRepository } from './email.repository';
 import { getAllTemplates } from './email.templates';
 import type { SmtpConfig, AgentNotificationRequest, EmailTemplateId } from './email.types';
 
@@ -79,7 +78,7 @@ router.put('/config', requirePermission('email.configure'), async (req: Request,
       };
       await emailService.saveConfig(tenantId, config, actorId, actorName);
     } else {
-      const existing = await emailRepository.getConfig(tenantId);
+      const existing = await emailService.getConfig(tenantId);
       if (!existing) {
         res.status(400).json({
           success: false,

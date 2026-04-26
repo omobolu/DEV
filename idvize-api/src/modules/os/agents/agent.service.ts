@@ -62,15 +62,11 @@ class AgentService {
     const agent = AGENT_REGISTRY.get(controlId);
     if (!agent) return undefined;
 
-    // 2. Verify app belongs to tenant + fetch control data (PG-backed)
+    // 2. Fetch tenant-scoped control data from PG
     const controls = await riskRepository.getApplicationControls(tenantId, applicationId);
-    if (controls.length === 0) {
-      // Either app doesn't exist in tenant or has no assessments — verify ownership
-      const appRisk = await riskRepository.getApplicationRisk(tenantId, applicationId);
-      if (!appRisk) return undefined;
-    }
 
     // 3. Find the specific control assessment for this app
+    //    Returns undefined if app doesn't exist in tenant or has no assessment for this control
     const assessment = controls.find(c => c.controlId === controlId);
     if (!assessment) return undefined;
 
