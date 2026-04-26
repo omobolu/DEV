@@ -183,13 +183,18 @@ const GLOBEX_USERS: User[] = [
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export async function seedTenants(): Promise<void> {
-  // Load tenant cache from PostgreSQL
-  await tenantRepository.loadCache();
+  let pgAvailable = false;
 
-  // If tenants already in PostgreSQL, skip in-memory tenant creation
-  // but still seed in-memory user/app stores for modules not yet on PostgreSQL
+  // Try loading tenant cache from PostgreSQL
+  try {
+    await tenantRepository.loadCache();
+    pgAvailable = true;
+  } catch (err) {
+    console.warn('[SEED] PostgreSQL unavailable, falling back to in-memory only:', (err as Error).message);
+  }
+
+  // Seed tenants if not already loaded from PostgreSQL
   if (tenantRepository.countSync() === 0) {
-    // No tenants in PostgreSQL — seed in-memory (fallback for dev without DB)
     await tenantRepository.save(TENANT_ACME);
     await tenantRepository.save(TENANT_GLOBEX);
   }
@@ -202,8 +207,8 @@ export async function seedTenants(): Promise<void> {
   seedApplications('ten-acme');
   seedApplications('ten-globex');
 
-  console.log('  \u2713 Tenant seed loaded — 2 tenants (ACME Financial, Globex Technologies)');
+  console.log('  \u2713 Tenant seed loaded \u2014 2 tenants (ACME Financial, Globex Technologies)');
   console.log('  \u2713 Users seeded: 5 per tenant (admin@acme.com, admin@globex.io / password123)');
   console.log('  \u2713 Application portfolios seeded: 50 apps \u00d7 2 tenants');
-  console.log('  \u2713 PostgreSQL: tenants + users persisted with bcrypt passwords');
+  console.log(`  \u2713 PostgreSQL: ${pgAvailable ? 'connected \u2014 tenants + users persisted with bcrypt passwords' : 'unavailable \u2014 running in-memory only'}`);
 }

@@ -15,16 +15,25 @@ class TenantRepository {
   private cache = new Map<string, Tenant>();
   private slugIndex = new Map<string, string>();
   private loaded = false;
+  private loadPromise: Promise<void> | null = null;
 
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
-    const result = await pool.query('SELECT * FROM tenants');
-    for (const row of result.rows) {
-      const tenant = this.rowToTenant(row);
-      this.cache.set(tenant.tenantId, tenant);
-      this.slugIndex.set(tenant.slug, tenant.tenantId);
+    if (!this.loadPromise) {
+      this.loadPromise = pool.query('SELECT * FROM tenants').then(result => {
+        for (const row of result.rows) {
+          const tenant = this.rowToTenant(row);
+          this.cache.set(tenant.tenantId, tenant);
+          this.slugIndex.set(tenant.slug, tenant.tenantId);
+        }
+        this.loaded = true;
+        this.loadPromise = null;
+      }).catch(err => {
+        this.loadPromise = null;
+        throw err;
+      });
     }
-    this.loaded = true;
+    await this.loadPromise;
   }
 
   private rowToTenant(row: Record<string, unknown>): Tenant {
@@ -44,14 +53,18 @@ class TenantRepository {
   }
 
   async save(tenant: Tenant): Promise<Tenant> {
-    await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (tenant_id) DO UPDATE SET
-         name = $2, slug = $3, domain = $4, status = $5, plan = $6,
-         admin_user_id = $7, settings = $8, updated_at = $10`,
-      [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (tenant_id) DO UPDATE SET
+           name = $2, slug = $3, domain = $4, status = $5, plan = $6,
+           admin_user_id = $7, settings = $8, updated_at = $10`,
+        [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
+      );
+    } catch (err) {
+      console.warn(`[TenantRepo] PostgreSQL write failed for ${tenant.tenantId}, caching in-memory only:`, (err as Error).message);
+    }
     this.cache.set(tenant.tenantId, tenant);
     this.slugIndex.set(tenant.slug, tenant.tenantId);
     return tenant;
@@ -89,6 +102,7 @@ class TenantRepository {
 
   async loadCache(): Promise<void> {
     this.loaded = false;
+    this.loadPromise = null;
     await this.ensureLoaded();
   }
 }
