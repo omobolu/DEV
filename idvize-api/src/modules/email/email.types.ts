@@ -14,6 +14,7 @@ export interface SmtpConfig {
   fromEmail: string;
   fromDisplayName: string;
   useTls: boolean;
+  allowSelfSignedCerts?: boolean;  // Explicit opt-in for self-signed certs (default: false)
   provider: 'smtp' | 'mailtrap' | 'sendgrid' | 'microsoft365';
 }
 

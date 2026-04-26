@@ -30,7 +30,7 @@ class EmailService {
   private transporterCache = new Map<string, { transporter: Transporter; configHash: string }>();
 
   private configHash(config: SmtpConfig): string {
-    return `${config.host}:${config.port}:${config.username}:${config.password}:${config.useTls}`;
+    return `${config.host}:${config.port}:${config.username}:${config.password}:${config.useTls}:${config.allowSelfSignedCerts ?? false}`;
   }
 
   private createTransporter(config: SmtpConfig): Transporter {
@@ -39,7 +39,7 @@ class EmailService {
       port: config.port,
       secure: config.port === 465,
       auth: { user: config.username, pass: config.password },
-      tls: config.useTls ? { rejectUnauthorized: false } : undefined,
+      tls: config.useTls ? { rejectUnauthorized: !config.allowSelfSignedCerts } : undefined,
     });
   }
 

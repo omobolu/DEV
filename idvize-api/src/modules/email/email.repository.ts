@@ -2,14 +2,54 @@
  * Email Repository — Tenant-scoped SMTP configuration storage
  *
  * Uses PostgreSQL for persistence. Configuration is stored per-tenant.
- * Passwords are stored encrypted in PG (for this v1, stored in column;
- * future: migrate to vault reference).
+ * Passwords are encrypted with AES-256-GCM before storage.
+ * Encryption key: SMTP_ENCRYPTION_KEY env var (hex-encoded 32 bytes).
  *
  * NEVER returns raw passwords to callers — use getConfigMasked().
  */
 
+import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import pool from '../../db/pool';
 import type { SmtpConfig, SmtpConfigResponse } from './email.types';
+
+const ALGORITHM = 'aes-256-gcm';
+
+function getEncryptionKey(): Buffer {
+  const envKey = process.env.SMTP_ENCRYPTION_KEY;
+  if (envKey && Buffer.byteLength(envKey, 'hex') === 32) {
+    return Buffer.from(envKey, 'hex');
+  }
+  // Dev fallback — deterministic key derived from JWT_SIGNING_SECRET or static dev key
+  const fallback = process.env.JWT_SIGNING_SECRET ?? 'idvize-dev-smtp-key-do-not-use-in-production';
+  const { createHash } = require('crypto') as typeof import('crypto');
+  return createHash('sha256').update(fallback).digest();
+}
+
+function encryptPassword(plaintext: string): string {
+  const key = getEncryptionKey();
+  const iv = randomBytes(16);
+  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  // Store as iv:authTag:ciphertext (all hex-encoded)
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${ciphertext.toString('hex')}`;
+}
+
+function decryptPassword(encrypted: string): string {
+  const parts = encrypted.split(':');
+  if (parts.length !== 3) {
+    // Legacy plaintext — return as-is (migration path)
+    return encrypted;
+  }
+  const [ivHex, authTagHex, ciphertextHex] = parts;
+  const key = getEncryptionKey();
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  return decipher.update(ciphertext) + decipher.final('utf8');
+}
 
 class EmailRepository {
   /**
@@ -27,6 +67,7 @@ class EmailRepository {
         from_email       TEXT NOT NULL,
         from_display     TEXT NOT NULL DEFAULT 'IDVIZE',
         use_tls          BOOLEAN NOT NULL DEFAULT true,
+        allow_self_signed BOOLEAN NOT NULL DEFAULT false,
         provider         TEXT NOT NULL DEFAULT 'smtp',
         updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_by       TEXT NOT NULL
@@ -46,9 +87,10 @@ class EmailRepository {
       from_email: string;
       from_display: string;
       use_tls: boolean;
+      allow_self_signed: boolean;
       provider: string;
     }>(
-      `SELECT host, port, username, password_enc, from_email, from_display, use_tls, provider
+      `SELECT host, port, username, password_enc, from_email, from_display, use_tls, allow_self_signed, provider
        FROM email_config WHERE tenant_id = $1`,
       [tenantId],
     );
@@ -60,10 +102,11 @@ class EmailRepository {
       host: r.host,
       port: r.port,
       username: r.username,
-      password: r.password_enc,
+      password: decryptPassword(r.password_enc),
       fromEmail: r.from_email,
       fromDisplayName: r.from_display,
       useTls: r.use_tls,
+      allowSelfSignedCerts: r.allow_self_signed,
       provider: r.provider as SmtpConfig['provider'],
     };
   }
@@ -80,11 +123,12 @@ class EmailRepository {
       from_email: string;
       from_display: string;
       use_tls: boolean;
+      allow_self_signed: boolean;
       provider: string;
       updated_at: string;
       updated_by: string;
     }>(
-      `SELECT host, port, username, password_enc, from_email, from_display, use_tls, provider, updated_at::text, updated_by
+      `SELECT host, port, username, password_enc, from_email, from_display, use_tls, allow_self_signed, provider, updated_at::text, updated_by
        FROM email_config WHERE tenant_id = $1`,
       [tenantId],
     );
@@ -108,12 +152,13 @@ class EmailRepository {
 
   /**
    * Create or update SMTP config for a tenant (upsert).
-   * Password is stored directly (v1). Future: vault reference.
+   * Password is encrypted with AES-256-GCM before storage.
    */
   async saveConfig(tenantId: string, config: SmtpConfig, updatedBy: string): Promise<void> {
+    const encryptedPassword = encryptPassword(config.password);
     await pool.query(
-      `INSERT INTO email_config (tenant_id, host, port, username, password_enc, from_email, from_display, use_tls, provider, updated_at, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10)
+      `INSERT INTO email_config (tenant_id, host, port, username, password_enc, from_email, from_display, use_tls, allow_self_signed, provider, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11)
        ON CONFLICT (tenant_id) DO UPDATE SET
          host = EXCLUDED.host,
          port = EXCLUDED.port,
@@ -122,6 +167,7 @@ class EmailRepository {
          from_email = EXCLUDED.from_email,
          from_display = EXCLUDED.from_display,
          use_tls = EXCLUDED.use_tls,
+         allow_self_signed = EXCLUDED.allow_self_signed,
          provider = EXCLUDED.provider,
          updated_at = NOW(),
          updated_by = EXCLUDED.updated_by`,
@@ -130,10 +176,11 @@ class EmailRepository {
         config.host,
         config.port,
         config.username,
-        config.password,
+        encryptedPassword,
         config.fromEmail,
         config.fromDisplayName,
         config.useTls,
+        config.allowSelfSignedCerts ?? false,
         config.provider,
         updatedBy,
       ],
@@ -152,9 +199,10 @@ class EmailRepository {
          from_email = $5,
          from_display = $6,
          use_tls = $7,
-         provider = $8,
+         allow_self_signed = $8,
+         provider = $9,
          updated_at = NOW(),
-         updated_by = $9
+         updated_by = $10
        WHERE tenant_id = $1`,
       [
         tenantId,
@@ -164,6 +212,7 @@ class EmailRepository {
         config.fromEmail,
         config.fromDisplayName,
         config.useTls,
+        config.allowSelfSignedCerts ?? false,
         config.provider,
         updatedBy,
       ],
