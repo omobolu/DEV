@@ -20,17 +20,18 @@ export function requirePermission(
   permissionId: PermissionId,
   contextFn?: (req: Request) => EvaluationContext,
 ) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ success: false, error: 'Authentication required', timestamp: new Date().toISOString() });
       return;
     }
 
     const userId = req.user.sub;
+    const tenantId = req.user.tenantId;
     const context = contextFn ? contextFn(req) : {};
-    const decision = authzService.check(userId, permissionId, context);
+    const decision = authzService.check(userId, tenantId, permissionId, context);
 
-    auditService.log({
+    await auditService.log({
       eventType: decision.allowed ? 'authz.allow' : 'authz.deny',
       actorId: userId,
       actorName: req.user.name,

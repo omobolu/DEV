@@ -21,7 +21,7 @@ class CredentialRotationMonitorService {
   /**
    * Run a full rotation health check across all credentials.
    */
-  runCheck(tenantId: string): RotationMonitorReport {
+  async runCheck(tenantId: string): Promise<RotationMonitorReport> {
     const now = new Date();
     const allCredentials = credentialRepository.findAll(tenantId)
       .filter(c => c.status !== 'revoked');
@@ -52,7 +52,7 @@ class CredentialRotationMonitorService {
     }
 
     if (expiringSoon.length + expired.length + rotationRequired.length > 0) {
-      auditService.log({
+      await auditService.log({
         tenantId,
         eventType: 'user.updated',
         actorId: 'system',

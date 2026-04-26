@@ -1,38 +1,163 @@
 /**
- * Tenant Repository
+ * Tenant Repository — PostgreSQL-backed
  *
  * Global store for tenant metadata. NOT partitioned by tenantId — this IS
  * the top-level namespace that all other repositories are partitioned under.
- * Phase 2: Replace with PostgreSQL tenants table.
+ *
+ * Reads from PostgreSQL with an in-memory cache for hot-path lookups.
+ * Writes go to both PostgreSQL and the cache.
  */
 
 import { Tenant } from './tenant.types';
+import { User } from '../security/security.types';
+import pool from '../../db/pool';
+import { getSeedMode } from '../../config/seed-mode';
 
 class TenantRepository {
-  private store  = new Map<string, Tenant>(); // tenantId → Tenant
-  private bySlug = new Map<string, string>(); // slug → tenantId
+  private cache = new Map<string, Tenant>();
+  private slugIndex = new Map<string, string>();
+  private loaded = false;
+  private loadPromise: Promise<void> | null = null;
 
-  save(tenant: Tenant): Tenant {
-    this.store.set(tenant.tenantId, tenant);
-    this.bySlug.set(tenant.slug, tenant.tenantId);
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    // If cache was already populated by save() (e.g. seed), skip PG retry
+    if (this.cache.size > 0) {
+      this.loaded = true;
+      return;
+    }
+    if (!this.loadPromise) {
+      this.loadPromise = pool.query('SELECT * FROM tenants').then(result => {
+        for (const row of result.rows) {
+          const tenant = this.rowToTenant(row);
+          this.cache.set(tenant.tenantId, tenant);
+          this.slugIndex.set(tenant.slug, tenant.tenantId);
+        }
+        this.loaded = true;
+        this.loadPromise = null;
+      }).catch(err => {
+        this.loadPromise = null;
+        // In non-production, if cache has data from seed, use it
+        if (getSeedMode() !== 'production' && this.cache.size > 0) {
+          this.loaded = true;
+          return;
+        }
+        throw err;
+      });
+    }
+    await this.loadPromise;
+  }
+
+  private rowToTenant(row: Record<string, unknown>): Tenant {
+    const settings = (typeof row.settings === 'string' ? JSON.parse(row.settings as string) : row.settings) as Tenant['settings'];
+    return {
+      tenantId:    row.tenant_id as string,
+      name:        row.name as string,
+      slug:        row.slug as string,
+      domain:      row.domain as string,
+      status:      row.status as Tenant['status'],
+      plan:        row.plan as Tenant['plan'],
+      adminUserId: row.admin_user_id as string,
+      settings,
+      createdAt:   (row.created_at as Date).toISOString(),
+      updatedAt:   (row.updated_at as Date).toISOString(),
+    };
+  }
+
+  async save(tenant: Tenant): Promise<Tenant> {
+    try {
+      await pool.query(
+        `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (tenant_id) DO UPDATE SET
+           name = $2, slug = $3, domain = $4, status = $5, plan = $6,
+           admin_user_id = $7, settings = $8, updated_at = $10`,
+        [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
+      );
+    } catch (err) {
+      if (getSeedMode() === 'production') throw err;
+      console.warn(`[TenantRepo] PostgreSQL write failed for ${tenant.tenantId}, caching in-memory only:`, (err as Error).message);
+    }
+    this.cache.set(tenant.tenantId, tenant);
+    this.slugIndex.set(tenant.slug, tenant.tenantId);
     return tenant;
   }
 
-  findById(tenantId: string): Tenant | undefined {
-    return this.store.get(tenantId);
+  async findById(tenantId: string): Promise<Tenant | undefined> {
+    await this.ensureLoaded();
+    return this.cache.get(tenantId);
   }
 
-  findBySlug(slug: string): Tenant | undefined {
-    const id = this.bySlug.get(slug);
-    return id ? this.store.get(id) : undefined;
+  async findBySlug(slug: string): Promise<Tenant | undefined> {
+    await this.ensureLoaded();
+    const id = this.slugIndex.get(slug);
+    return id ? this.cache.get(id) : undefined;
   }
 
-  findAll(): Tenant[] {
-    return Array.from(this.store.values());
+  async findAll(): Promise<Tenant[]> {
+    await this.ensureLoaded();
+    return Array.from(this.cache.values());
   }
 
-  count(): number {
-    return this.store.size;
+  async count(): Promise<number> {
+    await this.ensureLoaded();
+    return this.cache.size;
+  }
+
+  /**
+   * Atomic transaction: create tenant + admin user in one PG transaction.
+   * Both INSERTs succeed or both roll back.
+   */
+  async createTenantWithAdmin(tenant: Tenant, user: User): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
+      );
+
+      await client.query(
+        `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)`,
+        [user.userId, tenant.tenantId, user.username, user.displayName, user.firstName, user.lastName, user.email, user.department ?? 'IT', user.title ?? 'Administrator', JSON.stringify(user.roles), JSON.stringify(user.groups), user.status, user.authProvider, user.mfaEnrolled, user.passwordHash, JSON.stringify(user.attributes), user.createdAt]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw Object.assign(new Error(`Tenant creation failed: ${(err as Error).message}`), { statusCode: 500 });
+    } finally {
+      client.release();
+    }
+
+    // Update in-memory caches after successful commit
+    this.cache.set(tenant.tenantId, tenant);
+    this.slugIndex.set(tenant.slug, tenant.tenantId);
+  }
+
+  addToCache(tenant: Tenant): void {
+    this.cache.set(tenant.tenantId, tenant);
+    this.slugIndex.set(tenant.slug, tenant.tenantId);
+  }
+
+  // Sync accessors for hot-path middleware (cache must already be loaded)
+  findByIdSync(tenantId: string): Tenant | undefined {
+    return this.cache.get(tenantId);
+  }
+
+  countSync(): number {
+    return this.cache.size;
+  }
+
+  async loadCache(): Promise<void> {
+    this.cache.clear();
+    this.slugIndex.clear();
+    this.loaded = false;
+    this.loadPromise = null;
+    await this.ensureLoaded();
   }
 }
 

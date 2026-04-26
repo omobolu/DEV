@@ -1,17 +1,6 @@
 import { useState } from 'react'
-import { ShieldCheck, Eye, EyeOff, Loader2, Building2, AlertCircle } from 'lucide-react'
-
-const API = 'http://localhost:3001'
-
-const DEMO_USERS = [
-  // ACME Financial Services
-  { label: 'Admin — all permissions', username: 'admin@acme.com',       password: 'password123', role: 'Manager',       tenant: 'ACME Financial' },
-  { label: 'Architect',               username: 'sarah.chen@acme.com',  password: 'password123', role: 'Architect',     tenant: 'ACME Financial' },
-  { label: 'Analyst',                 username: 'james.okafor@acme.com',password: 'password123', role: 'BusinessAnalyst',tenant: 'ACME Financial' },
-  // Globex Technologies
-  { label: 'Admin — all permissions', username: 'admin@globex.io',       password: 'password123', role: 'Manager',       tenant: 'Globex Tech' },
-  { label: 'Architect',               username: 'priya.kumar@globex.io', password: 'password123', role: 'Architect',     tenant: 'Globex Tech' },
-]
+import { ShieldCheck, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { apiFetch } from '@/lib/apiClient'
 
 export default function LoginPage({ onLogin }: { onLogin: (token: string, name: string, tenantName: string) => void }) {
   const [username, setUsername]       = useState('')
@@ -25,15 +14,14 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
     setError('')
     setLoading(true)
     try {
-      const res = await fetch(`${API}/security/auth/token`, {
+      const res = await apiFetch('/security/auth/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'demo-key' },
         body: JSON.stringify({ username, password }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Login failed')
       const token      = json.data.token.access_token
-      const name       = json.data.user?.name ?? username
+      const name       = json.data.user?.displayName ?? json.data.user?.name ?? username
       const tenantName = json.data.user?.tenantName ?? ''
       localStorage.setItem('idvize_token', token)
       localStorage.setItem('idvize_user', name)
@@ -45,15 +33,6 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
       setLoading(false)
     }
   }
-
-  const quickLogin = (u: typeof DEMO_USERS[0]) => {
-    setUsername(u.username)
-    setPassword(u.password)
-  }
-
-  // Group demo users by tenant for display
-  const acmeUsers   = DEMO_USERS.filter(u => u.tenant === 'ACME Financial')
-  const globexUsers = DEMO_USERS.filter(u => u.tenant === 'Globex Tech')
 
   return (
     <div className="min-h-screen bg-surface-900 flex items-center justify-center p-4">
@@ -151,36 +130,6 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
-
-          {/* Demo quick-login — grouped by tenant */}
-          <div className="mt-6 pt-5 border-t border-surface-700">
-            <p className="text-xs text-muted mb-3">Demo accounts (password: <code className="text-muted">password123</code>)</p>
-
-            {[{ name: 'ACME Financial Services', users: acmeUsers, color: 'text-a-indigo' },
-              { name: 'Globex Technologies', users: globexUsers, color: 'text-a-green' }].map(group => (
-              <div key={group.name} className="mb-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Building2 size={11} className={group.color} aria-hidden="true" />
-                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${group.color}`}>{group.name}</span>
-                </div>
-                <div className="space-y-1" role="list" aria-label={`${group.name} demo accounts`}>
-                  {group.users.map(u => (
-                    <button
-                      key={u.username}
-                      onClick={() => quickLogin(u)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg
-                                 bg-surface-900/60 border border-surface-700 hover:border-indigo-600/50
-                                 text-left transition-colors group focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      aria-label={`Login as ${u.label} (${u.role}) at ${group.name}`}
-                    >
-                      <span className="text-xs text-secondary group-hover:text-body">{u.label}</span>
-                      <span className="text-xs text-faint group-hover:text-muted">{u.role}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         <p className="text-center text-xs text-faint mt-6">

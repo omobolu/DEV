@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  MonitorDot, Plug, ScrollText, BarChart2, ShieldCheck,
+  MonitorDot, Plug, ScrollText, Activity, BarChart2, ShieldCheck,
   ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
   LayoutDashboard, BookOpen, TrendingUp, AlertTriangle, X,
 } from 'lucide-react'
@@ -9,6 +9,7 @@ import {
 const SECTION_SYSTEM = [
   { icon: Plug,        label: 'Driver Manager', path: '/integrations' },
   { icon: ScrollText,  label: 'Audit Log',      path: '/os?tab=monitor' },
+  { icon: Activity,    label: 'System Events',  path: '/system-events' },
 ]
 
 const SECTION_IAM = [

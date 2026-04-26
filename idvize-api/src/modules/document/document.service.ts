@@ -5,18 +5,17 @@ import {
 } from './document.types';
 import { documentRepository } from './document.repository';
 import { SEED_DOCUMENTS } from './document.seed';
-
-let seeded = false;
+import { getSeedMode } from '../../config/seed-mode';
 
 class DocumentService {
 
   ensureSeeded(tenantId: string): void {
-    if (seeded || documentRepository.count(tenantId) > 0) return;
+    if (documentRepository.count(tenantId) > 0) return;
+    if (getSeedMode() === 'production') return;
     for (const doc of SEED_DOCUMENTS) {
       documentRepository.save(tenantId, doc);
     }
-    seeded = true;
-    console.log(`[DocumentService] Seeded ${SEED_DOCUMENTS.length} documents`);
+    console.log(`[DocumentService] Seeded ${SEED_DOCUMENTS.length} documents for ${tenantId}`);
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────

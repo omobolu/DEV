@@ -1,11 +1,13 @@
 /**
- * Demo seed — 50 enterprise applications with IAM posture data.
- * Saved directly to applicationRepository on startup.
- * Provides realistic coverage distribution across all 49 controls.
+ * Demo seed — enterprise applications with IAM posture data.
+ *
+ * GUARD: seedApplications() must ONLY be called when SEED_MODE is demo or development.
+ * It is invoked from seedTenants() which enforces this invariant.
  */
 
 import { Application, IamPosture, IamPlatformLink } from './application.types';
 import { applicationRepository } from './application.repository';
+import { getSeedMode } from '../../config/seed-mode';
 
 const NOW = new Date().toISOString();
 
@@ -69,8 +71,8 @@ function app(
   };
 }
 
-// ── Seed data — 50 apps ───────────────────────────────────────────────────
-export const SEED_APPS: Application[] = [
+// ── ACME Financial Services — 50 enterprise apps (financial/banking) ──────
+const ACME_APPS: Application[] = [
 
   // ── CRITICAL tier (12 apps) ──────────────────────────────────────────────
   app('APP-001', 'SAP Finance',          'Finance',    'critical', 'SAP',        2800, 'on-premise', ['erp','finance','sap'],
@@ -227,9 +229,115 @@ export const SEED_APPS: Application[] = [
     posture('APP-050',   { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
 ];
 
-// ── Seed function — idempotent ─────────────────────────────────────────────
+// ── Globex Technologies — 30 tech-sector apps (different portfolio) ───────
+const GLOBEX_APPS: Application[] = [
+
+  // ── CRITICAL tier (6 apps) ──────────────────────────────────────────────
+  app('GLX-001', 'Kubernetes Cluster',    'Platform',    'critical', 'CNCF',         120,  'cloud',      ['k8s','infrastructure','cloud'],
+    posture('GLX-001', { sso:true,  mfa:true,  scim:false, jml:false, pam:true,  certs:true,  platforms:{am:true, iga:false,pam:true, ciam:false} })),
+
+  app('GLX-002', 'GitLab Ultimate',       'Engineering', 'critical', 'GitLab',       480,  'saas',       ['git','cicd','devops'],
+    posture('GLX-002', { sso:true,  mfa:true,  scim:true,  jml:true,  pam:false, certs:true,  platforms:{am:true, iga:true, pam:false,ciam:false} })),
+
+  app('GLX-003', 'AWS Production',        'Cloud Ops',   'critical', 'Amazon',       90,   'cloud',      ['aws','cloud','production'],
+    posture('GLX-003', { sso:true,  mfa:true,  scim:false, jml:false, pam:true,  certs:false, platforms:{am:true, iga:false,pam:true, ciam:false} })),
+
+  app('GLX-004', 'PostgreSQL (Prod)',     'Data',        'critical', 'PostgreSQL',   45,   'on-premise', ['database','sql','backend'],
+    posture('GLX-004', { sso:false, mfa:false, scim:false, jml:false, pam:true,  certs:false, platforms:{am:false,iga:false,pam:true, ciam:false} })),
+
+  app('GLX-005', 'Vault (HashiCorp)',     'Security',    'critical', 'HashiCorp',    30,   'on-premise', ['secrets','vault','security'],
+    posture('GLX-005', { sso:true,  mfa:true,  scim:false, jml:false, pam:true,  certs:true,  platforms:{am:true, iga:false,pam:true, ciam:false} })),
+
+  app('GLX-006', 'Customer API Gateway',  'Product',     'critical', 'Custom',       8500, 'cloud',      ['api','gateway','customer'],
+    posture('GLX-006', { sso:false, mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:false,iga:false,pam:false,ciam:true}  })),
+
+  // ── HIGH tier (8 apps) ──────────────────────────────────────────────────
+  app('GLX-007', 'Terraform Cloud',       'Platform',    'high',     'HashiCorp',    65,   'saas',       ['iac','terraform','devops'],
+    posture('GLX-007', { sso:true,  mfa:true,  scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-008', 'Datadog',               'SRE',         'high',     'Datadog',      210,  'saas',       ['monitoring','observability','apm'],
+    posture('GLX-008', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-009', 'PagerDuty',             'SRE',         'high',     'PagerDuty',    95,   'saas',       ['incident','oncall','sre'],
+    posture('GLX-009', { sso:true,  mfa:true,  scim:true,  jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-010', 'Snowflake',             'Data',        'high',     'Snowflake',    180,  'cloud',      ['data','analytics','warehouse'],
+    posture('GLX-010', { sso:true,  mfa:true,  scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-011', 'Confluent Kafka',       'Data',        'high',     'Confluent',    40,   'cloud',      ['streaming','kafka','events'],
+    posture('GLX-011', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-012', 'Okta Workforce',        'Security',    'high',     'Okta',         480,  'saas',       ['iam','sso','identity'],
+    posture('GLX-012', { sso:true,  mfa:true,  scim:true,  jml:true,  pam:false, certs:true,  platforms:{am:true, iga:true, pam:false,ciam:false} })),
+
+  app('GLX-013', 'Artifactory',           'Engineering', 'high',     'JFrog',        200,  'saas',       ['artifacts','packages','cicd'],
+    posture('GLX-013', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-014', 'SonarQube',             'Engineering', 'high',     'SonarSource',  200,  'saas',       ['code-quality','security','sast'],
+    posture('GLX-014', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  // ── MEDIUM tier (10 apps) ───────────────────────────────────────────────
+  app('GLX-015', 'Slack',                 'Comms',       'medium',   'Slack',        480,  'saas',       ['collaboration','messaging'],
+    posture('GLX-015', { sso:true,  mfa:true,  scim:true,  jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-016', 'Notion',                'Product',     'medium',   'Notion',       380,  'saas',       ['wiki','docs','knowledge'],
+    posture('GLX-016', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-017', 'Linear',                'Engineering', 'medium',   'Linear',       320,  'saas',       ['issues','project','agile'],
+    posture('GLX-017', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-018', 'Figma',                 'Design',      'medium',   'Figma',        95,   'saas',       ['design','ui','prototype'],
+    posture('GLX-018', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-019', 'Google Workspace',      'Operations',  'medium',   'Google',       480,  'saas',       ['email','productivity','google'],
+    posture('GLX-019', { sso:true,  mfa:true,  scim:true,  jml:true,  pam:false, certs:false, platforms:{am:true, iga:true, pam:false,ciam:false} })),
+
+  app('GLX-020', 'Twilio',                'Product',     'medium',   'Twilio',       25,   'saas',       ['comms','sms','voice'],
+    posture('GLX-020', { sso:false, mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:false,iga:false,pam:false,ciam:false} })),
+
+  app('GLX-021', 'Stripe Dashboard',      'Finance',     'medium',   'Stripe',       18,   'saas',       ['payments','billing','finance'],
+    posture('GLX-021', { sso:true,  mfa:true,  scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-022', 'BambooHR',              'People',      'medium',   'BambooHR',     380,  'saas',       ['hr','people','employee'],
+    posture('GLX-022', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-023', 'Sentry',                'Engineering', 'medium',   'Sentry',       200,  'saas',       ['errors','monitoring','debug'],
+    posture('GLX-023', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-024', 'Grafana Cloud',         'SRE',         'medium',   'Grafana',      65,   'saas',       ['dashboards','monitoring','metrics'],
+    posture('GLX-024', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  // ── LOW tier (6 apps) ───────────────────────────────────────────────────
+  app('GLX-025', 'Miro',                  'Design',      'low',      'Miro',         140,  'saas',       ['whiteboard','collaboration'],
+    posture('GLX-025', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-026', 'Loom',                  'Comms',       'low',      'Loom',         280,  'saas',       ['video','async'],
+    posture('GLX-026', { sso:false, mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:false,iga:false,pam:false,ciam:false} })),
+
+  app('GLX-027', '1Password Teams',       'Security',    'low',      '1Password',    480,  'saas',       ['passwords','security'],
+    posture('GLX-027', { sso:true,  mfa:true,  scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-028', 'Calendly',              'Operations',  'low',      'Calendly',     60,   'saas',       ['scheduling','productivity'],
+    posture('GLX-028', { sso:false, mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:false,iga:false,pam:false,ciam:false} })),
+
+  app('GLX-029', 'Vercel',                'Engineering', 'low',      'Vercel',       35,   'saas',       ['hosting','frontend','deploy'],
+    posture('GLX-029', { sso:true,  mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:true, iga:false,pam:false,ciam:false} })),
+
+  app('GLX-030', 'Postman',               'Engineering', 'low',      'Postman',      200,  'saas',       ['api','testing','dev'],
+    posture('GLX-030', { sso:false, mfa:false, scim:false, jml:false, pam:false, certs:false, platforms:{am:false,iga:false,pam:false,ciam:false} })),
+];
+
+// ── Seed functions — idempotent ────────────────────────────────────────────
+export { ACME_APPS as SEED_APPS };
+
 export function seedApplications(tenantId: string): void {
+  const mode = getSeedMode();
+  if (mode === 'production') {
+    console.warn('[SEED] seedApplications() blocked — SEED_MODE=production. No demo data allowed.');
+    return;
+  }
   if (applicationRepository.count(tenantId) > 0) return; // already seeded
-  for (const a of SEED_APPS) applicationRepository.save(tenantId, a);
-  console.log(`  ✓ Application seed loaded — ${SEED_APPS.length} apps\n`);
+  const apps = tenantId === 'ten-globex' ? GLOBEX_APPS : ACME_APPS;
+  for (const a of apps) applicationRepository.save(tenantId, a);
+  console.log(`  \u2713 Application seed loaded — ${apps.length} apps for ${tenantId}\n`);
 }

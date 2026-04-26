@@ -24,6 +24,7 @@ import OSControlPanel from '@/pages/os/OSControlPanel'
 import TopRisks from '@/pages/os/TopRisks'
 import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import ValueDashboard  from '@/pages/value/ValueDashboard'
+import SystemEventsPage from '@/pages/os/SystemEventsPage'
 import { CMDBProvider } from '@/context/CMDBContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SESSION_EXPIRED_EVENT } from '@/lib/apiClient'
@@ -100,6 +101,7 @@ export default function App() {
               <Route path="maturity" element={<MaturityPage />} />
               <Route path="maturity/domains/:domainId" element={<MaturityDomainDetail />} />
               <Route path="value" element={<ValueDashboard />} />
+              <Route path="system-events" element={<SystemEventsPage />} />
               <Route path="my-account" element={<StubPage title="My Account" />} />
               <Route path="users" element={<StubPage title="Users" />} />
               <Route path="admin" element={<StubPage title="Admin" />} />

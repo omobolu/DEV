@@ -1,11 +1,24 @@
 /**
- * Tenant Seed
+ * Tenant Seed — Controlled Data Initialization
  *
- * Creates two demo tenants with their own users and application portfolios.
- * Called once on API startup (no-op if tenants already exist).
+ * Respects the SEED_MODE environment variable:
+ *   - "production" (default)  — NO seed data. PostgreSQL REQUIRED. Fails if PG unavailable.
+ *   - "demo"                  — Seeds ACME + Globex demo tenants. PG fallback allowed.
+ *   - "development"           — Same as demo; allows flexible seeding + data reset.
+ *
+ * CRITICAL INVARIANTS:
+ *   1. Production must NEVER auto-load demo tenants.
+ *   2. Production must NEVER serve in-memory-only data (no PG = crash).
+ *   3. Demo seed data ONLY loads when SEED_MODE is explicitly "demo" or "development".
  *
  * Tenant 1 — ACME Financial Services  (ten-acme)
  * Tenant 2 — Globex Technologies      (ten-globex)
+ *
+ * On startup:
+ *   1. Load tenant cache from PostgreSQL
+ *   2. In production: if PG fails, abort startup (throw)
+ *   3. In demo/development: if PG fails, fall back to in-memory seed data
+ *   4. Demo data only seeded when SEED_MODE is demo or development
  */
 
 import { Tenant } from './tenant.types';
@@ -13,8 +26,14 @@ import { tenantRepository } from './tenant.repository';
 import { authRepository } from '../security/auth/auth.repository';
 import { seedApplications } from '../application/application.seed';
 import { User } from '../security/security.types';
+import { getSeedMode, SeedMode } from '../../config/seed-mode';
 
 const NOW = new Date().toISOString();
+
+// Pre-computed bcrypt hash of 'password123' (cost factor 10).
+// All demo users share this hash. In production, users are created via POST /tenants
+// with bcrypt hashing at write time — this constant is never used in production mode.
+const DEMO_PASSWORD_HASH = '$2b$10$eJbeuHvdE3yRNXovQ1XE..gc4YlXZsxcR8wlru3dAHNUEhIDDO8Gu';
 
 // ── Tenant definitions ────────────────────────────────────────────────────────
 
@@ -58,7 +77,24 @@ const TENANT_GLOBEX: Tenant = {
 
 // ── Users — ACME Financial ────────────────────────────────────────────────────
 
+// ── Platform Admin (SaaS operator) ────────────────────────────────────────────
+// In production, the PlatformAdmin is the SaaS operator who manages tenants.
+// In demo/dev, we seed one in the ACME tenant for testing tenant CRUD APIs.
+
+const PLATFORM_ADMIN: User = {
+  userId: 'usr-platform-admin-001', tenantId: 'ten-acme',
+  username: 'platform@idvize.io', displayName: 'Platform Admin',
+  firstName: 'Platform', lastName: 'Admin', email: 'platform@idvize.io',
+  department: 'Platform Operations', title: 'SaaS Platform Administrator',
+  roles: ['PlatformAdmin'], groups: ['grp-platform-admins'], status: 'active',
+  authProvider: 'local', mfaEnrolled: true,
+  passwordHash: DEMO_PASSWORD_HASH,
+  attributes: { clearanceLevel: 'critical' },
+  createdAt: NOW, updatedAt: NOW,
+};
+
 const ACME_USERS: User[] = [
+  PLATFORM_ADMIN,
   {
     userId: 'usr-acme-manager-001', tenantId: 'ten-acme',
     username: 'admin@acme.com', displayName: 'Alex Morgan',
@@ -66,7 +102,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Program Office', title: 'IAM Program Manager',
     roles: ['Manager'], groups: ['grp-managers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-001', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -77,7 +113,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Architecture', title: 'Senior IAM Architect',
     roles: ['Architect'], groups: ['grp-architects'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-002', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -88,7 +124,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Business Analysis', title: 'IAM Business Analyst',
     roles: ['BusinessAnalyst'], groups: ['grp-analysts'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-003', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -99,7 +135,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Engineering', title: 'IAM Engineer',
     roles: ['Engineer'], groups: ['grp-engineers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-004', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -110,7 +146,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Engineering', title: 'IAM Developer',
     roles: ['Developer'], groups: ['grp-developers'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-005', clearanceLevel: 'standard' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -126,7 +162,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Security & Identity', title: 'CISO',
     roles: ['Manager'], groups: ['grp-managers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'SEC-001', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -137,7 +173,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Platform Engineering', title: 'Identity Architect',
     roles: ['Architect'], groups: ['grp-architects'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-002', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -148,7 +184,7 @@ const GLOBEX_USERS: User[] = [
     department: 'GRC', title: 'GRC Analyst',
     roles: ['BusinessAnalyst'], groups: ['grp-analysts'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'GRC-001', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -159,7 +195,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Cloud Engineering', title: 'Cloud Identity Engineer',
     roles: ['Engineer'], groups: ['grp-engineers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-003', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -170,7 +206,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Software Engineering', title: 'IAM Developer',
     roles: ['Developer'], groups: ['grp-developers'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-004', clearanceLevel: 'standard' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -178,24 +214,80 @@ const GLOBEX_USERS: User[] = [
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-export function seedTenants(): void {
-  // No-op if already seeded
-  if (tenantRepository.count() > 0) return;
+// Re-export for backward compatibility (index.ts and others import from here)
+export { getSeedMode, SeedMode } from '../../config/seed-mode';
 
-  // Save tenants
-  tenantRepository.save(TENANT_ACME);
-  tenantRepository.save(TENANT_GLOBEX);
+export async function seedTenants(): Promise<void> {
+  const mode = getSeedMode();
+  let pgAvailable = false;
 
-  // Seed users per tenant
-  for (const user of ACME_USERS)   authRepository.save('ten-acme',   user);
-  for (const user of GLOBEX_USERS) authRepository.save('ten-globex', user);
+  // Step 1: Attempt to load tenant cache from PostgreSQL
+  try {
+    await tenantRepository.loadCache();
+    pgAvailable = true;
+    // Load all users from PG into in-memory authRepository for ALL modes.
+    // Without this, authzService, SCIM, and user endpoints return empty after restart.
+    const userCount = await authRepository.loadAllUsersFromPg();
+    if (userCount > 0) {
+      console.log(`  [SEED] Loaded ${userCount} user(s) from PostgreSQL into memory`);
+    }
+  } catch (err) {
+    // Step 2: Production mode REQUIRES PostgreSQL — abort startup
+    if (mode === 'production') {
+      console.error('[FATAL] SEED_MODE=production but PostgreSQL is unavailable.');
+      console.error('[FATAL] Production must never serve in-memory-only data.');
+      console.error('[FATAL] Fix the DATABASE_URL or start PostgreSQL, then retry.');
+      throw new Error(`Production startup aborted: PostgreSQL unavailable — ${(err as Error).message}`);
+    }
+    // Demo/development: allow in-memory fallback
+    console.warn('[SEED] PostgreSQL unavailable, falling back to in-memory only:', (err as Error).message);
+  }
 
-  // Seed application portfolios — each tenant gets the full 50-app demo portfolio
-  // (same apps, different tenantId — demonstrates data isolation)
+  // Step 3: In production mode, skip all demo data seeding
+  if (mode === 'production') {
+    const count = tenantRepository.countSync();
+    console.log('  [SEED] SEED_MODE=production -- no demo data loaded');
+    console.log(`  [SEED] Tenants in database: ${count}`);
+    console.log(`  [SEED] PostgreSQL: connected`);
+    if (count === 0) {
+      console.log('  [SEED] Database is empty. Create tenants via POST /tenants API.');
+    }
+    return;
+  }
+
+  // ── GUARD: Demo data ONLY loads when SEED_MODE is explicitly demo or development ──
+  if (mode !== 'demo' && mode !== 'development') {
+    return; // Should not be reachable, but prevents accidental demo data loading
+  }
+
+  // Step 4: In demo/development mode, seed demo tenants if not already present
+  if (tenantRepository.countSync() === 0) {
+    await tenantRepository.save(TENANT_ACME);
+    await tenantRepository.save(TENANT_GLOBEX);
+  }
+
+  // Seed users only if PG didn't already provide them.
+  // When PG is available, persist to both PG and memory for consistency with tenants.
+  if (authRepository.count('ten-acme') === 0) {
+    for (const user of ACME_USERS) {
+      authRepository.save('ten-acme', user);
+      if (pgAvailable) await authRepository.saveUserPg('ten-acme', user).catch(() => {});
+    }
+  }
+  if (authRepository.count('ten-globex') === 0) {
+    for (const user of GLOBEX_USERS) {
+      authRepository.save('ten-globex', user);
+      if (pgAvailable) await authRepository.saveUserPg('ten-globex', user).catch(() => {});
+    }
+  }
+
+  // Seed application portfolios in-memory
   seedApplications('ten-acme');
   seedApplications('ten-globex');
 
-  console.log('  ✓ Tenant seed loaded — 2 tenants (ACME Financial, Globex Technologies)');
-  console.log('  ✓ Users seeded: 5 per tenant (admin@acme.com, admin@globex.io / password123)');
-  console.log('  ✓ Application portfolios seeded: 50 apps × 2 tenants');
+  console.log(`  [SEED] SEED_MODE=${mode} -- demo data loaded`);
+  console.log('  \u2713 Tenant seed loaded \u2014 2 tenants (ACME Financial, Globex Technologies)');
+  console.log('  \u2713 Users seeded: 6 ACME (incl. platform@idvize.io PlatformAdmin), 5 Globex');
+  console.log('  \u2713 Application portfolios seeded: ACME=50 apps, Globex=30 apps');
+  console.log(`  \u2713 PostgreSQL: ${pgAvailable ? 'connected \u2014 tenants + users persisted with bcrypt passwords' : 'unavailable \u2014 running in-memory only'}`);
 }

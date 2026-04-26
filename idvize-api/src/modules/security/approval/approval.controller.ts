@@ -29,7 +29,7 @@ router.post('/', requirePermission('approval.request'), async (req: Request, res
     res.status(400).json({ success: false, error: '"riskLevel" must be "standard" or "high_risk"', timestamp: new Date().toISOString() });
     return;
   }
-  const request = approvalService.requestApproval(tenantId, {
+  const request = await approvalService.requestApproval(tenantId, {
     requesterId: req.user!.sub,
     targetUserId,
     permissionId,
@@ -63,7 +63,7 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /security/approvals/:id/resolve
-router.post('/:id/resolve', (req: Request, res: Response) => {
+router.post('/:id/resolve', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const { decision, comment } = req.body;
@@ -71,7 +71,7 @@ router.post('/:id/resolve', (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: '"decision" must be "approved" or "rejected"', timestamp: new Date().toISOString() });
     return;
   }
-  const request = approvalService.resolve(tenantId, id, req.user!.sub, decision, comment);
+  const request = await approvalService.resolve(tenantId, id, req.user!.sub, decision, comment);
   res.json({ success: true, data: request, timestamp: new Date().toISOString() });
 });
 

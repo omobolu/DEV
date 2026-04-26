@@ -84,7 +84,7 @@ class SecurityGovernanceAgent {
     };
 
     // ── Approval Summary ─────────────────────────────────────────────────────
-    approvalService.expireStale(tenantId);
+    await approvalService.expireStale(tenantId);
     const pending = approvalService.listPending(tenantId);
     const all = approvalService.listAll(tenantId);
     const approvalSummary = {

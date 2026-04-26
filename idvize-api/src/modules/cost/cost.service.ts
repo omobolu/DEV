@@ -5,21 +5,21 @@ import { contractRepository } from './repositories/contract.repository';
 import { peopleRepository } from './repositories/people.repository';
 import { costIntelligenceAgent } from '../../agents/cost-intelligence.agent';
 import { SEED_VENDORS, SEED_CONTRACTS, SEED_PEOPLE } from './cost.seed';
-
-let seeded = false;
+import { getSeedMode } from '../../config/seed-mode';
 
 export class CostService {
 
   /**
-   * Seed demo data on first call if store is empty.
+   * Seed demo data on first call if store is empty for this tenant.
+   * Blocked in production mode — production starts with no demo data.
    */
   ensureSeeded(tenantId: string): void {
-    if (seeded || vendorRepository.count(tenantId) > 0) return;
+    if (vendorRepository.count(tenantId) > 0) return;
+    if (getSeedMode() === 'production') return;
     vendorRepository.saveMany(tenantId, SEED_VENDORS);
     contractRepository.saveMany(tenantId, SEED_CONTRACTS);
     peopleRepository.saveMany(tenantId, SEED_PEOPLE);
-    seeded = true;
-    console.log(`[CostService] Demo data seeded: ${SEED_VENDORS.length} vendors, ${SEED_CONTRACTS.length} contracts, ${SEED_PEOPLE.length} people records`);
+    console.log(`[CostService] Demo data seeded for ${tenantId}: ${SEED_VENDORS.length} vendors, ${SEED_CONTRACTS.length} contracts, ${SEED_PEOPLE.length} people records`);
   }
 
   // ── Vendor CRUD ─────────────────────────────────────────────────────────────
