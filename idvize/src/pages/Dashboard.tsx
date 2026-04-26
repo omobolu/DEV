@@ -183,12 +183,27 @@ export default function Dashboard() {
 
   const getDomain = (id: string) => maturity?.domains.find(d => d.domainId === id)
 
+  const userName = typeof window !== 'undefined' ? localStorage.getItem('idvize_user') || '' : ''
+  const firstName = userName.split(/[ @]/)[0]
+  const lastUpdated = maturity?.triggeredAt
+    ? new Date(maturity.triggeredAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : null
+
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-heading">IAM Overview</h1>
-        <p className="text-muted mt-1 text-sm">Identity posture across all OS modules</p>
-      </div>
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-heading">
+            {firstName ? `Welcome back, ${firstName}` : 'IAM Overview'}
+          </h1>
+          <p className="text-muted mt-1 text-sm">Identity posture across all OS modules</p>
+        </div>
+        {lastUpdated && (
+          <p className="text-xs text-faint" aria-label="Last updated">
+            Last updated · {lastUpdated}
+          </p>
+        )}
+      </header>
 
       {/* Overall Maturity Strip */}
       <OverallMaturityStrip summary={maturity} onRecalc={handleRecalc} recalcing={recalcing} />
