@@ -228,11 +228,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-export function renderTemplate(template: string, data: Record<string, unknown>): string {
+export function renderTemplate(template: string, data: Record<string, unknown>, htmlEscape = true): string {
   let result = template;
   for (const [key, value] of Object.entries(data)) {
     const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const safeValue = escapeHtml(String(value ?? ''));
+    const raw = String(value ?? '');
+    const safeValue = htmlEscape ? escapeHtml(raw) : raw;
     result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), safeValue);
   }
   return result;

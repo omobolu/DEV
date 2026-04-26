@@ -234,13 +234,13 @@ class EmailService {
     };
 
     const htmlBody = renderTemplate(template.htmlTemplate, data);
-    const textBody = renderTemplate(template.textTemplate, data);
+    const textBody = renderTemplate(template.textTemplate, data, false);
 
     const result = await this.sendEmail(
       tenantId,
       {
         to: [{ email: recipientEmail, name: actorName }],
-        subject: renderTemplate(template.subject, data),
+        subject: renderTemplate(template.subject, data, false),
         htmlBody,
         textBody,
         templateId: 'test-email',
@@ -293,14 +293,14 @@ class EmailService {
 
     const catalogEntry = CONTROLS_CATALOG.find(c => c.controlId === request.controlId);
     const templateData = {
+      ...request.additionalData,
       applicationName: request.applicationName,
       controlName: catalogEntry?.name ?? request.controlId,
-      ...request.additionalData,
     };
 
     const htmlBody = renderTemplate(template.htmlTemplate, templateData);
-    const textBody = renderTemplate(template.textTemplate, templateData);
-    const subject = renderTemplate(template.subject, templateData);
+    const textBody = renderTemplate(template.textTemplate, templateData, false);
+    const subject = renderTemplate(template.subject, templateData, false);
 
     const delivery = await this.sendEmail(
       tenantId,
