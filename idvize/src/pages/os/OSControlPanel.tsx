@@ -53,12 +53,6 @@ interface OsModule {
   category: string; status: string
 }
 
-interface OsEvent {
-  eventId: string; type: string; severity: string
-  actor: string; resource: string; outcome: string
-  timestamp: string; driver: string
-}
-
 interface Alert {
   alertId: string; severity: string; category: string
   title: string; detail: string; action: string; gapId?: string
@@ -582,25 +576,7 @@ function GapRow({ gap, onConfigure }: { gap: Gap; onConfigure: (gap: Gap) => voi
   )
 }
 
-// ── Event Row ─────────────────────────────────────────────────────────────────
 
-function EventRow({ event }: { event: OsEvent }) {
-  const sc = severityColor(event.severity)
-  const oc = outcomeColor(event.outcome)
-  return (
-    <div className="flex items-center gap-3 py-2 border-b border-surface-700/50 last:border-0 text-xs">
-      <span className="text-muted font-mono shrink-0 w-18">{fmtTime(event.timestamp)}</span>
-      <span className="px-1.5 py-0.5 rounded text-xs shrink-0 font-medium"
-        style={{ backgroundColor: sc + '20', color: sc }}>{event.severity}</span>
-      <span className="text-muted shrink-0 w-16 truncate">[{event.driver}]</span>
-      <span className="text-muted font-mono shrink-0">{event.type}</span>
-      <span className="text-secondary flex-1 truncate">{event.actor} → {event.resource}</span>
-      <span className="shrink-0 font-mono" style={{ color: oc }}>
-        {event.outcome === 'success' ? '✓' : event.outcome === 'failure' ? '✗' : '—'}
-      </span>
-    </div>
-  )
-}
 
 // ── Alert Card ────────────────────────────────────────────────────────────────
 
@@ -701,7 +677,6 @@ export default function OSControlPanel() {
   const [gaps,      setGaps]      = useState<Gap[]>([])
   const [processes, setProcesses] = useState<Process[]>([])
   const [modules,   setModules]   = useState<OsModule[]>([])
-  const [events,    setEvents]    = useState<OsEvent[]>([])
   const [alerts,    setAlerts]    = useState<Alert[]>([])
   const [coverage,  setCoverage]  = useState<{ byRiskTier: CoverageTier[]; byControlType: ControlTypeCoverage[] } | null>(null)
 
@@ -713,13 +688,12 @@ export default function OSControlPanel() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [statusR, driversR, gapsR, processesR, modulesR, eventsR, alertsR, coverageR] = await Promise.all([
+      const [statusR, driversR, gapsR, processesR, modulesR, alertsR, coverageR] = await Promise.all([
         apiFetch('/os/status').then(r => r.json()),
         apiFetch('/os/drivers').then(r => r.json()),
         apiFetch('/os/gaps').then(r => r.json()),
         apiFetch('/os/processes').then(r => r.json()),
         apiFetch('/os/modules').then(r => r.json()),
-        apiFetch('/os/events').then(r => r.json()),
         apiFetch('/os/alerts').then(r => r.json()),
         apiFetch('/os/coverage').then(r => r.json()),
       ])
@@ -728,7 +702,6 @@ export default function OSControlPanel() {
       if (gapsR.success)     setGaps(gapsR.data.gaps ?? [])
       if (processesR.success)setProcesses(processesR.data)
       if (modulesR.success)  setModules(modulesR.data)
-      if (eventsR.success)   setEvents(eventsR.data)
       if (alertsR.success)   setAlerts(alertsR.data)
       if (coverageR.success) setCoverage(coverageR.data)
     } catch { /* errors are silent — partial data is fine */ }
@@ -1011,26 +984,7 @@ export default function OSControlPanel() {
             </div>
           </div>
 
-          {/* Live Event Stream */}
-          <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Activity size={15} className="text-a-indigo" />
-                <span className="text-sm font-semibold text-body">Live IAM Event Stream</span>
-                <span className="text-xs text-muted">— last {events.length} events across all drivers</span>
-              </div>
-              <span className="flex items-center gap-1 text-xs text-a-green">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                live
-              </span>
-            </div>
-            <div className="max-h-64 overflow-y-auto font-mono">
-              {events.length === 0
-                ? <p className="text-xs text-muted">No events recorded yet. Events appear as IAM activity occurs.</p>
-                : events.map(e => <EventRow key={e.eventId} event={e} />)
-              }
-            </div>
-          </div>
+
         </div>
       )}
 
