@@ -125,8 +125,16 @@ router.get('/session', requireAuth, async (req: AuthenticatedRequest, res) => {
       [req.userId]
     )
     const user = userResult.rows[0]
+    if (!user) {
+      res.status(404).json({ error: 'User not found' })
+      return
+    }
     const tenantResult = await pool.query(`SELECT id, name FROM tenants WHERE id = $1`, [req.tenantId])
     const tenant = tenantResult.rows[0]
+    if (!tenant) {
+      res.status(404).json({ error: 'Tenant not found' })
+      return
+    }
 
     res.json({
       user: {

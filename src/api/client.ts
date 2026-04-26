@@ -31,6 +31,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     clearSession()
+    window.dispatchEvent(new Event('session-expired'))
     throw new Error('Session expired')
   }
 

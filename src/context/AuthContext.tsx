@@ -50,6 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
+  // Listen for session-expired events from the API client
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null)
+      setTenant(null)
+    }
+    window.addEventListener('session-expired', handleSessionExpired)
+    return () => window.removeEventListener('session-expired', handleSessionExpired)
+  }, [])
+
   const login = useCallback(async (username: string, password: string) => {
     setError(null)
     setIsLoading(true)
