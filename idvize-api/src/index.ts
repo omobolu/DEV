@@ -105,17 +105,21 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n========================================================`);
-  console.log(`  IDVIZE IAM Operating System`);
-  console.log(`  Kernel: iam-coverage-intelligence-engine  v2.0.0`);
-  console.log(`========================================================`);
-  console.log(`  URL         : http://localhost:${PORT}`);
-  console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
-  console.log(`  Entra ID    : ${process.env.ENTRA_TENANT_ID ? '[live]' : '[mock]'}`);
-  console.log(`  SailPoint   : ${process.env.SAILPOINT_BASE_URL ? '[live]' : '[mock]'}`);
-  console.log(`  CyberArk    : ${process.env.CYBERARK_BASE_URL ? '[live]' : '[mock]'}`);
-  console.log(`  Okta        : ${process.env.OKTA_DOMAIN ? '[live]' : '[mock]'}`);
+async function bootstrap(): Promise<void> {
+  // Seed demo tenants, users, and application portfolios BEFORE accepting requests
+  await seedTenants();
+
+  app.listen(PORT, () => {
+    console.log(`\n========================================================`);
+    console.log(`  IDVIZE IAM Operating System`);
+    console.log(`  Kernel: iam-coverage-intelligence-engine  v2.0.0`);
+    console.log(`========================================================`);
+    console.log(`  URL         : http://localhost:${PORT}`);
+    console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
+    console.log(`  Entra ID    : ${process.env.ENTRA_TENANT_ID ? '[live]' : '[mock]'}`);
+    console.log(`  SailPoint   : ${process.env.SAILPOINT_BASE_URL ? '[live]' : '[mock]'}`);
+    console.log(`  CyberArk    : ${process.env.CYBERARK_BASE_URL ? '[live]' : '[mock]'}`);
+    console.log(`  Okta        : ${process.env.OKTA_DOMAIN ? '[live]' : '[mock]'}`);
   console.log(`\n  Module 1 — Application Governance`);
   console.log(`    POST /applications/import`);
   console.log(`    POST /applications`);
@@ -195,8 +199,12 @@ app.listen(PORT, () => {
   console.log(`    GET  /os/alerts`);
   console.log(`========================================================\n`);
 
-  // Seed demo tenants, users, and application portfolios
-  seedTenants().catch(err => console.error('[SEED] Failed to seed:', err.message));
+  });
+}
+
+bootstrap().catch(err => {
+  console.error('[BOOTSTRAP] Fatal error during startup:', err.message);
+  process.exit(1);
 });
 
 export default app;

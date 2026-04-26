@@ -35,8 +35,10 @@ class AuthService {
   async login(username: string, password: string, actorIp?: string): Promise<LoginResult> {
     // Try PostgreSQL first, fall back to in-memory
     let user: User | undefined;
+    let fromPg = false;
     try {
       user = await authRepository.findByUsernameGlobalPg(username);
+      if (user) fromPg = true;
     } catch {
       // PostgreSQL not available
     }
@@ -87,6 +89,12 @@ class AuthService {
         metadata:  { userId: user.userId },
       });
       throw Object.assign(new Error(`Account is ${user.status}`), { statusCode: 403 });
+    }
+
+    // If user came from PostgreSQL, populate in-memory store so subsequent
+    // synchronous lookups (findById, findAll, getUser, SCIM, etc.) can find them
+    if (fromPg) {
+      authRepository.save(user.tenantId, user);
     }
 
     const tenant = await tenantRepository.findById(user.tenantId);
