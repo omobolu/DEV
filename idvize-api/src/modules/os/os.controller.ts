@@ -37,6 +37,7 @@ import { computePortfolioRisks, buildPortfolioRiskSummary } from './risk.engine'
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
 import { IamPosture }                       from '../application/application.types';
+import { getSeedMode }                      from '../../config/seed-mode';
 
 const router = Router();
 
@@ -636,7 +637,9 @@ router.get('/modules', requireAuth, (_req: Request, res: Response) => {
 
 // ── GET /os/events ────────────────────────────────────────────────────────────
 router.get('/events', requireAuth, async (req: Request, res: Response) => {
-  const raw = await auditService.queryPg(req.tenantId!, { limit: 50 });
+  const raw = getSeedMode() === 'production'
+    ? await auditService.queryPg(req.tenantId!, { limit: 50 })
+    : auditService.query(req.tenantId!, { limit: 50 });
 
   const events = raw.map((e: any) => ({
     eventId:   e.eventId,

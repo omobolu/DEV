@@ -12,6 +12,7 @@ import { requireAuth } from '../../../middleware/requireAuth';
 import { requirePermission } from '../../../middleware/requirePermission';
 import { tenantContext } from '../../../middleware/tenantContext';
 import { AuditEventType } from '../security.types';
+import { getSeedMode } from '../../../config/seed-mode';
 
 const router = Router();
 
@@ -32,20 +33,20 @@ router.get('/', async (req: Request, res: Response) => {
     limit: limit ? parseInt(limit as string) : 100,
     offset: offset ? parseInt(offset as string) : 0,
   };
-  const [events, total] = await Promise.all([
-    auditService.queryPg(tenantId, filter),
-    auditService.countPg(tenantId),
-  ]);
+  const isProd = getSeedMode() === 'production';
+  const [events, total] = isProd
+    ? await Promise.all([auditService.queryPg(tenantId, filter), auditService.countPg(tenantId)])
+    : [auditService.query(tenantId, filter), auditService.count(tenantId)];
   res.json({ success: true, data: { total, returned: events.length, events }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/summary
 router.get('/summary', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const [events, totalEvents] = await Promise.all([
-    auditService.queryPg(tenantId, { limit: 10000 }),
-    auditService.countPg(tenantId),
-  ]);
+  const isProd = getSeedMode() === 'production';
+  const [events, totalEvents] = isProd
+    ? await Promise.all([auditService.queryPg(tenantId, { limit: 10000 }), auditService.countPg(tenantId)])
+    : [auditService.query(tenantId, { limit: 10000 }), auditService.count(tenantId)];
   const byType = events.reduce<Record<string, number>>((acc, e) => {
     acc[e.eventType] = (acc[e.eventType] ?? 0) + 1;
     return acc;
@@ -60,7 +61,9 @@ router.get('/summary', async (req: Request, res: Response) => {
 // GET /security/audit/:id
 router.get('/:id', async (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const event = await auditService.findByIdPg(id, req.tenantId!);
+  const event = getSeedMode() === 'production'
+    ? await auditService.findByIdPg(id, req.tenantId!)
+    : auditService.findById(id);
   if (!event) {
     res.status(404).json({ success: false, error: 'Audit event not found', timestamp: new Date().toISOString() });
     return;

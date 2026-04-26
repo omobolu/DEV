@@ -34,9 +34,9 @@ declare global {
  * In production mode, revalidate user + tenant status directly from PostgreSQL.
  * Also refreshes the user's roles/status in the in-memory cache so that
  * authzService.check() uses current PG data (not stale startup-loaded cache).
- * Returns null if validation passes, or an error string if the request should be rejected.
+ * Returns null if validation passes, or { status, error } if the request should be rejected.
  */
-async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
+async function revalidateFromPg(claims: TokenClaims): Promise<{ status: number; error: string } | null> {
   if (getSeedMode() !== 'production') return null;
 
   try {
@@ -51,11 +51,11 @@ async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
       ),
     ]);
 
-    if (userResult.rows.length === 0) return 'User no longer exists';
+    if (userResult.rows.length === 0) return { status: 403, error: 'User no longer exists' };
     const userRow = userResult.rows[0];
-    if (userRow.status !== 'active') return `User account is ${userRow.status}`;
-    if (tenantResult.rows.length === 0) return 'Tenant no longer exists';
-    if (tenantResult.rows[0].status !== 'active') return `Tenant is ${tenantResult.rows[0].status}`;
+    if (userRow.status !== 'active') return { status: 403, error: `User account is ${userRow.status}` };
+    if (tenantResult.rows.length === 0) return { status: 403, error: 'Tenant no longer exists' };
+    if (tenantResult.rows[0].status !== 'active') return { status: 403, error: `Tenant is ${tenantResult.rows[0].status}` };
 
     // Refresh in-memory cache with current PG roles/status so authzService
     // uses fresh data instead of stale startup-loaded values.
@@ -89,7 +89,7 @@ async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
     logger.error('Production PG revalidation failed — denying request (fail closed)', {
       userId: claims.sub, tenantId: claims.tenantId, error: (err as Error).message,
     });
-    return 'Database unavailable — cannot verify account status';
+    return { status: 503, error: 'Database unavailable — cannot verify account status' };
   }
 }
 
@@ -125,14 +125,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     // Production: revalidate user + tenant status from PG on every request
-    const revalError = await revalidateFromPg(claims);
-    if (revalError) {
+    const revalResult = await revalidateFromPg(claims);
+    if (revalResult) {
       logger.warn('Production revalidation denied request', {
-        userId: claims.sub, tenantId: claims.tenantId, reason: revalError,
+        userId: claims.sub, tenantId: claims.tenantId, reason: revalResult.error,
       });
-      res.status(403).json({
+      res.status(revalResult.status).json({
         success: false,
-        error: revalError,
+        error: revalResult.error,
         code: 'ACCOUNT_REVALIDATION_FAILED',
         requestId: req.requestId,
         timestamp,
