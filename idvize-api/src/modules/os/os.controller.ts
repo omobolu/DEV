@@ -752,6 +752,31 @@ router.get('/risks', requirePermission('risks.view'), async (req: Request, res: 
   }
 });
 
+// ── GET /os/risks/:appId/controls — full control detail view ─────────────────
+// Returns all 49 controls for an application with assessment outcomes, catalog
+// metadata, and recommended remediation actions. Scoped by tenantId from JWT.
+router.get('/risks/:appId/controls', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const appId    = req.params.appId as string;
+    const result   = await riskService.getApplicationControls(tenantId, appId);
+
+    if (!result) {
+      res.status(404).json({ success: false, error: 'Application not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks/:appId/controls failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Control data temporarily unavailable' });
+  }
+});
+
 // ── GET /os/risks/:applicationId — single app risk assessment ─────────────────
 // Queries by BOTH applicationId AND tenantId via PostgreSQL. Returns 404 if not found.
 // Production fail-closed: PG unavailable → 503.
