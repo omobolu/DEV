@@ -28,7 +28,7 @@ interface LogInput {
 }
 
 class AuditService {
-  log(input: LogInput): AuditEvent {
+  async log(input: LogInput): Promise<AuditEvent> {
     const event: AuditEvent = {
       eventId: uuidv4(),
       ...input,
@@ -36,7 +36,7 @@ class AuditService {
       timestamp: new Date().toISOString(),
     };
 
-    auditRepository.append(input.tenantId ?? 'system', event);
+    await auditRepository.append(input.tenantId ?? 'system', event);
 
     // Console output for observability — Phase 2: ship to SIEM
     const icon = input.outcome === 'failure' ? '✗' : input.outcome === 'masked' ? '⊘' : '✓';

@@ -371,12 +371,12 @@ const MOCK_IDENTITIES = [
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── GET /os/status ───────────────────────────────────────────────────────────
-router.get('/status', requireAuth, (req: Request, res: Response) => {
+router.get('/status', requireAuth, async (req: Request, res: Response) => {
   const { apps, covered, gaps } = computeCoverage(req.tenantId!);
   const drivers    = getDrivers();
   const builds     = buildService.listBuilds(req.tenantId!);
   const pending    = approvalService.listPending(req.tenantId!);
-  const rotReport  = credentialRotationMonitorService.runCheck(req.tenantId!);
+  const rotReport  = await credentialRotationMonitorService.runCheck(req.tenantId!);
 
   const healthyDrivers  = drivers.filter(d => d.status === 'healthy').length;
   const degradedDrivers = drivers.filter(d => d.status === 'degraded').length;
@@ -588,10 +588,10 @@ router.get('/drivers', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/processes ─────────────────────────────────────────────────────────
-router.get('/processes', requireAuth, (req: Request, res: Response) => {
+router.get('/processes', requireAuth, async (req: Request, res: Response) => {
   const builds     = buildService.listBuilds(req.tenantId!) as any[];
   const pending    = approvalService.listPending(req.tenantId!) as any[];
-  const rotReport  = credentialRotationMonitorService.runCheck(req.tenantId!);
+  const rotReport  = await credentialRotationMonitorService.runCheck(req.tenantId!);
 
   const processes = [
     ...builds.map(b => ({
@@ -655,9 +655,9 @@ router.get('/events', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── GET /os/alerts ────────────────────────────────────────────────────────────
-router.get('/alerts', requireAuth, (req: Request, res: Response) => {
+router.get('/alerts', requireAuth, async (req: Request, res: Response) => {
   const { gaps } = computeCoverage(req.tenantId!);
-  const rotReport = credentialRotationMonitorService.runCheck(req.tenantId!);
+  const rotReport = await credentialRotationMonitorService.runCheck(req.tenantId!);
   const drivers   = getDrivers();
 
   const alerts: object[] = [];
@@ -912,7 +912,7 @@ router.post('/gaps/evaluate', requireAuth, (req: Request, res: Response) => {
 //   (1) Approval  — represents email notification to app owner + IAM team
 //   (2) Build job — AI agent configuration task queued until form is submitted
 // Returns: approvalId, buildId, sentTo, nextSteps, missingControls
-router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) => {
+router.post('/gaps/:gapId/action', requireAuth, async (req: Request, res: Response) => {
   const { gapId } = req.params;
   const { action } = req.body as { action: string };
   const actor = (req as any).user as { userId: string; name: string } | undefined;
@@ -954,7 +954,7 @@ router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) =>
 
   try {
     // Step 1 — Approval (notification to app owner + IAM team)
-    const approval = approvalService.requestApproval(req.tenantId!, {
+    const approval = await approvalService.requestApproval(req.tenantId!, {
       requesterId:   actor?.userId ?? 'system',
       action:        `${ACTION_LABEL[action]} — ${gap.appName}`,
       resource:      gap.appName,

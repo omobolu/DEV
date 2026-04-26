@@ -51,13 +51,13 @@ class MaskingService {
    * Mask a single object according to the schema and the caller's permissions.
    * Returns a deep clone with restricted fields replaced by REDACTED.
    */
-  maskObject<T extends Record<string, unknown>>(
+  async maskObject<T extends Record<string, unknown>>(
     obj: T,
     userId: string,
     tenantId: string,
     schemaName: string,
     requestId?: string,
-  ): T {
+  ): Promise<T> {
     const schema = FIELD_CLASSIFICATION_SCHEMAS[schemaName];
     if (!schema) return obj;
 
@@ -75,7 +75,7 @@ class MaskingService {
     }
 
     if (masked) {
-      auditService.log({
+      await auditService.log({
         eventType: 'authz.field_masked',
         actorId: userId,
         actorName: userId,
@@ -92,14 +92,14 @@ class MaskingService {
   /**
    * Mask an array of objects — applies maskObject to each element.
    */
-  maskArray<T extends Record<string, unknown>>(
+  async maskArray<T extends Record<string, unknown>>(
     items: T[],
     userId: string,
     tenantId: string,
     schemaName: string,
     requestId?: string,
-  ): T[] {
-    return items.map(item => this.maskObject(item, userId, tenantId, schemaName, requestId));
+  ): Promise<T[]> {
+    return Promise.all(items.map(item => this.maskObject(item, userId, tenantId, schemaName, requestId)));
   }
 
   /**

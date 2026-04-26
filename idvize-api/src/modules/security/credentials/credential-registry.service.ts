@@ -46,7 +46,7 @@ class CredentialRegistryService {
 
   // ── Register ──────────────────────────────────────────────────────────────
 
-  register(tenantId: string, input: RegisterCredentialInput, actorId: string): CredentialRecord {
+  async register(tenantId: string, input: RegisterCredentialInput, actorId: string): Promise<CredentialRecord> {
     const owner = authRepository.findById(tenantId, input.ownerId);
     const now = new Date().toISOString();
 
@@ -76,7 +76,7 @@ class CredentialRegistryService {
 
     credentialRepository.save(tenantId, record);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'user.created',
       actorId,
@@ -200,7 +200,7 @@ class CredentialRegistryService {
 
   // ── Revoke ────────────────────────────────────────────────────────────────
 
-  revoke(tenantId: string, credentialId: string, actorId: string, reason?: string): CredentialRecord {
+  async revoke(tenantId: string, credentialId: string, actorId: string, reason?: string): Promise<CredentialRecord> {
     const record = credentialRepository.findById(tenantId, credentialId);
     if (!record) throw Object.assign(new Error(`Credential "${credentialId}" not found`), { statusCode: 404 });
 
@@ -209,7 +209,7 @@ class CredentialRegistryService {
     credentialRepository.save(tenantId, record);
 
     const actor = authRepository.findById(tenantId, actorId);
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'user.updated',
       actorId,

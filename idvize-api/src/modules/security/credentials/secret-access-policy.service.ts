@@ -58,19 +58,19 @@ class SecretAccessPolicyService {
    * Evaluate whether a user can perform an action on a credential.
    * Logs the decision to the audit trail.
    */
-  evaluate(
+  async evaluate(
     tenantId: string,
     userId: string,
     action: SecretAction,
     credential: CredentialRecord,
     requestId?: string,
-  ): PolicyDecision {
+  ): Promise<PolicyDecision> {
     const permissionId = ACTION_TO_PERMISSION[action];
     const decision = authzService.check(userId, tenantId, permissionId);
 
     // Base permission denied
     if (!decision.allowed) {
-      auditService.log({
+      await auditService.log({
         eventType: 'authz.deny',
         actorId: userId,
         actorName: userId,
@@ -95,7 +95,7 @@ class SecretAccessPolicyService {
         );
 
       if (!pendingApproval) {
-        auditService.log({
+        await auditService.log({
           eventType: 'authz.deny',
           actorId: userId,
           actorName: userId,
@@ -117,7 +117,7 @@ class SecretAccessPolicyService {
 
     // Reveal action: always audit regardless of outcome
     if (action === 'reveal' || action === 'retrieve_runtime') {
-      auditService.log({
+      await auditService.log({
         eventType: 'authz.allow',
         actorId: userId,
         actorName: userId,

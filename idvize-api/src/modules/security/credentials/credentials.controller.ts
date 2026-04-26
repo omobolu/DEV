@@ -169,7 +169,7 @@ router.post('/:id/register-reference', requirePermission('secrets.reference'), a
 });
 
 // POST /credentials/:id/rotate
-router.post('/:id/rotate', requirePermission('secrets.rotate'), (req: Request, res: Response) => {
+router.post('/:id/rotate', requirePermission('secrets.rotate'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const record = credentialRegistryService.findById(tenantId, id);
@@ -178,7 +178,7 @@ router.post('/:id/rotate', requirePermission('secrets.rotate'), (req: Request, r
     return;
   }
 
-  const policy = secretAccessPolicyService.evaluate(tenantId, req.user!.sub, 'rotate', record, req.requestId);
+  const policy = await secretAccessPolicyService.evaluate(tenantId, req.user!.sub, 'rotate', record, req.requestId);
   if (!policy.allowed) {
     res.status(403).json({ success: false, error: policy.reason, timestamp: new Date().toISOString() });
     return;

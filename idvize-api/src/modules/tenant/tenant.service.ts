@@ -149,7 +149,7 @@ class TenantService {
     authRepository.save(tenantId, user);
 
     // Audit log
-    auditService.log({
+    await auditService.log({
       eventType: 'tenant.created',
       actorId,
       actorName,

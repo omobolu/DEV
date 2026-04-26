@@ -55,7 +55,7 @@ class MaturityService {
 
       maturityRepository.save(tenantId, run);
 
-      auditService.log({
+      await auditService.log({
         tenantId,
         eventType: 'authz.allow',
         actorId:   triggeredBy,

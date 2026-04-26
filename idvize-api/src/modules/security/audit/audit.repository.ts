@@ -28,22 +28,31 @@ class AuditRepository {
     return this.log.get(tenantId)!;
   }
 
-  append(tenantId: string, event: AuditEvent): AuditEvent {
-    // In-memory append
+  async append(tenantId: string, event: AuditEvent): Promise<AuditEvent> {
     this.bucket(tenantId).push(event);
 
-    // PostgreSQL append (fire-and-forget)
-    pool.query(
-      `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-      [event.eventId, tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp]
-    ).catch((err) => {
-      if (getSeedMode() === 'production') {
-        console.error('[Audit] CRITICAL: PostgreSQL audit write failed in production:', err.message);
-      } else {
-        console.error('[Audit] PostgreSQL write failed:', err.message);
+    const pgParams = [event.eventId, tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp];
+
+    if (getSeedMode() === 'production') {
+      try {
+        await pool.query(
+          `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          pgParams
+        );
+      } catch (err) {
+        console.error('[Audit] CRITICAL: PostgreSQL audit write failed in production:', (err as Error).message);
+        throw err;
       }
-    });
+    } else {
+      pool.query(
+        `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+        pgParams
+      ).catch((err) => {
+        console.error('[Audit] PostgreSQL write failed:', err.message);
+      });
+    }
 
     return event;
   }

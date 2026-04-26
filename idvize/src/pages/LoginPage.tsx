@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ShieldCheck, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
-import { API_BASE, API_KEY } from '@/lib/apiClient'
+import { apiFetch } from '@/lib/apiClient'
 
 export default function LoginPage({ onLogin }: { onLogin: (token: string, name: string, tenantName: string) => void }) {
   const [username, setUsername]       = useState('')
@@ -14,9 +14,8 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, name: 
     setError('')
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/security/auth/token`, {
+      const res = await apiFetch('/security/auth/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
         body: JSON.stringify({ username, password }),
       })
       const json = await res.json()

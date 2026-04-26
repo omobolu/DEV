@@ -67,7 +67,7 @@ class AuthService {
     }
 
     if (!user) {
-      auditService.log({
+      await auditService.log({
         eventType: 'auth.login.failure',
         actorId:   username,
         actorName: username,
@@ -86,7 +86,7 @@ class AuthService {
       : false;
 
     if (!isValid) {
-      auditService.log({
+      await auditService.log({
         eventType: 'auth.login.failure',
         actorId:   user.userId,
         actorName: user.displayName,
@@ -99,7 +99,7 @@ class AuthService {
     }
 
     if (user.status !== 'active') {
-      auditService.log({
+      await auditService.log({
         eventType: 'auth.login.failure',
         actorId:   user.userId,
         actorName: user.displayName,
@@ -125,7 +125,7 @@ class AuthService {
     const token = await oidcAdapter.issueToken(user, tenant);
     authRepository.updateLastLogin(user.tenantId, user.userId);
 
-    auditService.log({
+    await auditService.log({
       tenantId:  user.tenantId,
       eventType: 'auth.login.success',
       actorId:   user.userId,
@@ -135,7 +135,7 @@ class AuthService {
       metadata:  { username, authProvider: user.authProvider, roles: user.roles },
     });
 
-    auditService.log({
+    await auditService.log({
       tenantId:  user.tenantId,
       eventType: 'auth.token.issued',
       actorId:   user.userId,
@@ -170,9 +170,9 @@ class AuthService {
     return authRepository.findAll(tenantId).map(({ passwordHash: _pw, ...u }) => u);
   }
 
-  recordLogout(userId: string, tenantId: string, sessionId: string, actorIp?: string): void {
+  async recordLogout(userId: string, tenantId: string, sessionId: string, actorIp?: string): Promise<void> {
     const user = authRepository.findByIdGlobal(userId);
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'auth.logout',
       actorId:   userId,
