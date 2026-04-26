@@ -2,10 +2,10 @@
  * Tenant Controller
  *
  * Routes:
- *   GET  /tenants       — list all tenants (Manager role required)
- *   GET  /tenants/me    — current user's tenant info
- *   GET  /tenants/:id   — get one tenant + stats
- *   POST /tenants       — create a new tenant + admin user (no restart needed)
+ *   GET  /tenants       — list all tenants (PlatformAdmin only)
+ *   GET  /tenants/me    — current user's tenant info (any authenticated user)
+ *   GET  /tenants/:id   — get one tenant + stats (PlatformAdmin only)
+ *   POST /tenants       — create a new tenant + admin user (PlatformAdmin only)
  */
 
 import { Router, Request, Response } from 'express';
@@ -25,8 +25,8 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
   res.json({ success: true, data: tenant, timestamp: new Date().toISOString() });
 });
 
-// ── GET /tenants — list all tenants (Manager only) ────────────────────────────
-router.get('/', requireAuth, requirePermission('security.manage.access'), async (_req: Request, res: Response) => {
+// ── GET /tenants — list all tenants (PlatformAdmin only) ──────────────────────
+router.get('/', requireAuth, requirePermission('tenants.manage'), async (_req: Request, res: Response) => {
   const tenants = await tenantService.listTenants();
   res.json({
     success: true,
@@ -35,8 +35,8 @@ router.get('/', requireAuth, requirePermission('security.manage.access'), async 
   });
 });
 
-// ── GET /tenants/:tenantId — get one tenant ───────────────────────────────────
-router.get('/:tenantId', requireAuth, requirePermission('security.manage.access'), async (req: Request, res: Response) => {
+// ── GET /tenants/:tenantId — get one tenant (PlatformAdmin only) ──────────────
+router.get('/:tenantId', requireAuth, requirePermission('tenants.manage'), async (req: Request, res: Response) => {
   const tenants = await tenantService.listTenants();
   const summary = tenants.find(t => t.tenantId === req.params.tenantId);
   if (!summary) {
@@ -46,8 +46,8 @@ router.get('/:tenantId', requireAuth, requirePermission('security.manage.access'
   res.json({ success: true, data: summary, timestamp: new Date().toISOString() });
 });
 
-// ── POST /tenants — create a new tenant + admin user ──────────────────────────
-router.post('/', requireAuth, requirePermission('security.manage.access'), async (req: Request, res: Response) => {
+// ── POST /tenants — create a new tenant + admin user (PlatformAdmin only) ─────
+router.post('/', requireAuth, requirePermission('tenants.manage'), async (req: Request, res: Response) => {
   const input: CreateTenantInput = req.body;
 
   const validationErrors = tenantService.validateCreateInput(input);

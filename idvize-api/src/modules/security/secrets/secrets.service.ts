@@ -7,39 +7,56 @@
  */
 
 import { SecretName } from './secrets.types';
+import { getSeedMode } from '../../../config/seed-mode';
 
 const DEV_DEFAULTS: Partial<Record<SecretName, string>> = {
   JWT_SIGNING_SECRET: 'idvize-jwt-dev-secret-change-in-production',
   SCIM_BEARER_TOKEN: 'idvize-scim-bearer-token-dev',
 };
 
+function isProduction(): boolean {
+  return getSeedMode() === 'production' || process.env.NODE_ENV === 'production';
+}
+
 export class SecretsService {
   /**
    * Retrieve a named secret.
-   * Reads from process.env first, then falls back to dev defaults.
-   * In production, NODE_ENV=production causes missing secrets to throw.
+   * In production: ONLY reads from process.env — dev defaults are never used.
+   * In demo/development: falls back to dev defaults when env var is missing.
    */
   async get(name: SecretName): Promise<string> {
-    const value = process.env[name] ?? DEV_DEFAULTS[name];
-    if (!value) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(`[SecretsService] Secret "${name}" is not configured`);
-      }
-      throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
+    const envValue = process.env[name];
+    if (envValue) return envValue;
+
+    if (isProduction()) {
+      throw new Error(
+        `[SecretsService] FATAL: Secret "${name}" is not configured. ` +
+        `In production, all secrets must be set via environment variables. ` +
+        `Set ${name} in your environment.`
+      );
     }
-    return value;
+
+    const fallback = DEV_DEFAULTS[name];
+    if (fallback) return fallback;
+    throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
   }
 
   /**
-   * Synchronous get — use only when async is not possible.
-   * Not available in production vault mode.
+   * Synchronous get — same production/dev split as async get.
    */
   getSync(name: SecretName): string {
-    const value = process.env[name] ?? DEV_DEFAULTS[name];
-    if (!value) {
-      throw new Error(`[SecretsService] Secret "${name}" not found`);
+    const envValue = process.env[name];
+    if (envValue) return envValue;
+
+    if (isProduction()) {
+      throw new Error(
+        `[SecretsService] FATAL: Secret "${name}" is not configured in production. Set ${name} in your environment.`
+      );
     }
-    return value;
+
+    const fallback = DEV_DEFAULTS[name];
+    if (fallback) return fallback;
+    throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
   }
 }
 

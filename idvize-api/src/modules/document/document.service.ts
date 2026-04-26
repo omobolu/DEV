@@ -5,6 +5,7 @@ import {
 } from './document.types';
 import { documentRepository } from './document.repository';
 import { SEED_DOCUMENTS } from './document.seed';
+import { getSeedMode } from '../../config/seed-mode';
 
 let seeded = false;
 
@@ -12,6 +13,7 @@ class DocumentService {
 
   ensureSeeded(tenantId: string): void {
     if (seeded || documentRepository.count(tenantId) > 0) return;
+    if (getSeedMode() === 'production') return;
     for (const doc of SEED_DOCUMENTS) {
       documentRepository.save(tenantId, doc);
     }

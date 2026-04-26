@@ -5,7 +5,7 @@
 
 // ── User ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'Manager' | 'Architect' | 'BusinessAnalyst' | 'Engineer' | 'Developer';
+export type UserRole = 'PlatformAdmin' | 'Manager' | 'Architect' | 'BusinessAnalyst' | 'Engineer' | 'Developer';
 export type UserStatus = 'active' | 'suspended' | 'deprovisioned' | 'pending';
 export type AuthProvider = 'oidc' | 'saml' | 'local';
 
@@ -84,7 +84,9 @@ export type PermissionId =
   | 'secrets.reveal'
   | 'secrets.rotate'
   | 'secrets.approve'
-  | 'secrets.manage.provider';
+  | 'secrets.manage.provider'
+  // Tenant management (PlatformAdmin only)
+  | 'tenants.manage';
 
 export interface Permission {
   permissionId: PermissionId;

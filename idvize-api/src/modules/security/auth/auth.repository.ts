@@ -113,13 +113,22 @@ class AuthRepository {
   /**
    * PostgreSQL-backed global username lookup with bcrypt password hash.
    * Used by the auth service for login when PostgreSQL is available.
+   *
+   * Enforces uniqueness: if the same username exists in multiple tenants,
+   * returns an error rather than silently picking one (ambiguity = security risk).
    */
   async findByUsernameGlobalPg(username: string): Promise<User | undefined> {
     const result = await pool.query(
-      'SELECT * FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      'SELECT * FROM users WHERE LOWER(username) = LOWER($1) LIMIT 2',
       [username]
     );
     if (result.rows.length === 0) return undefined;
+    if (result.rows.length > 1) {
+      throw Object.assign(
+        new Error(`Ambiguous login: username "${username}" exists in multiple tenants. Contact your administrator.`),
+        { statusCode: 409 },
+      );
+    }
     return this.rowToUser(result.rows[0]);
   }
 

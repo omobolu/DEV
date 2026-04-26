@@ -7,6 +7,7 @@
 
 import { AuditEvent, AuditEventType } from '../security.types';
 import pool from '../../../db/pool';
+import { getSeedMode } from '../../../config/seed-mode';
 
 export interface AuditFilter {
   eventType?: AuditEventType;
@@ -35,9 +36,13 @@ class AuditRepository {
     pool.query(
       `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-      [event.eventId, event.tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp]
+      [event.eventId, tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp]
     ).catch((err) => {
-      console.error('[Audit] PostgreSQL write failed:', err.message);
+      if (getSeedMode() === 'production') {
+        console.error('[Audit] CRITICAL: PostgreSQL audit write failed in production:', err.message);
+      } else {
+        console.error('[Audit] PostgreSQL write failed:', err.message);
+      }
     });
 
     return event;
@@ -86,7 +91,8 @@ class AuditRepository {
       params.push(limit, offset);
       const result = await pool.query(sql, params);
       return result.rows.map((row: Record<string, unknown>) => this.rowToEvent(row));
-    } catch {
+    } catch (err) {
+      if (getSeedMode() === 'production') throw err;
       return this.query(tenantId, filter);
     }
   }
@@ -96,7 +102,8 @@ class AuditRepository {
       const result = await pool.query('SELECT * FROM audit_logs WHERE event_id = $1 AND tenant_id = $2', [eventId, tenantId]);
       if (result.rows.length === 0) return this.findById(tenantId, eventId);
       return this.rowToEvent(result.rows[0]);
-    } catch {
+    } catch (err) {
+      if (getSeedMode() === 'production') throw err;
       return this.findById(tenantId, eventId);
     }
   }
@@ -105,7 +112,8 @@ class AuditRepository {
     try {
       const result = await pool.query('SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1', [tenantId]);
       return parseInt(result.rows[0].count as string, 10);
-    } catch {
+    } catch (err) {
+      if (getSeedMode() === 'production') throw err;
       return this.count(tenantId);
     }
   }

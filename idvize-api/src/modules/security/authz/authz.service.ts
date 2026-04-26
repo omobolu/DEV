@@ -67,8 +67,10 @@ class AuthzService {
 
   // ── Authorization Check ───────────────────────────────────────────────────
 
-  check(userId: string, permission: PermissionId, context: EvaluationContext = {}): AuthzDecision {
-    const user = authRepository.findByIdGlobal(userId);
+  check(userId: string, permission: PermissionId, context: EvaluationContext = {}, tenantId?: string): AuthzDecision {
+    const user = tenantId
+      ? authRepository.findById(tenantId, userId)
+      : authRepository.findByIdGlobal(userId);
     if (!user) {
       return { allowed: false, reason: 'User not found', permissionId: permission, userId };
     }
@@ -92,8 +94,10 @@ class AuthzService {
   /**
    * Return the effective permissions for a user (union of all roles).
    */
-  getUserPermissions(userId: string): PermissionId[] {
-    const user = authRepository.findByIdGlobal(userId);
+  getUserPermissions(userId: string, tenantId?: string): PermissionId[] {
+    const user = tenantId
+      ? authRepository.findById(tenantId, userId)
+      : authRepository.findByIdGlobal(userId);
     if (!user || user.status !== 'active') return [];
     return resolvePermissions(user.roles);
   }

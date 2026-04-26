@@ -19,6 +19,7 @@ import { authRepository } from './auth.repository';
 import { tenantRepository } from '../../tenant/tenant.repository';
 import { oidcAdapter, TokenResponse } from './adapters/oidc.adapter';
 import { auditService } from '../audit/audit.service';
+import { getSeedMode } from '../../../config/seed-mode';
 
 export interface LoginResult {
   token: TokenResponse;
@@ -29,21 +30,36 @@ class AuthService {
 
   /**
    * Authenticate a user with username + password.
-   * Uses PostgreSQL for user lookup and bcrypt for password verification.
-   * Falls back to in-memory store if PostgreSQL lookup fails.
+   * Production: PostgreSQL only — fails closed (503) if PG is unavailable.
+   * Demo/development: tries PG first, falls back to in-memory store.
    */
   async login(username: string, password: string, actorIp?: string): Promise<LoginResult> {
-    // Try PostgreSQL first, fall back to in-memory
+    const mode = getSeedMode();
     let user: User | undefined;
     let fromPg = false;
-    try {
-      user = await authRepository.findByUsernameGlobalPg(username);
-      if (user) fromPg = true;
-    } catch {
-      // PostgreSQL not available
-    }
-    if (!user) {
-      user = authRepository.findByUsernameGlobal(username);
+
+    if (mode === 'production') {
+      // Production: PostgreSQL is the ONLY source of truth — no in-memory fallback
+      try {
+        user = await authRepository.findByUsernameGlobalPg(username);
+        if (user) fromPg = true;
+      } catch (err) {
+        throw Object.assign(
+          new Error('Authentication service unavailable — database connection failed'),
+          { statusCode: 503 },
+        );
+      }
+    } else {
+      // Demo/development: try PG first, fall back to in-memory
+      try {
+        user = await authRepository.findByUsernameGlobalPg(username);
+        if (user) fromPg = true;
+      } catch {
+        // PG not available in dev — acceptable
+      }
+      if (!user) {
+        user = authRepository.findByUsernameGlobal(username);
+      }
     }
 
     if (!user) {
