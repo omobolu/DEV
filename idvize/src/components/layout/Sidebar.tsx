@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  MonitorDot, Plug, ScrollText, Activity, BarChart2, ShieldCheck,
-  ShieldAlert, UserCheck, Database, FileText, Award, DollarSign,
+  MonitorDot, Plug, ScrollText, Activity, Users, Briefcase,
+  UserRound, UserCheck, ShieldCheck, ShieldAlert, RefreshCw,
+  Database, FileText, Award, DollarSign,
   LayoutDashboard, BookOpen, TrendingUp, AlertTriangle, X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 const SECTION_SYSTEM = [
   { icon: Plug,        label: 'Driver Manager', path: '/integrations' },
@@ -12,12 +14,38 @@ const SECTION_SYSTEM = [
   { icon: Activity,    label: 'System Events',  path: '/system-events' },
 ]
 
-const SECTION_IAM = [
-  { icon: BarChart2,   label: 'IGA',           path: '/iga',                color: '#6366f1' },
-  { icon: ShieldCheck, label: 'Access Mgmt',   path: '/access-management',  color: '#06b6d4' },
-  { icon: ShieldAlert, label: 'PAM',           path: '/pam',                color: '#f59e0b' },
-  { icon: UserCheck,   label: 'CIAM',          path: '/ciam',               color: '#22c55e' },
-]
+/**
+ * Identity Domains — organized by business audience (B2E / B2B / B2C),
+ * not by IAM acronym. Each domain shows the capabilities relevant to it.
+ */
+const IDENTITY_DOMAINS = [
+  {
+    label: 'Workforce',
+    sublabel: 'Employees · B2E',
+    icon: Users,
+    items: [
+      { icon: RefreshCw,   label: 'Lifecycle Management', path: '/iga',                color: '#2563eb' },
+      { icon: ShieldCheck, label: 'Access Management',    path: '/access-management',  color: '#06b6d4' },
+      { icon: ShieldAlert, label: 'Privileged Access',    path: '/pam',                color: '#d97706' },
+    ],
+  },
+  {
+    label: 'Partners',
+    sublabel: 'Vendors & contractors · B2B',
+    icon: Briefcase,
+    items: [
+      { icon: ShieldCheck, label: 'Partner Access', path: '/access-management?audience=partners', color: '#06b6d4' },
+    ],
+  },
+  {
+    label: 'Customers',
+    sublabel: 'External users · B2C',
+    icon: UserRound,
+    items: [
+      { icon: UserCheck,   label: 'Customer Identity', path: '/ciam', color: '#16a34a' },
+    ],
+  },
+] as const
 
 const SECTION_DATA = [
   { icon: Database,        label: 'Identity CMDB',    path: '/cmdb',             color: '#8b5cf6' },
@@ -62,6 +90,30 @@ function NavItem({ icon: Icon, label, path, color, onClick }: {
         </>
       )}
     </NavLink>
+  )
+}
+
+function DomainGroup({
+  label, sublabel, icon: Icon, items,
+}: {
+  label: string
+  sublabel: string
+  icon: LucideIcon
+  items: ReadonlyArray<{ icon: LucideIcon; label: string; path: string; color: string }>
+}) {
+  return (
+    <div className="mt-1">
+      <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+        <Icon size={12} className="text-faint flex-shrink-0" aria-hidden="true" />
+        <div className="flex flex-col leading-tight">
+          <span className="text-[11px] font-semibold text-secondary">{label}</span>
+          <span className="text-[9px] uppercase tracking-wider text-faint">{sublabel}</span>
+        </div>
+      </div>
+      <div className="ml-3 border-l border-surface-700/60 pl-1">
+        {items.map(item => <NavItem key={item.path} {...item} />)}
+      </div>
+    </div>
   )
 }
 
@@ -135,9 +187,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
 
-      {/* IAM APPLICATIONS */}
-      <SectionLabel label="IAM Applications" />
-      {SECTION_IAM.map(item => <NavItem key={item.path} {...item} />)}
+      {/* IDENTITY DOMAINS — grouped by audience (B2E / B2B / B2C) */}
+      <SectionLabel label="Identity Domains" />
+      {IDENTITY_DOMAINS.map(domain => (
+        <DomainGroup
+          key={domain.label}
+          label={domain.label}
+          sublabel={domain.sublabel}
+          icon={domain.icon}
+          items={domain.items}
+        />
+      ))}
 
       <div className="w-full border-t border-surface-700/60 mx-0 my-1" />
 
