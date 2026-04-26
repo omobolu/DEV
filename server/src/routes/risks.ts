@@ -41,6 +41,17 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const severity = validateEnum(req.body.severity, [...SEVERITIES], 'severity')
     const application_id = sanitizeString(req.body.application_id)
 
+    if (application_id) {
+      const appCheck = await pool.query(
+        `SELECT id FROM applications WHERE id = $1 AND tenant_id = $2`,
+        [application_id, req.tenantId]
+      )
+      if (appCheck.rows.length === 0) {
+        res.status(404).json({ error: 'Application not found' })
+        return
+      }
+    }
+
     const id = `risk-${crypto.randomUUID().slice(0, 8)}`
     const result = await pool.query(
       `INSERT INTO risk_findings (id, application_id, category, description, severity, tenant_id)

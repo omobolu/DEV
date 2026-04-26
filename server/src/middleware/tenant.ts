@@ -23,7 +23,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     const result = await pool.query(
       `SELECT s.id, s.user_id, s.tenant_id, s.expires_at, s.active, u.role
        FROM sessions s JOIN users u ON s.user_id = u.id
-       WHERE s.id = $1 AND s.active = true AND s.expires_at > NOW()`,
+       WHERE s.id = $1 AND s.active = true AND u.active = true AND s.expires_at > NOW()`,
       [sessionId]
     )
 
