@@ -2,19 +2,36 @@
  * IAM Risk Service
  *
  * Business logic layer for the Top IAM Risk Engine.
- * Controller calls this service; this service calls the risk-assessment engine
- * and the application repository.
+ * Queries PostgreSQL via riskRepository — no in-memory data.
+ * Classification logic (classifyRisk) runs in the application layer.
+ *
+ * Production fail-closed: if PG is unavailable, throws (controller returns 503).
  */
 
-import { applicationRepository } from '../application/application.repository';
-import { assessPortfolioRisks, assessApplicationRisk, buildRiskSummary } from './risk-assessment.engine';
-import type { ApplicationRisk, RiskSummary, AssessmentRiskLevel } from './risk-assessment.engine';
+import { riskRepository } from './risk.repository';
+import type { AssessmentRiskLevel, ApplicationRisk, RiskSummary, ControlDriver } from './risk-assessment.engine';
 
 const VALID_LEVELS = new Set<string>(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
+
+const RISK_ORDER: Record<AssessmentRiskLevel, number> = {
+  CRITICAL: 0,
+  HIGH:     1,
+  MEDIUM:   2,
+  LOW:      3,
+};
 
 export interface PortfolioRiskResult {
   summary: RiskSummary;
   risks: ApplicationRisk[];
+}
+
+function classifyRisk(gapCount: number, attentionCount: number): AssessmentRiskLevel {
+  if (gapCount >= 3) return 'CRITICAL';
+  if (gapCount >= 2) return 'HIGH';
+  if (gapCount === 1 && attentionCount >= 2) return 'HIGH';
+  if (gapCount === 1) return 'MEDIUM';
+  if (attentionCount > 0) return 'MEDIUM';
+  return 'LOW';
 }
 
 class RiskService {
@@ -23,10 +40,34 @@ class RiskService {
    * Optional level filter restricts results to a single risk level.
    * tenantId MUST come from authenticated context (JWT).
    */
-  getPortfolioRisks(tenantId: string, levelFilter?: string): PortfolioRiskResult {
-    const apps = applicationRepository.findAll(tenantId);
-    const risks = assessPortfolioRisks(apps, tenantId);
-    const summary = buildRiskSummary(risks);
+  async getPortfolioRisks(tenantId: string, levelFilter?: string): Promise<PortfolioRiskResult> {
+    const rows = await riskRepository.getPortfolioRisks(tenantId);
+
+    const risks: ApplicationRisk[] = rows.map(r => ({
+      applicationId: r.appId,
+      applicationName: r.applicationName,
+      tenantId: r.tenantId,
+      riskLevel: classifyRisk(r.gapCount, r.attentionCount),
+      gapCount: r.gapCount,
+      attentionCount: r.attentionCount,
+      drivers: r.drivers as ControlDriver[],
+    }));
+
+    risks.sort((a, b) => {
+      const levelDiff = RISK_ORDER[a.riskLevel] - RISK_ORDER[b.riskLevel];
+      if (levelDiff !== 0) return levelDiff;
+      if (b.gapCount !== a.gapCount) return b.gapCount - a.gapCount;
+      if (b.attentionCount !== a.attentionCount) return b.attentionCount - a.attentionCount;
+      return a.applicationName.localeCompare(b.applicationName);
+    });
+
+    const summary: RiskSummary = {
+      totalApplications: rows.length,
+      critical: risks.filter(r => r.riskLevel === 'CRITICAL').length,
+      high:     risks.filter(r => r.riskLevel === 'HIGH').length,
+      medium:   risks.filter(r => r.riskLevel === 'MEDIUM').length,
+      low:      risks.filter(r => r.riskLevel === 'LOW').length,
+    };
 
     const normalised = levelFilter?.toUpperCase();
     const filtered = normalised && VALID_LEVELS.has(normalised)
@@ -38,13 +79,22 @@ class RiskService {
 
   /**
    * Assess a single application's risk.
-   * Looks up the app by BOTH applicationId AND tenantId.
-   * Returns undefined if not found in the tenant (prevents cross-tenant access).
+   * Looks up by BOTH applicationId AND tenantId via PG.
+   * Returns undefined if not found in tenant (prevents cross-tenant access).
    */
-  getApplicationRisk(tenantId: string, applicationId: string): ApplicationRisk | undefined {
-    const app = applicationRepository.findById(tenantId, applicationId);
-    if (!app) return undefined;
-    return assessApplicationRisk(app, tenantId);
+  async getApplicationRisk(tenantId: string, applicationId: string): Promise<ApplicationRisk | undefined> {
+    const row = await riskRepository.getApplicationRisk(tenantId, applicationId);
+    if (!row) return undefined;
+
+    return {
+      applicationId: row.appId,
+      applicationName: row.applicationName,
+      tenantId: row.tenantId,
+      riskLevel: classifyRisk(row.gapCount, row.attentionCount),
+      gapCount: row.gapCount,
+      attentionCount: row.attentionCount,
+      drivers: row.drivers as ControlDriver[],
+    };
   }
 }
 

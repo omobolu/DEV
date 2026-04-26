@@ -329,6 +329,8 @@ const GLOBEX_APPS: Application[] = [
 
 // ── Seed functions — idempotent ────────────────────────────────────────────
 export { ACME_APPS as SEED_APPS };
+export { ACME_APPS as SEED_ACME_APPS };
+export { GLOBEX_APPS as SEED_GLOBEX_APPS };
 
 export function seedApplications(tenantId: string): void {
   const mode = getSeedMode();

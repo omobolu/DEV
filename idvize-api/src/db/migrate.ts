@@ -97,12 +97,26 @@ CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_logs(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_logs(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
+
+-- Control Assessments (per-app, per-control, per-tenant)
+CREATE TABLE IF NOT EXISTS control_assessments (
+  tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
+  app_id          TEXT NOT NULL REFERENCES applications(app_id),
+  control_id      TEXT NOT NULL,
+  control_name    TEXT NOT NULL,
+  pillar          TEXT NOT NULL,
+  outcome         TEXT NOT NULL CHECK (outcome IN ('OK', 'ATTN', 'GAP')),
+  evaluated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (tenant_id, app_id, control_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ca_tenant ON control_assessments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_ca_app ON control_assessments(tenant_id, app_id);
 `;
 
 async function migrate(): Promise<void> {
   console.log('[DB] Running migrations...');
   await pool.query(SCHEMA);
-  console.log('[DB] Migrations complete — tables: tenants, users, applications, audit_logs');
+  console.log('[DB] Migrations complete — tables: tenants, users, applications, audit_logs, control_assessments');
   await pool.end();
 }
 

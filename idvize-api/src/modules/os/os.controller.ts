@@ -732,37 +732,49 @@ router.get('/alerts', async (req: Request, res: Response) => {
 });
 
 // ── GET /os/risks — Top IAM Risk Engine (v1) ────────────────────────────────
-// Controller → Service → Repository layering.
+// Controller → Service → Repository (PostgreSQL) layering.
 // tenantId comes ONLY from JWT (req.tenantId). Never from query/body/params.
-router.get('/risks', requirePermission('risks.view'), (req: Request, res: Response) => {
-  const tenantId = req.tenantId!;
-  const levelFilter = req.query.level as string | undefined;
-  const result = riskService.getPortfolioRisks(tenantId, levelFilter);
+// Production fail-closed: PG unavailable → 503.
+router.get('/risks', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const levelFilter = req.query.level as string | undefined;
+    const result = await riskService.getPortfolioRisks(tenantId, levelFilter);
 
-  res.json({
-    success: true,
-    data: { summary: result.summary, risks: result.risks },
-    timestamp: new Date().toISOString(),
-  });
+    res.json({
+      success: true,
+      data: { summary: result.summary, risks: result.risks },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
+  }
 });
 
 // ── GET /os/risks/:applicationId — single app risk assessment ─────────────────
-// Looks up by BOTH applicationId AND tenantId. Returns 404 if not found.
-router.get('/risks/:appId', requirePermission('risks.view'), (req: Request, res: Response) => {
-  const tenantId = req.tenantId!;
-  const appId    = req.params.appId as string;
-  const risk     = riskService.getApplicationRisk(tenantId, appId);
+// Queries by BOTH applicationId AND tenantId via PostgreSQL. Returns 404 if not found.
+// Production fail-closed: PG unavailable → 503.
+router.get('/risks/:appId', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const appId    = req.params.appId as string;
+    const risk     = await riskService.getApplicationRisk(tenantId, appId);
 
-  if (!risk) {
-    res.status(404).json({ success: false, error: 'Application not found' });
-    return;
+    if (!risk) {
+      res.status(404).json({ success: false, error: 'Application not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: risk,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks/:appId failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
   }
-
-  res.json({
-    success: true,
-    data: risk,
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // ── Gap Engine — mock data ────────────────────────────────────────────────────
