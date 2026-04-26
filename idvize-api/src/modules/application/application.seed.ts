@@ -1,11 +1,13 @@
 /**
- * Demo seed — 50 enterprise applications with IAM posture data.
- * Saved directly to applicationRepository on startup.
- * Provides realistic coverage distribution across all 49 controls.
+ * Demo seed — enterprise applications with IAM posture data.
+ *
+ * GUARD: seedApplications() must ONLY be called when SEED_MODE is demo or development.
+ * It is invoked from seedTenants() which enforces this invariant.
  */
 
 import { Application, IamPosture, IamPlatformLink } from './application.types';
 import { applicationRepository } from './application.repository';
+import { getSeedMode } from '../../config/seed-mode';
 
 const NOW = new Date().toISOString();
 
@@ -329,6 +331,11 @@ const GLOBEX_APPS: Application[] = [
 export { ACME_APPS as SEED_APPS };
 
 export function seedApplications(tenantId: string): void {
+  const mode = getSeedMode();
+  if (mode === 'production') {
+    console.warn('[SEED] seedApplications() blocked — SEED_MODE=production. No demo data allowed.');
+    return;
+  }
   if (applicationRepository.count(tenantId) > 0) return; // already seeded
   const apps = tenantId === 'ten-globex' ? GLOBEX_APPS : ACME_APPS;
   for (const a of apps) applicationRepository.save(tenantId, a);
