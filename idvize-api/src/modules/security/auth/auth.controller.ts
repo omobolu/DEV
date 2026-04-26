@@ -27,8 +27,14 @@ router.post('/token', async (req: Request, res: Response) => {
     return;
   }
   const actorIp = req.ip;
-  const result = await authService.login(username, password, actorIp);
-  res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+  try {
+    const result = await authService.login(username, password, actorIp);
+    res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+  } catch (err) {
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    const message = (err as Error).message ?? 'Authentication failed';
+    res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+  }
 });
 
 // POST /security/auth/logout
