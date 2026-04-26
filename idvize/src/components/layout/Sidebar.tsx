@@ -34,7 +34,7 @@ const IDENTITY_DOMAINS = [
     sublabel: 'Vendors & contractors · B2B',
     icon: Briefcase,
     items: [
-      { icon: ShieldCheck, label: 'Partner Access', path: '/access-management?audience=partners', color: '#06b6d4' },
+      { icon: ShieldCheck, label: 'Partner Access', path: '/access-management/partners', color: '#06b6d4' },
     ],
   },
   {
@@ -75,6 +75,7 @@ function NavItem({ icon: Icon, label, path, color, onClick }: {
   return (
     <NavLink
       to={path}
+      end
       onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors text-sm

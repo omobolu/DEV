@@ -87,6 +87,7 @@ export default function App() {
               <Route path="insights/program-maturity" element={<ProgramInsights />} />
               <Route path="iga/*" element={<IdentityWarehouse />} />
               <Route path="access-management" element={<AccessManagement />} />
+              <Route path="access-management/partners" element={<AccessManagement audience="partners" />} />
               <Route path="pam" element={<PAMDashboard />} />
               <Route path="ciam" element={<CIAMDashboard />} />
               <Route path="applications/onboarding" element={<AppOnboarding />} />
