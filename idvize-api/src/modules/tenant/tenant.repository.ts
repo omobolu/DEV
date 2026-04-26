@@ -11,6 +11,7 @@
 import { Tenant } from './tenant.types';
 import { User } from '../security/security.types';
 import pool from '../../db/pool';
+import { getSeedMode } from '../../config/seed-mode';
 
 class TenantRepository {
   private cache = new Map<string, Tenant>();
@@ -64,6 +65,7 @@ class TenantRepository {
         [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
       );
     } catch (err) {
+      if (getSeedMode() === 'production') throw err;
       console.warn(`[TenantRepo] PostgreSQL write failed for ${tenant.tenantId}, caching in-memory only:`, (err as Error).message);
     }
     this.cache.set(tenant.tenantId, tenant);
