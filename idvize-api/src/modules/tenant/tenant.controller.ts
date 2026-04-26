@@ -61,8 +61,8 @@ router.post('/', requireAuth, requirePermission('security.manage.access'), async
   }
 
   try {
-    const actorId = (req as unknown as { userId?: string }).userId || 'system';
-    const actorName = (req as unknown as { userDisplayName?: string }).userDisplayName || 'System';
+    const actorId = req.user?.sub ?? 'system';
+    const actorName = req.user?.name ?? 'System';
     const result = await tenantService.createTenant(input, actorId, actorName);
 
     res.status(201).json({

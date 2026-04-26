@@ -12,7 +12,8 @@ import { authRepository } from '../security/auth/auth.repository';
 import { applicationRepository } from '../application/application.repository';
 import { auditService } from '../security/audit/audit.service';
 import { User } from '../security/security.types';
-import pool from '../../db/pool';
+
+const VALID_PLANS: TenantPlan[] = ['enterprise', 'professional', 'trial'];
 
 export interface CreateTenantInput {
   name: string;
@@ -97,7 +98,7 @@ class TenantService {
     const now = new Date().toISOString();
     const userId = `usr-${input.slug}-admin-001`;
     const passwordHash = await bcrypt.hash(input.adminPassword, 10);
-    const plan = (input.plan || 'professional') as TenantPlan;
+    const plan: TenantPlan = VALID_PLANS.includes(input.plan as TenantPlan) ? (input.plan as TenantPlan) : 'professional';
 
     const tenant: Tenant = {
       tenantId,
@@ -139,33 +140,8 @@ class TenantService {
       updatedAt: now,
     };
 
-    // Atomic PG transaction: both tenant and user must succeed or both roll back
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      await client.query(
-        `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), now, now]
-      );
-
-      await client.query(
-        `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)`,
-        [userId, tenantId, input.adminEmail, user.displayName, 'Admin', 'User', input.adminEmail, 'IT', 'Administrator', JSON.stringify(['Manager']), JSON.stringify([]), 'active', 'local', false, passwordHash, JSON.stringify({}), now]
-      );
-
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw Object.assign(new Error(`Tenant creation failed: ${(err as Error).message}`), { statusCode: 500 });
-    } finally {
-      client.release();
-    }
-
-    // Update in-memory caches after successful PG transaction
-    tenantRepository.addToCache(tenant);
+    // Atomic PG transaction via repository layer: both tenant and user must succeed or both roll back
+    await tenantRepository.createTenantWithAdmin(tenant, user);
     authRepository.save(tenantId, user);
 
     // Audit log

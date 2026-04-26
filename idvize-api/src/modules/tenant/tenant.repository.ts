@@ -9,6 +9,7 @@
  */
 
 import { Tenant } from './tenant.types';
+import { User } from '../security/security.types';
 import pool from '../../db/pool';
 
 class TenantRepository {
@@ -89,6 +90,40 @@ class TenantRepository {
   async count(): Promise<number> {
     await this.ensureLoaded();
     return this.cache.size;
+  }
+
+  /**
+   * Atomic transaction: create tenant + admin user in one PG transaction.
+   * Both INSERTs succeed or both roll back.
+   */
+  async createTenantWithAdmin(tenant: Tenant, user: User): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, admin_user_id, settings, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [tenant.tenantId, tenant.name, tenant.slug, tenant.domain, tenant.status, tenant.plan, tenant.adminUserId, JSON.stringify(tenant.settings), tenant.createdAt, tenant.updatedAt]
+      );
+
+      await client.query(
+        `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)`,
+        [user.userId, tenant.tenantId, user.username, user.displayName, user.firstName, user.lastName, user.email, user.department ?? 'IT', user.title ?? 'Administrator', JSON.stringify(user.roles), JSON.stringify(user.groups), user.status, user.authProvider, user.mfaEnrolled, user.passwordHash, JSON.stringify(user.attributes), user.createdAt]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw Object.assign(new Error(`Tenant creation failed: ${(err as Error).message}`), { statusCode: 500 });
+    } finally {
+      client.release();
+    }
+
+    // Update in-memory caches after successful commit
+    this.cache.set(tenant.tenantId, tenant);
+    this.slugIndex.set(tenant.slug, tenant.tenantId);
   }
 
   addToCache(tenant: Tenant): void {
