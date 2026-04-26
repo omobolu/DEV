@@ -105,8 +105,12 @@ class RiskService {
    * Returns undefined if the app doesn't belong to the tenant.
    */
   async getApplicationControls(tenantId: string, applicationId: string): Promise<ApplicationControlsResult | undefined> {
+    // Existence check: verify app belongs to this tenant (uses LEFT JOIN, always returns for valid apps)
+    const appRisk = await riskRepository.getApplicationRisk(tenantId, applicationId);
+    if (!appRisk) return undefined;
+
+    // Fetch control rows (INNER JOIN — may be empty for apps with no assessments)
     const rows = await riskRepository.getApplicationControls(tenantId, applicationId);
-    if (rows.length === 0) return undefined;
 
     const catalogMap = new Map(CONTROLS_CATALOG.map(c => [c.controlId, c]));
 
@@ -142,9 +146,9 @@ class RiskService {
     const okCount = controls.filter(c => c.outcome === 'OK').length;
 
     return {
-      applicationId: rows[0].appId,
-      applicationName: rows[0].applicationName,
-      tenantId: rows[0].tenantId,
+      applicationId: appRisk.appId,
+      applicationName: appRisk.applicationName,
+      tenantId: appRisk.tenantId,
       riskLevel: classifyRisk(gapCount, attentionCount),
       summary: { total: controls.length, gap: gapCount, attention: attentionCount, ok: okCount },
       controls,
