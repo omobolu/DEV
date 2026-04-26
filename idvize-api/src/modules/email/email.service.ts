@@ -15,6 +15,7 @@ import type { Transporter } from 'nodemailer';
 import { emailRepository } from './email.repository';
 import { getTemplate, renderTemplate } from './email.templates';
 import { auditService } from '../security/audit/audit.service';
+import { CONTROLS_CATALOG } from '../control/control.catalog';
 import type {
   SmtpConfig,
   SmtpConfigResponse,
@@ -290,9 +291,10 @@ class EmailService {
       };
     }
 
+    const catalogEntry = CONTROLS_CATALOG.find(c => c.controlId === request.controlId);
     const templateData = {
       applicationName: request.applicationName,
-      controlName: request.controlId,
+      controlName: catalogEntry?.name ?? request.controlId,
       ...request.additionalData,
     };
 

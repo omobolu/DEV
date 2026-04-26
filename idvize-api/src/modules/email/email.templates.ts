@@ -219,11 +219,21 @@ export function getTemplate(templateId: EmailTemplateId): EmailTemplate | undefi
   return TEMPLATE_MAP.get(templateId);
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function renderTemplate(template: string, data: Record<string, unknown>): string {
   let result = template;
   for (const [key, value] of Object.entries(data)) {
     const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), String(value ?? ''));
+    const safeValue = escapeHtml(String(value ?? ''));
+    result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), safeValue);
   }
   return result;
 }
