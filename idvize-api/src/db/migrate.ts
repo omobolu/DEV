@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS email_config (
   from_email       TEXT NOT NULL,
   from_display     TEXT NOT NULL DEFAULT 'IDVIZE',
   use_tls          BOOLEAN NOT NULL DEFAULT true,
+  allow_self_signed BOOLEAN NOT NULL DEFAULT false,
   provider         TEXT NOT NULL DEFAULT 'smtp',
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by       TEXT NOT NULL
