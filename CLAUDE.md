@@ -77,7 +77,7 @@ npm run lint         # eslint
 - **JWT**: HS256, 8-hour TTL; issued via `POST /security/auth/token`
 - **Middleware chain**: `helmet → cors → json(10mb) → morgan → apiKeyAuth → [requireAuth → tenantContext → requirePermission]`
 - **RBAC**: 24 permission IDs checked via `requirePermission(permissionId)` middleware
-- **Roles**: Manager, Architect, BusinessAnalyst, Engineer, Developer
+- **Roles**: PlatformAdmin, Manager, Architect, BusinessAnalyst, Engineer, Developer
 - **Passwords**: bcrypt-hashed (`$2b$10$`); no plaintext stored
 - **Demo tenants**: Only loaded when `SEED_MODE=demo` or `SEED_MODE=development`; production starts empty
 - **Demo login**: `admin@acme.com` / `admin@globex.io` / `password123` (demo/dev mode only)

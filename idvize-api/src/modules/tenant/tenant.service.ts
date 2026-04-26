@@ -99,6 +99,13 @@ class TenantService {
       throw Object.assign(new Error(`Tenant already exists: ${tenantId}`), { statusCode: 409 });
     }
 
+    // Prevent duplicate adminEmail across tenants (would cause 409 "Ambiguous login" on auth)
+    const existingUser = authRepository.findByUsernameGlobal(input.adminEmail)
+      ?? await authRepository.findByUsernameGlobalPg(input.adminEmail).catch(() => undefined);
+    if (existingUser) {
+      throw Object.assign(new Error('adminEmail is already in use as a username in another tenant'), { statusCode: 409 });
+    }
+
     const now = new Date().toISOString();
     const userId = `usr-${input.slug}-admin-001`;
     const passwordHash = await bcrypt.hash(input.adminPassword, 10);
