@@ -1,51 +1,65 @@
 import { Application, ApplicationQuery } from './application.types';
 
 /**
- * In-memory application repository.
+ * In-memory application repository — Multi-Tenant.
+ * Partitioned by tenantId: each tenant has its own application store.
  * Phase 2: Replace with PostgreSQL via TypeORM or Prisma.
  */
 class ApplicationRepository {
-  private store = new Map<string, Application>();
-  private dedupeIndex = new Map<string, string>(); // dedupeKey → appId
+  // tenantId → appId → Application
+  private store = new Map<string, Map<string, Application>>();
+  // tenantId → dedupeKey → appId
+  private dedupeIndex = new Map<string, Map<string, string>>();
+
+  private appBucket(tenantId: string): Map<string, Application> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
+  }
+
+  private dedupeBucket(tenantId: string): Map<string, string> {
+    if (!this.dedupeIndex.has(tenantId)) this.dedupeIndex.set(tenantId, new Map());
+    return this.dedupeIndex.get(tenantId)!;
+  }
 
   // ─── Write ──────────────────────────────────────────────────────────────────
 
-  save(app: Application): Application {
-    this.store.set(app.appId, app);
+  save(tenantId: string, app: Application): Application {
+    this.appBucket(tenantId).set(app.appId, app);
     return app;
   }
 
-  saveMany(apps: Application[]): Application[] {
-    for (const app of apps) this.save(app);
+  saveMany(tenantId: string, apps: Application[]): Application[] {
+    for (const app of apps) this.save(tenantId, app);
     return apps;
   }
 
-  update(appId: string, patch: Partial<Application>): Application | null {
-    const existing = this.store.get(appId);
+  update(tenantId: string, appId: string, patch: Partial<Application>): Application | null {
+    const bucket = this.appBucket(tenantId);
+    const existing = bucket.get(appId);
     if (!existing) return null;
     const updated = { ...existing, ...patch, appId, updatedAt: new Date().toISOString() };
-    this.store.set(appId, updated);
+    bucket.set(appId, updated);
     return updated;
   }
 
   // ─── Deduplication ──────────────────────────────────────────────────────────
 
-  isDuplicate(dedupeKey: string): boolean {
-    return this.dedupeIndex.has(dedupeKey);
+  isDuplicate(tenantId: string, dedupeKey: string): boolean {
+    return this.dedupeBucket(tenantId).has(dedupeKey);
   }
 
-  registerDedupeKey(dedupeKey: string, appId: string): void {
-    this.dedupeIndex.set(dedupeKey, appId);
+  registerDedupeKey(tenantId: string, dedupeKey: string, appId: string): void {
+    this.dedupeBucket(tenantId).set(dedupeKey, appId);
   }
 
   // ─── Read ────────────────────────────────────────────────────────────────────
 
-  findById(appId: string): Application | undefined {
-    return this.store.get(appId);
+  findById(tenantId: string, appId: string): Application | undefined {
+    return this.appBucket(tenantId).get(appId);
   }
 
-  findAll(query?: ApplicationQuery): Application[] {
-    let apps = Array.from(this.store.values());
+  findAll(tenantId: string, query?: ApplicationQuery): Application[] {
+    let apps = Array.from(this.appBucket(tenantId).values());
 
     if (!query) return apps;
 
@@ -75,19 +89,19 @@ class ApplicationRepository {
     }
 
     // Pagination
-    const page = query.page ?? 1;
+    const page  = query.page  ?? 1;
     const limit = query.limit ?? 100;
     const start = (page - 1) * limit;
     return apps.slice(start, start + limit);
   }
 
-  count(): number {
-    return this.store.size;
+  count(tenantId: string): number {
+    return this.appBucket(tenantId).size;
   }
 
-  clear(): void {
-    this.store.clear();
-    this.dedupeIndex.clear();
+  clear(tenantId: string): void {
+    this.appBucket(tenantId).clear();
+    this.dedupeBucket(tenantId).clear();
   }
 }
 

@@ -12,11 +12,11 @@ import { vendorRepository } from '../repositories/vendor.repository';
  */
 export class OptimizationEngine {
 
-  generate(vendorImpacts: VendorImpact[]): OptimizationReport {
+  generate(tenantId: string, vendorImpacts: VendorImpact[]): OptimizationReport {
     const opportunities: OptimizationOpportunity[] = [
       ...this.findVendorConsolidationOpportunities(vendorImpacts),
-      ...this.findContractRenewalOpportunities(),
-      ...this.findStaffingOptimizations(),
+      ...this.findContractRenewalOpportunities(tenantId),
+      ...this.findStaffingOptimizations(tenantId),
       ...this.findIntegrationStandardizationOpportunities(vendorImpacts),
       ...this.findRedundancyOpportunities(vendorImpacts),
     ];
@@ -89,13 +89,13 @@ export class OptimizationEngine {
 
   // ── Contract Renewals ──────────────────────────────────────────────────────
 
-  private findContractRenewalOpportunities(): OptimizationOpportunity[] {
+  private findContractRenewalOpportunities(tenantId: string): OptimizationOpportunity[] {
     const opps: OptimizationOpportunity[] = [];
     const today = new Date();
     const sixMonths = new Date(today);
     sixMonths.setMonth(sixMonths.getMonth() + 6);
 
-    const expiringContracts = contractRepository.findAll().filter(c => {
+    const expiringContracts = contractRepository.findAll(tenantId).filter(c => {
       const end = new Date(c.endDate);
       return c.status === 'active' && end <= sixMonths && end >= today;
     });
@@ -118,7 +118,7 @@ export class OptimizationEngine {
     }
 
     // Auto-renewing contracts not reviewed in 18 months
-    const stalledAutoRenew = contractRepository.findAll().filter(c =>
+    const stalledAutoRenew = contractRepository.findAll(tenantId).filter(c =>
       c.autoRenew && c.status === 'active' && c.annualCost > 100000
     );
     if (stalledAutoRenew.length > 0) {
@@ -143,12 +143,12 @@ export class OptimizationEngine {
 
   // ── Staffing Optimizations ─────────────────────────────────────────────────
 
-  private findStaffingOptimizations(): OptimizationOpportunity[] {
+  private findStaffingOptimizations(tenantId: string): OptimizationOpportunity[] {
     const opps: OptimizationOpportunity[] = [];
 
-    const contractors = peopleRepository.findByType('contractor');
-    const offshore = peopleRepository.findByType('offshore');
-    const ftes = peopleRepository.findByType('fte');
+    const contractors = peopleRepository.findByType(tenantId, 'contractor');
+    const offshore = peopleRepository.findByType(tenantId, 'offshore');
+    const ftes = peopleRepository.findByType(tenantId, 'fte');
 
     const contractorCost = contractors.reduce((sum, p) => sum + p.annualCost, 0);
     const offshoreCost = offshore.reduce((sum, p) => sum + p.annualCost, 0);

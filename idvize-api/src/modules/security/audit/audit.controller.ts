@@ -10,17 +10,19 @@ import { Router, Request, Response } from 'express';
 import { auditService } from './audit.service';
 import { requireAuth } from '../../../middleware/requireAuth';
 import { requirePermission } from '../../../middleware/requirePermission';
+import { tenantContext } from '../../../middleware/tenantContext';
 import { AuditEventType } from '../security.types';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, tenantContext);
 router.use(requirePermission('security.view.audit'));
 
 // GET /security/audit
 router.get('/', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const { eventType, actorId, targetId, outcome, dateFrom, dateTo, limit, offset } = req.query;
-  const events = auditService.query({
+  const events = auditService.query(tenantId, {
     eventType: eventType as AuditEventType | undefined,
     actorId: actorId as string | undefined,
     targetId: targetId as string | undefined,
@@ -30,12 +32,13 @@ router.get('/', (req: Request, res: Response) => {
     limit: limit ? parseInt(limit as string) : 100,
     offset: offset ? parseInt(offset as string) : 0,
   });
-  res.json({ success: true, data: { total: auditService.count(), returned: events.length, events }, timestamp: new Date().toISOString() });
+  res.json({ success: true, data: { total: auditService.count(tenantId), returned: events.length, events }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/summary
-router.get('/summary', (_req: Request, res: Response) => {
-  const events = auditService.query({ limit: 10000 });
+router.get('/summary', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const events = auditService.query(tenantId, { limit: 10000 });
   const byType = events.reduce<Record<string, number>>((acc, e) => {
     acc[e.eventType] = (acc[e.eventType] ?? 0) + 1;
     return acc;
@@ -44,7 +47,7 @@ router.get('/summary', (_req: Request, res: Response) => {
     acc[e.outcome] = (acc[e.outcome] ?? 0) + 1;
     return acc;
   }, {});
-  res.json({ success: true, data: { totalEvents: auditService.count(), byType, byOutcome }, timestamp: new Date().toISOString() });
+  res.json({ success: true, data: { totalEvents: auditService.count(tenantId), byType, byOutcome }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/:id

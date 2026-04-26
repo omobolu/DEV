@@ -20,19 +20,19 @@ import { buildRepository } from '../../build/build.repository';
  */
 export class VendorImpactEngine {
 
-  analyzeAll(): VendorImpact[] {
-    return vendorRepository.findAll().map(v => this.analyzeVendor(v.vendorId)).filter(Boolean) as VendorImpact[];
+  analyzeAll(tenantId: string): VendorImpact[] {
+    return vendorRepository.findAll(tenantId).map(v => this.analyzeVendor(tenantId, v.vendorId)).filter(Boolean) as VendorImpact[];
   }
 
-  analyzeVendor(vendorId: string): VendorImpact | null {
-    const vendor = vendorRepository.findById(vendorId);
+  analyzeVendor(tenantId: string, vendorId: string): VendorImpact | null {
+    const vendor = vendorRepository.findById(tenantId, vendorId);
     if (!vendor) return null;
 
-    const contracts = contractRepository.findByVendor(vendorId).filter(c => c.status === 'active');
+    const contracts = contractRepository.findByVendor(tenantId, vendorId).filter(c => c.status === 'active');
     const totalCost = contracts.reduce((sum, c) => sum + c.annualCost, 0);
 
     // ── Apps supported ───────────────────────────────────────────────────────
-    const allApps = applicationRepository.findAll();
+    const allApps = applicationRepository.findAll(tenantId);
     const appsFromVendor = allApps.filter(a =>
       a.vendor?.toLowerCase().includes(vendor.name.toLowerCase()) ||
       vendor.name.toLowerCase().includes((a.vendor ?? '').toLowerCase()) ||
@@ -41,7 +41,7 @@ export class VendorImpactEngine {
     );
 
     // ── Build data correlation ────────────────────────────────────────────────
-    const builds = buildRepository.findAll();
+    const builds = buildRepository.findAll(tenantId);
     const buildsForVendor = builds.filter(b => b.platform === vendor.category || contracts.some(c => c.linkedPlatforms?.includes(b.platform)));
     const completedBuilds = buildsForVendor.filter(b => b.state === 'COMPLETED');
 

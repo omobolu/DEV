@@ -11,6 +11,7 @@ export type AuthProvider = 'oidc' | 'saml' | 'local';
 
 export interface User {
   userId: string;                       // e.g. "usr-<uuid>"
+  tenantId: string;                     // owning tenant — e.g. "ten-acme"
   externalId?: string;                  // IdP subject or SCIM externalId
   scimId?: string;                      // SCIM resource id
   username: string;                     // login identity (email)
@@ -210,6 +211,7 @@ export type AuditEventType =
 
 export interface AuditEvent {
   eventId: string;
+  tenantId?: string;              // scoped to tenant when known; absent for pre-login events
   eventType: AuditEventType;
   actorId: string;                // userId or "system"
   actorName: string;
@@ -260,6 +262,8 @@ export interface TokenClaims {
   roles: UserRole[];
   permissions: PermissionId[];
   sessionId: string;
+  tenantId: string;         // owning tenant
+  tenantName: string;       // display name for UI header
   iat?: number;
   exp?: number;
 }

@@ -44,21 +44,21 @@ router.use('/vault', vaultController);
 // ── Security Governance Agent ─────────────────────────────────────────────────
 
 // GET /security/posture — deterministic security posture report
-router.get('/posture', requireAuth, requirePermission('security.view.audit'), async (_req: Request, res: Response) => {
-  const report = await securityGovernanceAgent.run();
+router.get('/posture', requireAuth, requirePermission('security.view.audit'), async (req: Request, res: Response) => {
+  const report = await securityGovernanceAgent.run(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
 
 // POST /security/posture/ai — Claude-powered deep security analysis
-router.post('/posture/ai', requireAuth, requirePermission('security.view.audit'), async (_req: Request, res: Response) => {
+router.post('/posture/ai', requireAuth, requirePermission('security.view.audit'), async (req: Request, res: Response) => {
   console.log('[POST /security/posture/ai] Starting AI analysis...');
-  const result = await securityGovernanceAgent.runWithAI();
+  const result = await securityGovernanceAgent.runWithAI(req.tenantId!);
   res.json({ success: true, data: result, timestamp: new Date().toISOString() });
 });
 
 // ── Status ────────────────────────────────────────────────────────────────────
 
-router.get('/status', (_req: Request, res: Response) => {
+router.get('/status', (req: Request, res: Response) => {
   res.json({
     success: true,
     data: {
@@ -78,8 +78,8 @@ router.get('/status', (_req: Request, res: Response) => {
         rotationMonitor: 'active',
       },
       dataSnapshot: {
-        users: authRepository.count(),
-        auditEvents: auditService.count(),
+        users: authRepository.count(req.tenantId!),
+        auditEvents: auditService.countAll(),
         policies: authzService.listPolicies().length,
       },
     },

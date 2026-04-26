@@ -9,7 +9,7 @@ export class ApplicationService {
    * Import applications from a raw array (from CSV parse or API response).
    * Normalizes fields, deduplicates, enriches metadata.
    */
-  importApplications(rows: RawApplication[], source: IngestionSource = 'api'): ImportResult {
+  importApplications(tenantId: string, rows: RawApplication[], source: IngestionSource = 'api'): ImportResult {
     const imported: Application[] = [];
     const errors: ImportError[] = [];
     let duplicateCount = 0;
@@ -29,17 +29,17 @@ export class ApplicationService {
 
         // Deduplicate
         const dedupeKey = buildDedupeKey(app.name, app.vendor);
-        if (applicationRepository.isDuplicate(dedupeKey)) {
+        if (applicationRepository.isDuplicate(tenantId, dedupeKey)) {
           duplicateCount++;
           continue;
         }
-        applicationRepository.registerDedupeKey(dedupeKey, app.appId);
+        applicationRepository.registerDedupeKey(tenantId, dedupeKey, app.appId);
 
         // Enrich metadata
         const enriched = enrichMetadata(app);
 
         // Persist
-        applicationRepository.save(enriched);
+        applicationRepository.save(tenantId, enriched);
         imported.push(enriched);
 
       } catch (err) {
@@ -59,20 +59,20 @@ export class ApplicationService {
   /**
    * Import from CSV text (handles parsing internally).
    */
-  importFromCsv(csvText: string): ImportResult {
+  importFromCsv(tenantId: string, csvText: string): ImportResult {
     const rows = parseCsv(csvText);
-    return this.importApplications(rows, 'csv');
+    return this.importApplications(tenantId, rows, 'csv');
   }
 
   /**
    * Add or update a single application manually.
    */
-  upsertApplication(data: Partial<Application> & { name: string }): Application {
+  upsertApplication(tenantId: string, data: Partial<Application> & { name: string }): Application {
     const now = new Date().toISOString();
-    const existing = data.appId ? applicationRepository.findById(data.appId) : undefined;
+    const existing = data.appId ? applicationRepository.findById(tenantId, data.appId) : undefined;
 
     if (existing) {
-      return applicationRepository.update(existing.appId, { ...data, updatedAt: now })!;
+      return applicationRepository.update(tenantId, existing.appId, { ...data, updatedAt: now })!;
     }
 
     const app: Application = {
@@ -96,26 +96,26 @@ export class ApplicationService {
 
     const enriched = enrichMetadata(app);
     const dedupeKey = buildDedupeKey(app.name, app.vendor);
-    applicationRepository.registerDedupeKey(dedupeKey, app.appId);
-    applicationRepository.save(enriched);
+    applicationRepository.registerDedupeKey(tenantId, dedupeKey, app.appId);
+    applicationRepository.save(tenantId, enriched);
     return enriched;
   }
 
-  getApplication(appId: string): Application | undefined {
-    return applicationRepository.findById(appId);
+  getApplication(tenantId: string, appId: string): Application | undefined {
+    return applicationRepository.findById(tenantId, appId);
   }
 
-  listApplications(query?: ApplicationQuery): { apps: Application[]; total: number } {
-    const apps = applicationRepository.findAll(query);
-    const total = applicationRepository.count();
+  listApplications(tenantId: string, query?: ApplicationQuery): { apps: Application[]; total: number } {
+    const apps = applicationRepository.findAll(tenantId, query);
+    const total = applicationRepository.count(tenantId);
     return { apps, total };
   }
 
   /**
    * Attach IAM posture evaluation result to an application.
    */
-  attachPosture(appId: string, posture: Application['iamPosture']): Application | null {
-    return applicationRepository.update(appId, { iamPosture: posture });
+  attachPosture(tenantId: string, appId: string, posture: Application['iamPosture']): Application | null {
+    return applicationRepository.update(tenantId, appId, { iamPosture: posture });
   }
 }
 

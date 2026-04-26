@@ -10,38 +10,48 @@
 import { Group } from '../security.types';
 
 class ScimGroupRepository {
-  private store = new Map<string, Group>();
-  private byScimId = new Map<string, string>(); // scimId → groupId
+  private store    = new Map<string, Map<string, Group>>();
+  private byScimId = new Map<string, Map<string, string>>(); // tenantId → scimId → groupId
 
-  save(group: Group): Group {
-    this.store.set(group.groupId, group);
-    if (group.scimId) this.byScimId.set(group.scimId, group.groupId);
+  private groupBucket(tenantId: string): Map<string, Group> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
+  }
+
+  private scimBucket(tenantId: string): Map<string, string> {
+    if (!this.byScimId.has(tenantId)) this.byScimId.set(tenantId, new Map());
+    return this.byScimId.get(tenantId)!;
+  }
+
+  save(tenantId: string, group: Group): Group {
+    this.groupBucket(tenantId).set(group.groupId, group);
+    if (group.scimId) this.scimBucket(tenantId).set(group.scimId, group.groupId);
     return group;
   }
 
-  findById(groupId: string): Group | undefined {
-    return this.store.get(groupId);
+  findById(tenantId: string, groupId: string): Group | undefined {
+    return this.groupBucket(tenantId).get(groupId);
   }
 
-  findByScimId(scimId: string): Group | undefined {
-    const id = this.byScimId.get(scimId);
-    return id ? this.store.get(id) : undefined;
+  findByScimId(tenantId: string, scimId: string): Group | undefined {
+    const id = this.scimBucket(tenantId).get(scimId);
+    return id ? this.groupBucket(tenantId).get(id) : undefined;
   }
 
-  findAll(): Group[] {
-    return Array.from(this.store.values());
+  findAll(tenantId: string): Group[] {
+    return Array.from(this.groupBucket(tenantId).values());
   }
 
-  delete(groupId: string): boolean {
-    const group = this.store.get(groupId);
+  delete(tenantId: string, groupId: string): boolean {
+    const group = this.groupBucket(tenantId).get(groupId);
     if (!group) return false;
-    if (group.scimId) this.byScimId.delete(group.scimId);
-    this.store.delete(groupId);
+    if (group.scimId) this.scimBucket(tenantId).delete(group.scimId);
+    this.groupBucket(tenantId).delete(groupId);
     return true;
   }
 
-  count(): number {
-    return this.store.size;
+  count(tenantId: string): number {
+    return this.groupBucket(tenantId).size;
   }
 }
 

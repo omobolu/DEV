@@ -10,10 +10,10 @@ let seeded = false;
 
 class DocumentService {
 
-  ensureSeeded(): void {
-    if (seeded || documentRepository.count() > 0) return;
+  ensureSeeded(tenantId: string): void {
+    if (seeded || documentRepository.count(tenantId) > 0) return;
     for (const doc of SEED_DOCUMENTS) {
-      documentRepository.save(doc);
+      documentRepository.save(tenantId, doc);
     }
     seeded = true;
     console.log(`[DocumentService] Seeded ${SEED_DOCUMENTS.length} documents`);
@@ -21,21 +21,21 @@ class DocumentService {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  listAll(): Document[] {
-    return documentRepository.findAll();
+  listAll(tenantId: string): Document[] {
+    return documentRepository.findAll(tenantId);
   }
 
-  listByStatus(status: Document['status']): Document[] {
-    return documentRepository.findByStatus(status);
+  listByStatus(tenantId: string, status: Document['status']): Document[] {
+    return documentRepository.findByStatus(tenantId, status);
   }
 
-  getById(id: string): Document | undefined {
-    return documentRepository.findById(id);
+  getById(tenantId: string, id: string): Document | undefined {
+    return documentRepository.findById(tenantId, id);
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  create(dto: CreateDocumentDto): Document {
+  create(tenantId: string, dto: CreateDocumentDto): Document {
     const now = new Date().toISOString();
     const docId = `doc-${uuidv4().split('-')[0]}`;
 
@@ -61,13 +61,13 @@ class DocumentService {
       updatedAt: now,
     };
 
-    return documentRepository.save(doc);
+    return documentRepository.save(tenantId, doc);
   }
 
   // ── Update (creates a new version) ───────────────────────────────────────
 
-  update(id: string, dto: UpdateDocumentDto, editorEmail: string): Document | undefined {
-    const doc = documentRepository.findById(id);
+  update(tenantId: string, id: string, dto: UpdateDocumentDto, editorEmail: string): Document | undefined {
+    const doc = documentRepository.findById(tenantId, id);
     if (!doc) return undefined;
 
     if (doc.status === 'published' || doc.status === 'archived') {
@@ -95,13 +95,13 @@ class DocumentService {
       updatedAt: new Date().toISOString(),
     };
 
-    return documentRepository.save(updated);
+    return documentRepository.save(tenantId, updated);
   }
 
   // ── Submit for Review ─────────────────────────────────────────────────────
 
-  submitForReview(id: string): Document | undefined {
-    const doc = documentRepository.findById(id);
+  submitForReview(tenantId: string, id: string): Document | undefined {
+    const doc = documentRepository.findById(tenantId, id);
     if (!doc) return undefined;
 
     if (doc.status !== 'draft') {
@@ -114,13 +114,13 @@ class DocumentService {
       updatedAt: new Date().toISOString(),
     };
 
-    return documentRepository.save(updated);
+    return documentRepository.save(tenantId, updated);
   }
 
   // ── Review ────────────────────────────────────────────────────────────────
 
-  review(id: string, dto: ReviewDocumentDto, reviewerEmail: string): Document | undefined {
-    const doc = documentRepository.findById(id);
+  review(tenantId: string, id: string, dto: ReviewDocumentDto, reviewerEmail: string): Document | undefined {
+    const doc = documentRepository.findById(tenantId, id);
     if (!doc) return undefined;
 
     if (doc.status !== 'in_review') {
@@ -147,13 +147,13 @@ class DocumentService {
       updatedAt: new Date().toISOString(),
     };
 
-    return documentRepository.save(updated);
+    return documentRepository.save(tenantId, updated);
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────
 
-  publish(id: string, publisherEmail: string): Document | undefined {
-    const doc = documentRepository.findById(id);
+  publish(tenantId: string, id: string, publisherEmail: string): Document | undefined {
+    const doc = documentRepository.findById(tenantId, id);
     if (!doc) return undefined;
 
     if (doc.status !== 'in_review') {
@@ -176,13 +176,13 @@ class DocumentService {
       updatedAt: now,
     };
 
-    return documentRepository.save(updated);
+    return documentRepository.save(tenantId, updated);
   }
 
   // ── Archive ───────────────────────────────────────────────────────────────
 
-  archive(id: string): Document | undefined {
-    const doc = documentRepository.findById(id);
+  archive(tenantId: string, id: string): Document | undefined {
+    const doc = documentRepository.findById(tenantId, id);
     if (!doc) return undefined;
 
     const now = new Date().toISOString();
@@ -193,13 +193,13 @@ class DocumentService {
       updatedAt: now,
     };
 
-    return documentRepository.save(updated);
+    return documentRepository.save(tenantId, updated);
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
 
-  getStats() {
-    const all = documentRepository.findAll();
+  getStats(tenantId: string) {
+    const all = documentRepository.findAll(tenantId);
     return {
       total: all.length,
       byStatus: {

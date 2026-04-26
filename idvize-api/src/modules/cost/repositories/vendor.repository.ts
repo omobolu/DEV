@@ -1,36 +1,41 @@
 import { Vendor, VendorType } from '../cost.types';
 
 class VendorRepository {
-  private store = new Map<string, Vendor>();
+  private store = new Map<string, Map<string, Vendor>>();
 
-  save(vendor: Vendor): Vendor {
-    this.store.set(vendor.vendorId, vendor);
+  private bucket(tenantId: string): Map<string, Vendor> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
+  }
+
+  save(tenantId: string, vendor: Vendor): Vendor {
+    this.bucket(tenantId).set(vendor.vendorId, vendor);
     return vendor;
   }
 
-  saveMany(vendors: Vendor[]): void {
-    vendors.forEach(v => this.save(v));
+  saveMany(tenantId: string, vendors: Vendor[]): void {
+    vendors.forEach(v => this.save(tenantId, v));
   }
 
-  findById(id: string): Vendor | undefined {
-    return this.store.get(id);
+  findById(tenantId: string, id: string): Vendor | undefined {
+    return this.bucket(tenantId).get(id);
   }
 
-  findByType(type: VendorType): Vendor[] {
-    return Array.from(this.store.values()).filter(v => v.type === type);
+  findByType(tenantId: string, type: VendorType): Vendor[] {
+    return Array.from(this.bucket(tenantId).values()).filter(v => v.type === type);
   }
 
-  findByName(name: string): Vendor | undefined {
+  findByName(tenantId: string, name: string): Vendor | undefined {
     const lower = name.toLowerCase();
-    return Array.from(this.store.values()).find(v => v.name.toLowerCase() === lower);
+    return Array.from(this.bucket(tenantId).values()).find(v => v.name.toLowerCase() === lower);
   }
 
-  findAll(): Vendor[] {
-    return Array.from(this.store.values());
+  findAll(tenantId: string): Vendor[] {
+    return Array.from(this.bucket(tenantId).values());
   }
 
-  count(): number {
-    return this.store.size;
+  count(tenantId: string): number {
+    return this.bucket(tenantId).size;
   }
 }
 

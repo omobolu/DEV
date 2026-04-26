@@ -11,13 +11,17 @@
 import { Router, Request, Response } from 'express';
 import { maturityService } from './maturity.service';
 import { requireAuth }     from '../../middleware/requireAuth';
+import { tenantContext }   from '../../middleware/tenantContext';
 
 const router = Router();
 
+router.use(requireAuth, tenantContext);
+
 // GET /maturity/summary
-router.get('/summary', requireAuth, async (_req: Request, res: Response) => {
+router.get('/summary', async (req: Request, res: Response) => {
   try {
-    const run = await maturityService.getOrRunAssessment();
+    const tenantId = req.tenantId!;
+    const run = await maturityService.getOrRunAssessment(tenantId);
     res.json({ success: true, data: maturityService.buildSummary(run), timestamp: new Date().toISOString() });
   } catch (e: unknown) {
     res.status(500).json({ success: false, error: e instanceof Error ? e.message : 'Error', timestamp: new Date().toISOString() });
@@ -25,9 +29,10 @@ router.get('/summary', requireAuth, async (_req: Request, res: Response) => {
 });
 
 // GET /maturity/domains
-router.get('/domains', requireAuth, async (_req: Request, res: Response) => {
+router.get('/domains', async (req: Request, res: Response) => {
   try {
-    const run = await maturityService.getOrRunAssessment();
+    const tenantId = req.tenantId!;
+    const run = await maturityService.getOrRunAssessment(tenantId);
     res.json({
       success: true,
       data: {
@@ -45,9 +50,10 @@ router.get('/domains', requireAuth, async (_req: Request, res: Response) => {
 });
 
 // GET /maturity/domains/:domainId
-router.get('/domains/:domainId', requireAuth, async (req: Request, res: Response) => {
+router.get('/domains/:domainId', async (req: Request, res: Response) => {
   try {
-    const run = await maturityService.getOrRunAssessment();
+    const tenantId = req.tenantId!;
+    const run = await maturityService.getOrRunAssessment(tenantId);
     const domainId = String(req.params.domainId);
     const domain = run.score.domains.find(d => d.domainId === domainId);
     if (!domain) {
@@ -67,10 +73,11 @@ router.get('/domains/:domainId', requireAuth, async (req: Request, res: Response
 });
 
 // POST /maturity/recalculate
-router.post('/recalculate', requireAuth, async (req: Request, res: Response) => {
+router.post('/recalculate', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.tenantId!;
     const actorId = req.user?.sub ?? 'anonymous';
-    const run = await maturityService.runAssessment(actorId);
+    const run = await maturityService.runAssessment(tenantId, actorId);
     res.json({
       success: true,
       data:    maturityService.buildSummary(run),
@@ -84,16 +91,17 @@ router.post('/recalculate', requireAuth, async (req: Request, res: Response) => 
 });
 
 // GET /maturity/history
-router.get('/history', requireAuth, (_req: Request, res: Response) => {
-  const history = maturityRepository_local();
+router.get('/history', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const history = maturityRepository_local(tenantId);
   res.json({ success: true, data: history, timestamp: new Date().toISOString() });
 });
 
 // Lazy import to avoid circular
-function maturityRepository_local() {
+function maturityRepository_local(tenantId: string) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { maturityRepository } = require('./maturity.repository');
-  return maturityRepository.history().map((r: {
+  return maturityRepository.history(tenantId).map((r: {
     runId: string; triggeredBy: string; triggeredAt: string; completedAt: string;
     score: { overall: number; level: string; confidence: number };
     evidenceCount: number; lowConfidenceCount: number;

@@ -6,8 +6,12 @@ import { applicationRepository } from '../application/application.repository';
 import { IamPosture } from '../application/application.types';
 import { buildService } from '../build/build.service';
 import { approvalService } from '../security/approval/approval.service';
+import { requireAuth } from '../../middleware/requireAuth';
+import { tenantContext } from '../../middleware/tenantContext';
 
 const router = Router();
+
+router.use(requireAuth, tenantContext);
 
 // ── Posture field → catalog control mapping ────────────────────────────────
 // Maps each catalog control to the iamPosture field(s) that indicate it.
@@ -85,8 +89,9 @@ function detectStatus(controlId: string, posture: IamPosture | undefined): 'dete
 }
 
 // ── GET /controls/coverage — per-control coverage across all apps ──────────
-router.get('/coverage', (_req: Request, res: Response) => {
-  const apps = applicationRepository.findAll();
+router.get('/coverage', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const apps = applicationRepository.findAll(tenantId);
   const total = apps.length;
 
   const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -126,6 +131,7 @@ router.get('/coverage', (_req: Request, res: Response) => {
 
 // ── GET /controls/gaps/:controlId — apps where control is a confirmed gap ──
 router.get('/gaps/:controlId', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const controlId = req.params.controlId as string;
 
   const catalogControl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
@@ -135,7 +141,7 @@ router.get('/gaps/:controlId', (req: Request, res: Response) => {
   }
 
   const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-  const apps = applicationRepository.findAll();
+  const apps = applicationRepository.findAll(tenantId);
   const gaps: Array<{ appId: string; appName: string; riskTier: string; department: string; status: string }> = [];
 
   for (const app of apps) {
@@ -158,6 +164,7 @@ router.get('/gaps/:controlId', (req: Request, res: Response) => {
 
 // ── GET /controls/app-coverage/:controlId — all apps bucketed by status ───
 router.get('/app-coverage/:controlId', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const controlId = req.params.controlId as string;
 
   const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
@@ -167,7 +174,7 @@ router.get('/app-coverage/:controlId', (req: Request, res: Response) => {
   }
 
   const tierOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-  const apps = applicationRepository.findAll();
+  const apps = applicationRepository.findAll(tenantId);
 
   type AppRow = { appId: string; appName: string; riskTier: string; department: string };
   const implemented: AppRow[] = [];
@@ -235,8 +242,9 @@ router.get('/catalog', (req: Request, res: Response) => {
 
 // ── GET /controls/app/:appId — all 49 controls with per-app status ─────────
 router.get('/app/:appId', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const appId = req.params.appId as string;
-  const app = applicationRepository.findById(appId);
+  const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
     res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
     return;
@@ -289,12 +297,13 @@ router.get('/app/:appId', (req: Request, res: Response) => {
 
 // ── PATCH /controls/app/:appId/:controlId — update override ───────────────
 router.patch('/app/:appId/:controlId', (req: Request, res: Response) => {
+  const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
   const { notApplicable, notes } = req.body as { notApplicable?: boolean; notes?: string };
   const actor = (req as any).user as { name?: string } | undefined;
 
-  const app = applicationRepository.findById(appId);
+  const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
     res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
     return;
@@ -322,12 +331,13 @@ router.patch('/app/:appId/:controlId', (req: Request, res: Response) => {
 
 // ── POST /controls/evaluate ────────────────────────────────────────────────
 router.post('/evaluate', async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const { appId, evaluateAll, forceRefresh } = req.body as {
     appId?: string; evaluateAll?: boolean; forceRefresh?: boolean;
   };
 
   if (evaluateAll) {
-    const results = await controlService.evaluateAll();
+    const results = await controlService.evaluateAll(tenantId);
     res.json({ success: true, data: { total: results.length, results }, timestamp: new Date().toISOString() });
     return;
   }
@@ -337,7 +347,7 @@ router.post('/evaluate', async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await controlService.evaluateApp(appId, forceRefresh ?? false);
+  const result = await controlService.evaluateApp(tenantId, appId, forceRefresh ?? false);
   if (!result) {
     res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
     return;
@@ -384,11 +394,12 @@ const PILLAR_FORM_FIELDS: Record<string, Array<{ label: string; hint: string; re
 //           (2) build job — the AI agent configuration task (pending until info gathered)
 // Returns:  both IDs, who was notified, and the form fields the agent will need filled.
 router.post('/app/:appId/:controlId/remediate', (req: Request, res: Response) => {
+  const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
   const actor     = (req as any).user as { userId?: string; name?: string } | undefined;
 
-  const app = applicationRepository.findById(appId);
+  const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
     res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
     return;
@@ -402,7 +413,7 @@ router.post('/app/:appId/:controlId/remediate', (req: Request, res: Response) =>
 
   try {
     // Step 1 — Create approval (simulates email to Business Owner + Technical Admin)
-    const approval = approvalService.requestApproval({
+    const approval = approvalService.requestApproval(tenantId, {
       requesterId:   actor?.userId ?? 'system',
       action:        `IAM Configuration Request — ${ctrl.name} on ${app.name}`,
       resource:      app.name,
@@ -418,7 +429,7 @@ router.post('/app/:appId/:controlId/remediate', (req: Request, res: Response) =>
     const platformMap: Record<string, string> = {
       AM: 'entra', IGA: 'sailpoint', PAM: 'cyberark', CIAM: 'okta',
     };
-    const job = buildService.startBuild({
+    const job = buildService.startBuild(tenantId, {
       appId,
       controlGap: controlId as any,
       buildType:  buildTypeMap[ctrl.pillar] as any,
@@ -465,9 +476,10 @@ router.get('/:appId', async (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: 'Use /controls/app/:appId for per-app catalog view', timestamp: new Date().toISOString() });
     return;
   }
+  const tenantId = req.tenantId!;
   const appIdLegacy = req.params.appId as string;
   let result = controlService.getFromCache(appIdLegacy);
-  if (!result) result = await controlService.evaluateApp(appIdLegacy) ?? undefined;
+  if (!result) result = await controlService.evaluateApp(tenantId, appIdLegacy) ?? undefined;
   if (!result) {
     res.status(404).json({ success: false, error: `No control evaluation found for ${appIdLegacy}.`, timestamp: new Date().toISOString() });
     return;
@@ -476,8 +488,9 @@ router.get('/:appId', async (req: Request, res: Response) => {
 });
 
 // ── GET /controls — evaluation summary for all apps ───────────────────────
-router.get('/', (_req: Request, res: Response) => {
-  const summary = controlService.getCacheSummary();
+router.get('/', (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const summary = controlService.getCacheSummary(tenantId);
   res.json({ success: true, data: summary, timestamp: new Date().toISOString() });
 });
 

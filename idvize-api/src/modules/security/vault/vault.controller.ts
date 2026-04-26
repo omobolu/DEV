@@ -9,12 +9,13 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../../middleware/requireAuth';
 import { requirePermission } from '../../../middleware/requirePermission';
+import { tenantContext } from '../../../middleware/tenantContext';
 import { vaultAdapterService } from './vault.adapter.service';
 import { vaultAccessEventRepository, VaultEventFilter } from './vault-access-event.repository';
 import { VaultAccessEvent, VaultAccessEventType } from './vault.types';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, tenantContext);
 
 // GET /vault/providers
 router.get('/providers', requirePermission('secrets.view.metadata'), async (_req: Request, res: Response) => {
@@ -67,6 +68,7 @@ router.get('/status', requirePermission('secrets.view.metadata'), async (_req: R
 
 // GET /vault/events
 router.get('/events', requirePermission('secrets.view.metadata'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const { credentialId, actorId, eventType, outcome, limit, offset } = req.query;
 
   const filter: VaultEventFilter = {
@@ -78,7 +80,7 @@ router.get('/events', requirePermission('secrets.view.metadata'), (req: Request,
     offset: offset ? Number(offset) : 0,
   };
 
-  const events = vaultAccessEventRepository.query(filter);
+  const events = vaultAccessEventRepository.query(tenantId, filter);
 
   res.json({
     success: true,

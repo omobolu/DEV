@@ -8,36 +8,41 @@
 import { ApprovalRequest, ApprovalStatus } from '../security.types';
 
 class ApprovalRepository {
-  private store = new Map<string, ApprovalRequest>();
+  private store = new Map<string, Map<string, ApprovalRequest>>();
 
-  save(request: ApprovalRequest): ApprovalRequest {
-    this.store.set(request.requestId, request);
+  private bucket(tenantId: string): Map<string, ApprovalRequest> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
+  }
+
+  save(tenantId: string, request: ApprovalRequest): ApprovalRequest {
+    this.bucket(tenantId).set(request.requestId, request);
     return request;
   }
 
-  findById(requestId: string): ApprovalRequest | undefined {
-    return this.store.get(requestId);
+  findById(tenantId: string, requestId: string): ApprovalRequest | undefined {
+    return this.bucket(tenantId).get(requestId);
   }
 
-  findAll(): ApprovalRequest[] {
-    return Array.from(this.store.values())
+  findAll(tenantId: string): ApprovalRequest[] {
+    return Array.from(this.bucket(tenantId).values())
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  findByStatus(status: ApprovalStatus): ApprovalRequest[] {
-    return this.findAll().filter(r => r.status === status);
+  findByStatus(tenantId: string, status: ApprovalStatus): ApprovalRequest[] {
+    return this.findAll(tenantId).filter(r => r.status === status);
   }
 
-  findByRequester(requesterId: string): ApprovalRequest[] {
-    return this.findAll().filter(r => r.requesterId === requesterId);
+  findByRequester(tenantId: string, requesterId: string): ApprovalRequest[] {
+    return this.findAll(tenantId).filter(r => r.requesterId === requesterId);
   }
 
-  findPendingForApprover(): ApprovalRequest[] {
-    return this.findAll().filter(r => r.status === 'pending');
+  findPendingForApprover(tenantId: string): ApprovalRequest[] {
+    return this.findAll(tenantId).filter(r => r.status === 'pending');
   }
 
-  count(): number {
-    return this.store.size;
+  count(tenantId: string): number {
+    return this.bucket(tenantId).size;
   }
 }
 

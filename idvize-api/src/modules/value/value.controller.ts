@@ -12,6 +12,8 @@
 
 import { Router, Request, Response } from 'express';
 import { applicationRepository } from '../application/application.repository';
+import { requireAuth } from '../../middleware/requireAuth';
+import { tenantContext } from '../../middleware/tenantContext';
 import { DEFAULT_ASSUMPTIONS } from './value.assumptions';
 import {
   computePortfolioValue,
@@ -22,10 +24,11 @@ import {
 import { SimulationInput, ControlKey } from './value.types';
 
 const router = Router();
+router.use(requireAuth, tenantContext);
 
 // ── GET /value/summary ────────────────────────────────────────────────────────
-router.get('/summary', (_req: Request, res: Response) => {
-  const apps = applicationRepository.findAll();
+router.get('/summary', (req: Request, res: Response) => {
+  const apps = applicationRepository.findAll(req.tenantId!);
   const profiles      = computePortfolioValue(apps, DEFAULT_ASSUMPTIONS);
   const controlValues = computeControlValues(profiles, DEFAULT_ASSUMPTIONS);
   const portfolio     = buildPortfolioSummary(profiles, controlValues, DEFAULT_ASSUMPTIONS);
@@ -43,7 +46,7 @@ router.get('/summary', (_req: Request, res: Response) => {
 
 // ── GET /value/applications ───────────────────────────────────────────────────
 router.get('/applications', (req: Request, res: Response) => {
-  const apps     = applicationRepository.findAll();
+  const apps     = applicationRepository.findAll(req.tenantId!);
   const sort     = (req.query.sort as string) ?? 'exposure';
   const tierFilter = req.query.tier as string | undefined;
 
@@ -67,8 +70,8 @@ router.get('/applications', (req: Request, res: Response) => {
 });
 
 // ── GET /value/controls ───────────────────────────────────────────────────────
-router.get('/controls', (_req: Request, res: Response) => {
-  const apps          = applicationRepository.findAll();
+router.get('/controls', (req: Request, res: Response) => {
+  const apps          = applicationRepository.findAll(req.tenantId!);
   const profiles      = computePortfolioValue(apps, DEFAULT_ASSUMPTIONS);
   const controlValues = computeControlValues(profiles, DEFAULT_ASSUMPTIONS);
   controlValues.sort((a, b) => b.totalValueProtected - a.totalValueProtected);
@@ -143,7 +146,7 @@ router.post('/simulate', (req: Request, res: Response) => {
     return;
   }
 
-  const apps   = applicationRepository.findAll();
+  const apps   = applicationRepository.findAll(req.tenantId!);
   const result = simulateScenario(apps, input, DEFAULT_ASSUMPTIONS);
 
   res.json({

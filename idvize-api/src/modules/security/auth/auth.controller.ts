@@ -33,14 +33,14 @@ router.post('/token', async (req: Request, res: Response) => {
 
 // POST /security/auth/logout
 router.post('/logout', requireAuth, (req: Request, res: Response) => {
-  authService.recordLogout(req.user!.sub, req.user!.sessionId, req.ip);
+  authService.recordLogout(req.user!.sub, req.user!.tenantId, req.user!.sessionId, req.ip);
   res.json({ success: true, data: { message: 'Logged out successfully' }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/auth/me
 router.get('/me', requireAuth, (req: Request, res: Response) => {
   const claims = req.user!;
-  const user = authService.getUser(claims.sub);
+  const user = authService.getUser(claims.tenantId, claims.sub);
   const permissions = authzService.getUserPermissions(claims.sub);
   res.json({ success: true, data: { user, permissions, roles: claims.roles }, timestamp: new Date().toISOString() });
 });
@@ -58,15 +58,15 @@ router.post('/refresh', (_req: Request, res: Response) => {
 });
 
 // GET /security/auth/users — list all users (requires security.manage.access)
-router.get('/users', requireAuth, requirePermission('security.manage.access'), (_req: Request, res: Response) => {
-  const users = authService.listUsers();
+router.get('/users', requireAuth, requirePermission('security.manage.access'), (req: Request, res: Response) => {
+  const users = authService.listUsers(req.user!.tenantId);
   res.json({ success: true, data: { total: users.length, users }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/auth/users/:userId
 router.get('/users/:userId', requireAuth, requirePermission('security.manage.access'), (req: Request, res: Response) => {
   const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
-  const user = authService.getUser(userId);
+  const user = authService.getUser(req.user!.tenantId, userId);
   if (!user) {
     res.status(404).json({ success: false, error: 'User not found', timestamp: new Date().toISOString() });
     return;

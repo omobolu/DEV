@@ -82,6 +82,7 @@ class VaultAdapterService {
    * The returned SecretValue wrapper prevents raw values from leaking.
    */
   async retrieve(
+    tenantId: string,
     providerType: VaultProviderType,
     path: string,
     secretName: string,
@@ -100,7 +101,7 @@ class VaultAdapterService {
       result = { success: false, vaultPath: path, secretName, accessedAt: new Date().toISOString(), error: message };
     }
 
-    this.logEvent({
+    this.logEvent(tenantId, {
       credentialId,
       credentialName,
       eventType: 'retrieve',
@@ -121,6 +122,7 @@ class VaultAdapterService {
    * Requires secrets.reveal permission — enforced at controller level.
    */
   async push(
+    tenantId: string,
     providerType: VaultProviderType,
     path: string,
     secretName: string,
@@ -141,7 +143,7 @@ class VaultAdapterService {
       result = { success: false, vaultPath: path, secretName, pushedAt: new Date().toISOString(), error: message };
     }
 
-    this.logEvent({
+    this.logEvent(tenantId, {
       credentialId,
       credentialName,
       eventType: 'push',
@@ -162,6 +164,7 @@ class VaultAdapterService {
    * Validate that a vault reference is accessible without reading the value.
    */
   async validateReference(
+    tenantId: string,
     providerType: VaultProviderType,
     path: string,
     secretName: string,
@@ -174,7 +177,7 @@ class VaultAdapterService {
       checkedAt: new Date().toISOString(), error: err.message,
     }));
 
-    this.logEvent({
+    this.logEvent(tenantId, {
       credentialId,
       credentialName,
       eventType: 'validate_reference',
@@ -192,13 +195,13 @@ class VaultAdapterService {
 
   // ── Vault Access Event Logging ────────────────────────────────────────────
 
-  logEvent(input: Omit<VaultAccessEvent, 'eventId' | 'timestamp'>): VaultAccessEvent {
+  logEvent(tenantId: string, input: Omit<VaultAccessEvent, 'eventId' | 'timestamp'>): VaultAccessEvent {
     const event: VaultAccessEvent = {
       eventId: uuidv4(),
       ...input,
       timestamp: new Date().toISOString(),
     };
-    vaultAccessEventRepository.append(event);
+    vaultAccessEventRepository.append(tenantId, event);
 
     const icon = input.outcome === 'success' ? '✓' : input.outcome === 'denied' ? '⊘' : '✗';
     // CRITICAL: log only metadata — never the secret value
@@ -206,12 +209,12 @@ class VaultAdapterService {
     return event;
   }
 
-  queryEvents(filter: Parameters<typeof vaultAccessEventRepository.query>[0]) {
-    return vaultAccessEventRepository.query(filter);
+  queryEvents(tenantId: string, filter: Parameters<typeof vaultAccessEventRepository.query>[1] = {}) {
+    return vaultAccessEventRepository.query(tenantId, filter);
   }
 
-  eventCount(): number {
-    return vaultAccessEventRepository.count();
+  eventCount(tenantId: string): number {
+    return vaultAccessEventRepository.count(tenantId);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

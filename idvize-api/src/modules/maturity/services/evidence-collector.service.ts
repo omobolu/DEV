@@ -46,20 +46,20 @@ function ev(
 
 export class MaturityEvidenceCollectorService {
 
-  async collect(): Promise<MaturityEvidence[]> {
+  async collect(tenantId: string): Promise<MaturityEvidence[]> {
     const evidence: MaturityEvidence[] = [];
 
     await Promise.all([
-      this.collectDocumentEvidence(evidence),
-      this.collectAuditEvidence(evidence),
-      this.collectApprovalEvidence(evidence),
-      this.collectScimEvidence(evidence),
-      this.collectApplicationEvidence(evidence),
+      this.collectDocumentEvidence(tenantId, evidence),
+      this.collectAuditEvidence(tenantId, evidence),
+      this.collectApprovalEvidence(tenantId, evidence),
+      this.collectScimEvidence(tenantId, evidence),
+      this.collectApplicationEvidence(tenantId, evidence),
       this.collectEntraEvidence(evidence),
       this.collectSailpointEvidence(evidence),
       this.collectCyberArkEvidence(evidence),
       this.collectOktaEvidence(evidence),
-      this.collectCostEvidence(evidence),
+      this.collectCostEvidence(tenantId, evidence),
       this.collectIntegrationStatusEvidence(evidence),
     ]);
 
@@ -68,9 +68,9 @@ export class MaturityEvidenceCollectorService {
 
   // ── Document Module ─────────────────────────────────────────────────────────
 
-  private async collectDocumentEvidence(out: MaturityEvidence[]) {
+  private async collectDocumentEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const stats = documentService.getStats();
+      const stats = documentService.getStats(tenantId);
 
       // gov-policies: count of published policy documents
       const publishedPolicies = stats.byStatus.published ?? 0;
@@ -126,10 +126,10 @@ export class MaturityEvidenceCollectorService {
 
   // ── Audit Logs ──────────────────────────────────────────────────────────────
 
-  private async collectAuditEvidence(out: MaturityEvidence[]) {
+  private async collectAuditEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const totalEvents = auditService.count();
-      const allEvents   = auditService.query({});
+      const totalEvents = auditService.count(tenantId);
+      const allEvents   = auditService.query(tenantId, {});
       const authzDenies  = allEvents.filter(e => e.eventType === 'authz.deny').length;
       const authzAllows  = allEvents.filter(e => e.eventType === 'authz.allow').length;
       const authEvents   = allEvents.filter(e => e.eventType.startsWith('auth.')).length;
@@ -172,10 +172,10 @@ export class MaturityEvidenceCollectorService {
 
   // ── Approval Workflows ──────────────────────────────────────────────────────
 
-  private async collectApprovalEvidence(out: MaturityEvidence[]) {
+  private async collectApprovalEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const all      = approvalService.listAll();
-      const pending  = approvalService.listPending();
+      const all      = approvalService.listAll(tenantId);
+      const pending  = approvalService.listPending(tenantId);
       const approved = all.filter(r => r.status === 'approved');
       const rejected = all.filter(r => r.status === 'rejected');
       const expired  = all.filter(r => r.status === 'expired');
@@ -215,10 +215,10 @@ export class MaturityEvidenceCollectorService {
 
   // ── SCIM Provisioning ───────────────────────────────────────────────────────
 
-  private async collectScimEvidence(out: MaturityEvidence[]) {
+  private async collectScimEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const usersResp  = scimService.listUsers() as Record<string, unknown>;
-      const groupsResp = scimService.listGroups() as Record<string, unknown>;
+      const usersResp  = scimService.listUsers(tenantId) as Record<string, unknown>;
+      const groupsResp = scimService.listGroups(tenantId) as Record<string, unknown>;
       const userCount  = (usersResp['totalResults'] as number) ?? 0;
       const groupCount = (groupsResp['totalResults'] as number) ?? 0;
 
@@ -250,9 +250,9 @@ export class MaturityEvidenceCollectorService {
 
   // ── Application CMDB ────────────────────────────────────────────────────────
 
-  private async collectApplicationEvidence(out: MaturityEvidence[]) {
+  private async collectApplicationEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const { apps, total } = applicationService.listApplications();
+      const { apps, total } = applicationService.listApplications(tenantId);
       const ssoEnabled  = apps.filter(a => (a as unknown as Record<string,unknown>).ssoEnabled  === true).length;
       const mfaRequired = apps.filter(a => (a as unknown as Record<string,unknown>).mfaRequired === true).length;
       const pamVaulted  = apps.filter(a => (a as unknown as Record<string,unknown>).pamVaulted  === true).length;
@@ -425,11 +425,11 @@ export class MaturityEvidenceCollectorService {
 
   // ── Cost Module ─────────────────────────────────────────────────────────────
 
-  private async collectCostEvidence(out: MaturityEvidence[]) {
+  private async collectCostEvidence(tenantId: string, out: MaturityEvidence[]) {
     try {
-      const summary  = costAggregationEngine.compute();
-      const impacts  = vendorImpactEngine.analyzeAll();
-      const contracts = contractRepository.findAll();
+      const summary  = costAggregationEngine.compute(tenantId);
+      const impacts  = vendorImpactEngine.analyzeAll(tenantId);
+      const contracts = contractRepository.findAll(tenantId);
       const activeContracts  = contracts.filter(c => c.status === 'active').length;
       const expiringContracts = contracts.filter(c => {
         if (c.status !== 'active') return false;

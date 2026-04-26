@@ -43,15 +43,15 @@ export class CostIntelligenceAgent {
    * Run a full cost intelligence analysis.
    * Orchestrates all sub-engines and assembles the report.
    */
-  async run(): Promise<CostIntelligenceReport> {
+  async run(tenantId: string): Promise<CostIntelligenceReport> {
     console.log('[CostIntelligenceAgent] Starting cost intelligence analysis...');
 
     // ── Step 1: Aggregate all costs ──────────────────────────────────────────
-    const summary = costAggregationEngine.compute();
+    const summary = costAggregationEngine.compute(tenantId);
     console.log(`[CostIntelligenceAgent] Total IAM cost: $${summary.totalAnnualCost.toLocaleString()}`);
 
     // ── Step 2: Vendor impact analysis ───────────────────────────────────────
-    const allVendorImpacts = vendorImpactEngine.analyzeAll();
+    const allVendorImpacts = vendorImpactEngine.analyzeAll(tenantId);
     console.log(`[CostIntelligenceAgent] Analyzed ${allVendorImpacts.length} vendors`);
 
     // ── Step 3: Partition by vendor type ─────────────────────────────────────
@@ -59,15 +59,15 @@ export class CostIntelligenceAgent {
     const staffAugImpacts = allVendorImpacts.filter(v => v.vendorType === 'staff_augmentation');
 
     const partnerAnalysis: PartnerAnalysis[] = partnerImpacts.map(p =>
-      this.buildPartnerAnalysis(p)
+      this.buildPartnerAnalysis(tenantId, p)
     );
 
     const staffAugAnalysis: StaffAugAnalysis[] = staffAugImpacts.map(s =>
-      this.buildStaffAugAnalysis(s)
+      this.buildStaffAugAnalysis(tenantId, s)
     );
 
     // ── Step 4: Optimization recommendations ─────────────────────────────────
-    const optimizationReport = optimizationEngine.generate(allVendorImpacts);
+    const optimizationReport = optimizationEngine.generate(tenantId, allVendorImpacts);
     console.log(`[CostIntelligenceAgent] ${optimizationReport.opportunities.length} optimization opportunities identified`);
     console.log(`[CostIntelligenceAgent] Total potential saving: $${optimizationReport.totalPotentialSaving.toLocaleString()}`);
 
@@ -98,24 +98,24 @@ export class CostIntelligenceAgent {
     return this.lastReport;
   }
 
-  getStatus() {
+  getStatus(tenantId: string) {
     return {
       agent: 'CostIntelligenceAgent',
       lastRunAt: this.lastRunAt,
       hasReport: this.lastReport !== null,
       reportId: this.lastReport?.reportId ?? null,
       dataSnapshot: {
-        vendors: vendorRepository.count(),
-        contracts: contractRepository.count(),
-        people: peopleRepository.count(),
+        vendors: vendorRepository.count(tenantId),
+        contracts: contractRepository.count(tenantId),
+        people: peopleRepository.count(tenantId),
       },
     };
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  private buildPartnerAnalysis(impact: VendorImpact): PartnerAnalysis {
-    const contracts = contractRepository.findByVendor(impact.vendorId).filter(c => c.status === 'active');
+  private buildPartnerAnalysis(tenantId: string, impact: VendorImpact): PartnerAnalysis {
+    const contracts = contractRepository.findByVendor(tenantId, impact.vendorId).filter(c => c.status === 'active');
     const builds = []; // Will pull from build module once integrated
 
     // Heuristic: estimate deliverables from contract description keywords
@@ -148,13 +148,13 @@ export class CostIntelligenceAgent {
     };
   }
 
-  private buildStaffAugAnalysis(impact: VendorImpact): StaffAugAnalysis {
-    const people = peopleRepository.findByVendor(impact.vendorId);
+  private buildStaffAugAnalysis(tenantId: string, impact: VendorImpact): StaffAugAnalysis {
+    const people = peopleRepository.findByVendor(tenantId, impact.vendorId);
     const headcount = people.length;
     const fteEquiv = people.reduce((s, p) => s + p.fteEquivalent, 0);
 
     // Internal FTE benchmark cost
-    const internalFtes = peopleRepository.findByType('fte');
+    const internalFtes = peopleRepository.findByType(tenantId, 'fte');
     const avgFteCost = internalFtes.length > 0
       ? internalFtes.reduce((s, p) => s + p.annualCost, 0) / internalFtes.length
       : 135000;
@@ -226,11 +226,11 @@ export class CostIntelligenceAgent {
    * AI-enhanced analysis — runs the deterministic report first, then calls
    * Claude with tool access to reason over the data and produce a narrative.
    */
-  async runWithAI(): Promise<CostAiAnalysis> {
+  async runWithAI(tenantId: string): Promise<CostAiAnalysis> {
     console.log('[CostIntelligenceAgent] Starting AI-enhanced cost analysis...');
 
     // Always run the deterministic analysis first so Claude has real data
-    const baseReport = await this.run();
+    const baseReport = await this.run(tenantId);
 
     const tools: Tool[] = [
       {

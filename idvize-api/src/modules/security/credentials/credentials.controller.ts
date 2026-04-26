@@ -17,6 +17,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../../middleware/requireAuth';
 import { requirePermission } from '../../../middleware/requirePermission';
+import { tenantContext } from '../../../middleware/tenantContext';
 import { credentialRegistryService } from './credential-registry.service';
 import { credentialRequestWorkflowService } from './credential-request-workflow.service';
 import { secretAccessPolicyService } from './secret-access-policy.service';
@@ -24,12 +25,13 @@ import { credentialRotationMonitorService } from './credential-rotation-monitor.
 import { vaultAdapterService } from '../vault/vault.adapter.service';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, tenantContext);
 
 // ── Credential Requests ────────────────────────────────────────────────────
 
 // POST /credentials/request
 router.post('/request', requirePermission('secrets.request'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const {
     credentialId, requestType, targetSystem, credentialType, targetEnvironment,
     operatingMode, vaultProvider, justification, assignedTo,
@@ -40,7 +42,7 @@ router.post('/request', requirePermission('secrets.request'), (req: Request, res
     return;
   }
 
-  const request = credentialRequestWorkflowService.submitRequest({
+  const request = credentialRequestWorkflowService.submitRequest(tenantId, {
     requestedBy: req.user!.sub,
     credentialId,
     requestType,
@@ -58,8 +60,9 @@ router.post('/request', requirePermission('secrets.request'), (req: Request, res
 
 // GET /credentials/requests
 router.get('/requests', requirePermission('secrets.view.metadata'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const { status, requestedBy, assignedTo } = req.query;
-  const results = credentialRequestWorkflowService.listAll({
+  const results = credentialRequestWorkflowService.listAll(tenantId, {
     status: status as any,
     requestedBy: requestedBy as string,
     assignedTo: assignedTo as string,
@@ -69,8 +72,9 @@ router.get('/requests', requirePermission('secrets.view.metadata'), (req: Reques
 
 // GET /credentials/requests/:id
 router.get('/requests/:id', requirePermission('secrets.view.metadata'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const request = credentialRequestWorkflowService.getRequest(id);
+  const request = credentialRequestWorkflowService.getRequest(tenantId, id);
   if (!request) {
     res.status(404).json({ success: false, error: 'Credential request not found', timestamp: new Date().toISOString() });
     return;
@@ -80,13 +84,14 @@ router.get('/requests/:id', requirePermission('secrets.view.metadata'), (req: Re
 
 // POST /credentials/requests/:id/resolve
 router.post('/requests/:id/resolve', requirePermission('secrets.approve'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const { decision, comment } = req.body;
   if (!['approved', 'rejected'].includes(decision)) {
     res.status(400).json({ success: false, error: '"decision" must be "approved" or "rejected"', timestamp: new Date().toISOString() });
     return;
   }
-  const request = credentialRequestWorkflowService.resolve(id, req.user!.sub, decision, comment);
+  const request = credentialRequestWorkflowService.resolve(tenantId, id, req.user!.sub, decision, comment);
   res.json({ success: true, data: request, timestamp: new Date().toISOString() });
 });
 
@@ -94,6 +99,7 @@ router.post('/requests/:id/resolve', requirePermission('secrets.approve'), (req:
 
 // POST /credentials
 router.post('/', requirePermission('secrets.request'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const {
     name, description, credentialType, targetSystem, targetEnvironment,
     operatingMode, vaultProvider, expiresAt, rotationIntervalDays,
@@ -105,7 +111,7 @@ router.post('/', requirePermission('secrets.request'), (req: Request, res: Respo
     return;
   }
 
-  const record = credentialRegistryService.register({
+  const record = credentialRegistryService.register(tenantId, {
     name, description: description ?? '', credentialType, targetSystem, targetEnvironment,
     operatingMode, vaultProvider, expiresAt, rotationIntervalDays,
     ownerId: ownerId ?? req.user!.sub,
@@ -117,8 +123,9 @@ router.post('/', requirePermission('secrets.request'), (req: Request, res: Respo
 
 // GET /credentials
 router.get('/', requirePermission('secrets.view.metadata'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const { status, targetSystem, ownerId, applicationId } = req.query;
-  const all = credentialRegistryService.listAll({
+  const all = credentialRegistryService.listAll(tenantId, {
     status: status as any,
     targetSystem: targetSystem as string,
     ownerId: ownerId as string,
@@ -130,15 +137,16 @@ router.get('/', requirePermission('secrets.view.metadata'), (req: Request, res: 
 });
 
 // GET /credentials/rotation/report
-router.get('/rotation/report', requirePermission('secrets.rotate'), (_req: Request, res: Response) => {
-  const report = credentialRotationMonitorService.runCheck();
+router.get('/rotation/report', requirePermission('secrets.rotate'), (req: Request, res: Response) => {
+  const report = credentialRotationMonitorService.runCheck(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
 
 // GET /credentials/:id
 router.get('/:id', requirePermission('secrets.view.metadata'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const record = credentialRegistryService.findById(id);
+  const record = credentialRegistryService.findById(tenantId, id);
   if (!record) {
     res.status(404).json({ success: false, error: 'Credential not found', timestamp: new Date().toISOString() });
     return;
@@ -149,26 +157,28 @@ router.get('/:id', requirePermission('secrets.view.metadata'), (req: Request, re
 
 // POST /credentials/:id/register-reference
 router.post('/:id/register-reference', requirePermission('secrets.reference'), async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const { vaultPath, vaultSecretName, vaultProvider, vaultReferenceId } = req.body;
   if (!vaultPath || !vaultSecretName || !vaultProvider) {
     res.status(400).json({ success: false, error: 'vaultPath, vaultSecretName, and vaultProvider are required', timestamp: new Date().toISOString() });
     return;
   }
-  const record = await credentialRegistryService.registerReference(id, { vaultPath, vaultSecretName, vaultProvider, vaultReferenceId }, req.user!.sub);
+  const record = await credentialRegistryService.registerReference(tenantId, id, { vaultPath, vaultSecretName, vaultProvider, vaultReferenceId }, req.user!.sub);
   res.json({ success: true, data: record, timestamp: new Date().toISOString() });
 });
 
 // POST /credentials/:id/rotate
 router.post('/:id/rotate', requirePermission('secrets.rotate'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const record = credentialRegistryService.findById(id);
+  const record = credentialRegistryService.findById(tenantId, id);
   if (!record) {
     res.status(404).json({ success: false, error: 'Credential not found', timestamp: new Date().toISOString() });
     return;
   }
 
-  const policy = secretAccessPolicyService.evaluate(req.user!.sub, 'rotate', record, req.requestId);
+  const policy = secretAccessPolicyService.evaluate(tenantId, req.user!.sub, 'rotate', record, req.requestId);
   if (!policy.allowed) {
     res.status(403).json({ success: false, error: policy.reason, timestamp: new Date().toISOString() });
     return;
@@ -178,7 +188,7 @@ router.post('/:id/rotate', requirePermission('secrets.rotate'), (req: Request, r
   record.rotationDue = true;
   record.updatedAt = new Date().toISOString();
 
-  const request = credentialRequestWorkflowService.submitRequest({
+  const request = credentialRequestWorkflowService.submitRequest(tenantId, {
     requestedBy: req.user!.sub,
     credentialId: id,
     requestType: 'rotate',
@@ -195,8 +205,9 @@ router.post('/:id/rotate', requirePermission('secrets.rotate'), (req: Request, r
 
 // POST /credentials/:id/revoke
 router.post('/:id/revoke', requirePermission('secrets.approve'), (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const record = credentialRegistryService.revoke(id, req.user!.sub, req.body.reason);
+  const record = credentialRegistryService.revoke(tenantId, id, req.user!.sub, req.body.reason);
   res.json({ success: true, data: record, timestamp: new Date().toISOString() });
 });
 

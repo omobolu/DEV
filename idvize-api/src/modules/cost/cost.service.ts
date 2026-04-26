@@ -13,19 +13,19 @@ export class CostService {
   /**
    * Seed demo data on first call if store is empty.
    */
-  ensureSeeded(): void {
-    if (seeded || vendorRepository.count() > 0) return;
-    vendorRepository.saveMany(SEED_VENDORS);
-    contractRepository.saveMany(SEED_CONTRACTS);
-    peopleRepository.saveMany(SEED_PEOPLE);
+  ensureSeeded(tenantId: string): void {
+    if (seeded || vendorRepository.count(tenantId) > 0) return;
+    vendorRepository.saveMany(tenantId, SEED_VENDORS);
+    contractRepository.saveMany(tenantId, SEED_CONTRACTS);
+    peopleRepository.saveMany(tenantId, SEED_PEOPLE);
     seeded = true;
     console.log(`[CostService] Demo data seeded: ${SEED_VENDORS.length} vendors, ${SEED_CONTRACTS.length} contracts, ${SEED_PEOPLE.length} people records`);
   }
 
   // ── Vendor CRUD ─────────────────────────────────────────────────────────────
 
-  upsertVendor(data: Partial<Vendor> & { name: string; type: Vendor['type'] }): Vendor {
-    const existing = data.vendorId ? vendorRepository.findById(data.vendorId) : undefined;
+  upsertVendor(tenantId: string, data: Partial<Vendor> & { name: string; type: Vendor['type'] }): Vendor {
+    const existing = data.vendorId ? vendorRepository.findById(tenantId, data.vendorId) : undefined;
     const now = new Date().toISOString();
     const vendor: Vendor = {
       vendorId: data.vendorId ?? `v-${uuidv4().split('-')[0]}`,
@@ -42,17 +42,17 @@ export class CostService {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
-    return vendorRepository.save(vendor);
+    return vendorRepository.save(tenantId, vendor);
   }
 
-  listVendors(type?: Vendor['type']) {
-    return type ? vendorRepository.findByType(type) : vendorRepository.findAll();
+  listVendors(tenantId: string, type?: Vendor['type']) {
+    return type ? vendorRepository.findByType(tenantId, type) : vendorRepository.findAll(tenantId);
   }
 
   // ── Contract CRUD ───────────────────────────────────────────────────────────
 
-  upsertContract(data: Partial<Contract> & { vendorId: string; annualCost: number; description: string }): Contract {
-    const vendor = vendorRepository.findById(data.vendorId);
+  upsertContract(tenantId: string, data: Partial<Contract> & { vendorId: string; annualCost: number; description: string }): Contract {
+    const vendor = vendorRepository.findById(tenantId, data.vendorId);
     const now = new Date().toISOString();
     const contract: Contract = {
       contractId: data.contractId ?? `c-${uuidv4().split('-')[0]}`,
@@ -75,57 +75,57 @@ export class CostService {
       createdAt: now,
       updatedAt: now,
     };
-    return contractRepository.save(contract);
+    return contractRepository.save(tenantId, contract);
   }
 
-  listContracts(vendorId?: string) {
-    return vendorId ? contractRepository.findByVendor(vendorId) : contractRepository.findAll();
+  listContracts(tenantId: string, vendorId?: string) {
+    return vendorId ? contractRepository.findByVendor(tenantId, vendorId) : contractRepository.findAll(tenantId);
   }
 
   // ── People CRUD ─────────────────────────────────────────────────────────────
 
-  addPersonCost(data: Omit<PersonCost, 'personId' | 'createdAt'>): PersonCost {
+  addPersonCost(tenantId: string, data: Omit<PersonCost, 'personId' | 'createdAt'>): PersonCost {
     const person: PersonCost = {
       ...data,
       personId: `p-${uuidv4().split('-')[0]}`,
       createdAt: new Date().toISOString(),
     };
-    return peopleRepository.save(person);
+    return peopleRepository.save(tenantId, person);
   }
 
-  listPeople(type?: PersonCost['employmentType']) {
-    return type ? peopleRepository.findByType(type) : peopleRepository.findAll();
+  listPeople(tenantId: string, type?: PersonCost['employmentType']) {
+    return type ? peopleRepository.findByType(tenantId, type) : peopleRepository.findAll(tenantId);
   }
 
   // ── Agent Invocation ────────────────────────────────────────────────────────
 
-  async runCostAnalysis() {
-    this.ensureSeeded();
-    return costIntelligenceAgent.run();
+  async runCostAnalysis(tenantId: string) {
+    this.ensureSeeded(tenantId);
+    return costIntelligenceAgent.run(tenantId);
   }
 
-  getCostSummary() {
-    this.ensureSeeded();
+  getCostSummary(tenantId: string) {
+    this.ensureSeeded(tenantId);
     const { costAggregationEngine } = require('./engines/cost-aggregation.engine');
-    return costAggregationEngine.compute();
+    return costAggregationEngine.compute(tenantId);
   }
 
-  getVendorAnalysis() {
-    this.ensureSeeded();
+  getVendorAnalysis(tenantId: string) {
+    this.ensureSeeded(tenantId);
     const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
-    return vendorImpactEngine.analyzeAll();
+    return vendorImpactEngine.analyzeAll(tenantId);
   }
 
-  getOptimizationReport() {
-    this.ensureSeeded();
+  getOptimizationReport(tenantId: string) {
+    this.ensureSeeded(tenantId);
     const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
     const { optimizationEngine } = require('./engines/optimization.engine');
-    const impacts = vendorImpactEngine.analyzeAll();
-    return optimizationEngine.generate(impacts);
+    const impacts = vendorImpactEngine.analyzeAll(tenantId);
+    return optimizationEngine.generate(tenantId, impacts);
   }
 
-  getAgentStatus() {
-    return costIntelligenceAgent.getStatus();
+  getAgentStatus(tenantId: string) {
+    return costIntelligenceAgent.getStatus(tenantId);
   }
 
   getLastReport() {

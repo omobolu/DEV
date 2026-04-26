@@ -1,155 +1,99 @@
 /**
- * Auth / User Repository
+ * Auth / User Repository — Multi-Tenant
  *
- * In-memory store for IDVIZE platform users.
- * Phase 2: replace with PostgreSQL via Prisma or TypeORM.
- *
- * Seeded with one demo user per role for development.
+ * In-memory store partitioned by tenantId.
+ * Users are seeded by tenant.seed.ts at startup (not here).
+ * Phase 2: replace with PostgreSQL (users table with tenant_id FK).
  */
 
 import { User, UserRole } from '../security.types';
 
-const now = new Date().toISOString();
-
-const SEED_USERS: User[] = [
-  {
-    userId: 'usr-manager-001',
-    username: 'admin@idvize.com',
-    displayName: 'Alex Morgan',
-    firstName: 'Alex',
-    lastName: 'Morgan',
-    email: 'admin@idvize.com',
-    department: 'IAM Program Office',
-    title: 'IAM Program Manager',
-    roles: ['Manager'],
-    groups: ['grp-managers'],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: true,
-    passwordHash: 'password123', // mock plaintext — Phase 2: hash + IdP delegation
-    attributes: { costCentre: 'IAM-001', clearanceLevel: 'high' },
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    userId: 'usr-architect-001',
-    username: 'sarah.architect@idvize.com',
-    displayName: 'Sarah Chen',
-    firstName: 'Sarah',
-    lastName: 'Chen',
-    email: 'sarah.architect@idvize.com',
-    department: 'IAM Architecture',
-    title: 'Senior IAM Architect',
-    roles: ['Architect'],
-    groups: ['grp-architects'],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: true,
-    passwordHash: 'password123',
-    attributes: { costCentre: 'IAM-002', clearanceLevel: 'high' },
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    userId: 'usr-analyst-001',
-    username: 'james.analyst@idvize.com',
-    displayName: 'James Okafor',
-    firstName: 'James',
-    lastName: 'Okafor',
-    email: 'james.analyst@idvize.com',
-    department: 'IAM Business Analysis',
-    title: 'IAM Business Analyst',
-    roles: ['BusinessAnalyst'],
-    groups: ['grp-analysts'],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: true,
-    passwordHash: 'password123',
-    attributes: { costCentre: 'IAM-003', clearanceLevel: 'medium' },
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    userId: 'usr-engineer-001',
-    username: 'lisa.engineer@idvize.com',
-    displayName: 'Lisa Park',
-    firstName: 'Lisa',
-    lastName: 'Park',
-    email: 'lisa.engineer@idvize.com',
-    department: 'IAM Engineering',
-    title: 'IAM Engineer',
-    roles: ['Engineer'],
-    groups: ['grp-engineers'],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: true,
-    passwordHash: 'password123',
-    attributes: { costCentre: 'IAM-004', clearanceLevel: 'medium' },
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    userId: 'usr-developer-001',
-    username: 'raj.developer@idvize.com',
-    displayName: 'Raj Patel',
-    firstName: 'Raj',
-    lastName: 'Patel',
-    email: 'raj.developer@idvize.com',
-    department: 'IAM Engineering',
-    title: 'IAM Developer',
-    roles: ['Developer'],
-    groups: ['grp-developers'],
-    status: 'active',
-    authProvider: 'local',
-    mfaEnrolled: false,
-    passwordHash: 'password123',
-    attributes: { costCentre: 'IAM-005', clearanceLevel: 'standard' },
-    createdAt: now,
-    updatedAt: now,
-  },
-];
-
 class AuthRepository {
-  private store = new Map<string, User>();
-  private byUsername = new Map<string, string>(); // username → userId
+  // tenantId → userId → User
+  private store     = new Map<string, Map<string, User>>();
+  // tenantId → username(lowercase) → userId
+  private byUsername = new Map<string, Map<string, string>>();
 
-  constructor() {
-    SEED_USERS.forEach(u => this.save(u));
+  private userBucket(tenantId: string): Map<string, User> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
   }
 
-  save(user: User): User {
-    this.store.set(user.userId, user);
-    this.byUsername.set(user.username.toLowerCase(), user.userId);
+  private nameBucket(tenantId: string): Map<string, string> {
+    if (!this.byUsername.has(tenantId)) this.byUsername.set(tenantId, new Map());
+    return this.byUsername.get(tenantId)!;
+  }
+
+  // ── Write ─────────────────────────────────────────────────────────────────
+
+  save(tenantId: string, user: User): User {
+    this.userBucket(tenantId).set(user.userId, user);
+    this.nameBucket(tenantId).set(user.username.toLowerCase(), user.userId);
     return user;
   }
 
-  findById(userId: string): User | undefined {
-    return this.store.get(userId);
-  }
-
-  findByUsername(username: string): User | undefined {
-    const id = this.byUsername.get(username.toLowerCase());
-    return id ? this.store.get(id) : undefined;
-  }
-
-  findAll(): User[] {
-    return Array.from(this.store.values());
-  }
-
-  findByRole(role: UserRole): User[] {
-    return this.findAll().filter(u => u.roles.includes(role));
-  }
-
-  count(): number {
-    return this.store.size;
-  }
-
-  updateLastLogin(userId: string): void {
-    const user = this.store.get(userId);
+  updateLastLogin(tenantId: string, userId: string): void {
+    const user = this.userBucket(tenantId).get(userId);
     if (user) {
       user.lastLoginAt = new Date().toISOString();
-      user.updatedAt = new Date().toISOString();
+      user.updatedAt   = new Date().toISOString();
     }
+  }
+
+  // ── Read (tenant-scoped) ───────────────────────────────────────────────────
+
+  findById(tenantId: string, userId: string): User | undefined {
+    return this.userBucket(tenantId).get(userId);
+  }
+
+  findByUsername(tenantId: string, username: string): User | undefined {
+    const uid = this.nameBucket(tenantId).get(username.toLowerCase());
+    return uid ? this.userBucket(tenantId).get(uid) : undefined;
+  }
+
+  findAll(tenantId: string): User[] {
+    return Array.from(this.userBucket(tenantId).values());
+  }
+
+  findByRole(tenantId: string, role: UserRole): User[] {
+    return this.findAll(tenantId).filter(u => u.roles.includes(role));
+  }
+
+  count(tenantId: string): number {
+    return this.userBucket(tenantId).size;
+  }
+
+  // ── Cross-tenant lookup (used only by authz service + global login) ────────
+
+  /**
+   * Scan ALL tenant buckets for a username. Returns the first match.
+   * Acceptable for Phase 1 (10 total users). Phase 2: require tenantId at login.
+   */
+  findByUsernameGlobal(username: string): User | undefined {
+    const lower = username.toLowerCase();
+    for (const [, nameMap] of this.byUsername) {
+      const uid = nameMap.get(lower);
+      if (uid) {
+        // find which tenant bucket holds this uid
+        for (const [, userMap] of this.store) {
+          const u = userMap.get(uid);
+          if (u) return u;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Scan ALL tenant buckets for a userId. Returns the first match.
+   * Used by authz service for role lookups.
+   */
+  findByIdGlobal(userId: string): User | undefined {
+    for (const [, userMap] of this.store) {
+      const u = userMap.get(userId);
+      if (u) return u;
+    }
+    return undefined;
   }
 }
 

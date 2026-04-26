@@ -59,6 +59,7 @@ class SecretAccessPolicyService {
    * Logs the decision to the audit trail.
    */
   evaluate(
+    tenantId: string,
     userId: string,
     action: SecretAction,
     credential: CredentialRecord,
@@ -86,7 +87,7 @@ class SecretAccessPolicyService {
 
     // Sensitivity escalation: critical credentials require approved access request
     if (credential.sensitivityLevel === 'critical' && (action === 'reveal' || action === 'retrieve_runtime')) {
-      const pendingApproval = approvalService.listAll({ status: 'approved' })
+      const pendingApproval = approvalService.listAll(tenantId, { status: 'approved' })
         .find(r =>
           r.requesterId === userId &&
           r.resource === credential.credentialId &&

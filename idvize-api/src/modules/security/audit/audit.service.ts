@@ -24,6 +24,7 @@ interface LogInput {
   metadata?: Record<string, unknown>;
   sessionId?: string;
   requestId?: string;
+  tenantId?: string;
 }
 
 class AuditService {
@@ -35,7 +36,7 @@ class AuditService {
       timestamp: new Date().toISOString(),
     };
 
-    auditRepository.append(event);
+    auditRepository.append(input.tenantId ?? 'system', event);
 
     // Console output for observability — Phase 2: ship to SIEM
     const icon = input.outcome === 'failure' ? '✗' : input.outcome === 'masked' ? '⊘' : '✓';
@@ -44,16 +45,20 @@ class AuditService {
     return event;
   }
 
-  query(filter: AuditFilter): AuditEvent[] {
-    return auditRepository.query(filter);
+  query(tenantId: string, filter: AuditFilter): AuditEvent[] {
+    return auditRepository.query(tenantId, filter);
   }
 
   findById(eventId: string): AuditEvent | undefined {
-    return auditRepository.findById(eventId);
+    return auditRepository.queryAll({ limit: 10000 }).find(e => e.eventId === eventId);
   }
 
-  count(): number {
-    return auditRepository.count();
+  count(tenantId: string): number {
+    return auditRepository.count(tenantId);
+  }
+
+  countAll(): number {
+    return auditRepository.countAll();
   }
 }
 

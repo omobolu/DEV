@@ -15,27 +15,27 @@ import { buildRepository } from '../../build/build.repository';
  */
 export class CostAggregationEngine {
 
-  compute(): CostSummary {
-    const allPeople = peopleRepository.findAll();
-    const allContracts = contractRepository.findAll().filter(c => c.status === 'active');
-    const allVendors = vendorRepository.findAll();
-    const totalApps = applicationRepository.count();
+  compute(tenantId: string): CostSummary {
+    const allPeople = peopleRepository.findAll(tenantId);
+    const allContracts = contractRepository.findAll(tenantId).filter(c => c.status === 'active');
+    const allVendors = vendorRepository.findAll(tenantId);
+    const totalApps = applicationRepository.count(tenantId);
 
     // ── People Costs ────────────────────────────────────────────────────────
-    const fteCost = peopleRepository.totalCost('fte');
-    const contractorCost = peopleRepository.totalCost('contractor');
-    const offshoreCost = peopleRepository.totalCost('offshore');
-    const mspCost = peopleRepository.totalCost('managed_service');
+    const fteCost = peopleRepository.totalCost(tenantId, 'fte');
+    const contractorCost = peopleRepository.totalCost(tenantId, 'contractor');
+    const offshoreCost = peopleRepository.totalCost(tenantId, 'offshore');
+    const mspCost = peopleRepository.totalCost(tenantId, 'managed_service');
     const totalPeople = fteCost + contractorCost + offshoreCost + mspCost;
 
     // ── Technology Costs ────────────────────────────────────────────────────
-    const iamPlatformVendors = vendorRepository.findByType('iam_platform').map(v => v.vendorId);
+    const iamPlatformVendors = vendorRepository.findByType(tenantId, 'iam_platform').map(v => v.vendorId);
     const iamPlatformCost = allContracts
       .filter(c => iamPlatformVendors.includes(c.vendorId))
       .reduce((sum, c) => sum + c.annualCost, 0);
 
     const appVendorCost = allContracts
-      .filter(c => vendorRepository.findById(c.vendorId)?.type === 'application')
+      .filter(c => vendorRepository.findById(tenantId, c.vendorId)?.type === 'application')
       .reduce((sum, c) => sum + c.annualCost, 0);
 
     const infraCost = allContracts
@@ -45,7 +45,7 @@ export class CostAggregationEngine {
     const totalTech = iamPlatformCost + appVendorCost + infraCost;
 
     // ── Partner Costs ────────────────────────────────────────────────────────
-    const partnerVendors = vendorRepository.findByType('implementation_partner').map(v => v.vendorId);
+    const partnerVendors = vendorRepository.findByType(tenantId, 'implementation_partner').map(v => v.vendorId);
     const partnerCost = allContracts
       .filter(c => partnerVendors.includes(c.vendorId))
       .reduce((sum, c) => sum + c.annualCost, 0);
@@ -75,7 +75,7 @@ export class CostAggregationEngine {
     };
 
     // ── Per-unit metrics ─────────────────────────────────────────────────────
-    const appCount = Math.max(applicationRepository.count(), 1);
+    const appCount = Math.max(applicationRepository.count(tenantId), 1);
     const totalIdentities = allPeople.reduce((sum, p) => {
       // proxy: sum user population across apps (rough)
       return sum;
@@ -91,13 +91,13 @@ export class CostAggregationEngine {
       })),
       {
         category: 'People - FTE',
-        name: `Internal IAM Team (${peopleRepository.findByType('fte').length} FTEs)`,
+        name: `Internal IAM Team (${peopleRepository.findByType(tenantId, 'fte').length} FTEs)`,
         annualCost: fteCost,
         percentOfTotal: (fteCost / totalCost) * 100,
       },
       contractorCost > 0 ? {
         category: 'People - Contractors',
-        name: `US Contractors (${peopleRepository.findByType('contractor').length})`,
+        name: `US Contractors (${peopleRepository.findByType(tenantId, 'contractor').length})`,
         annualCost: contractorCost,
         percentOfTotal: (contractorCost / totalCost) * 100,
       } : null,
@@ -118,10 +118,10 @@ export class CostAggregationEngine {
       costPerApp: totalCost / appCount,
       costPerIdentity: totalCost / totalIdentities,
       headcount: {
-        totalFte: peopleRepository.findByType('fte').length,
-        contractors: peopleRepository.findByType('contractor').length,
-        offshore: Math.round(peopleRepository.totalFteEquivalent('offshore')),
-        managedService: Math.round(peopleRepository.totalFteEquivalent('managed_service')),
+        totalFte: peopleRepository.findByType(tenantId, 'fte').length,
+        contractors: peopleRepository.findByType(tenantId, 'contractor').length,
+        offshore: Math.round(peopleRepository.totalFteEquivalent(tenantId, 'offshore')),
+        managedService: Math.round(peopleRepository.totalFteEquivalent(tenantId, 'managed_service')),
       },
       contractCount: allContracts.length,
       vendorCount: allVendors.length,

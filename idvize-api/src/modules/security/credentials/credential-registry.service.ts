@@ -46,8 +46,8 @@ class CredentialRegistryService {
 
   // ── Register ──────────────────────────────────────────────────────────────
 
-  register(input: RegisterCredentialInput, actorId: string): CredentialRecord {
-    const owner = authRepository.findById(input.ownerId);
+  register(tenantId: string, input: RegisterCredentialInput, actorId: string): CredentialRecord {
+    const owner = authRepository.findById(tenantId, input.ownerId);
     const now = new Date().toISOString();
 
     const record: CredentialRecord = {
@@ -74,9 +74,10 @@ class CredentialRegistryService {
       updatedAt: now,
     };
 
-    credentialRepository.save(record);
+    credentialRepository.save(tenantId, record);
 
     auditService.log({
+      tenantId,
       eventType: 'user.created',
       actorId,
       actorName: owner?.displayName ?? actorId,
@@ -98,15 +99,17 @@ class CredentialRegistryService {
   // ── Register Vault Reference (Handoff completion) ─────────────────────────
 
   async registerReference(
+    tenantId: string,
     credentialId: string,
     input: RegisterReferenceInput,
     actorId: string,
   ): Promise<CredentialRecord> {
-    const record = credentialRepository.findById(credentialId);
+    const record = credentialRepository.findById(tenantId, credentialId);
     if (!record) throw Object.assign(new Error(`Credential "${credentialId}" not found`), { statusCode: 404 });
 
     // Validate the reference is reachable before accepting it
     const validation = await vaultAdapterService.validateReference(
+      tenantId,
       input.vaultProvider,
       input.vaultPath,
       input.vaultSecretName,
@@ -123,14 +126,14 @@ class CredentialRegistryService {
     record.status = validation.valid ? 'vaulted' : 'error';
     record.updatedAt = now;
 
-    credentialRepository.save(record);
+    credentialRepository.save(tenantId, record);
 
-    vaultAdapterService.logEvent({
+    vaultAdapterService.logEvent(tenantId, {
       credentialId,
       credentialName: record.name,
       eventType: 'register_reference',
       actorId,
-      actorName: authRepository.findById(actorId)?.displayName ?? actorId,
+      actorName: authRepository.findById(tenantId, actorId)?.displayName ?? actorId,
       vaultProvider: input.vaultProvider,
       vaultPath: input.vaultPath,
       outcome: validation.valid ? 'success' : 'failure',
@@ -144,19 +147,19 @@ class CredentialRegistryService {
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
-  findById(credentialId: string): CredentialRecord | undefined {
-    return credentialRepository.findById(credentialId);
+  findById(tenantId: string, credentialId: string): CredentialRecord | undefined {
+    return credentialRepository.findById(tenantId, credentialId);
   }
 
-  listAll(filters: {
+  listAll(tenantId: string, filters: {
     status?: CredentialStatus;
     targetSystem?: string;
     ownerId?: string;
     applicationId?: string;
   } = {}): CredentialRecord[] {
-    let results = credentialRepository.findAll();
+    let results = credentialRepository.findAll(tenantId);
     if (filters.status) results = results.filter(c => c.status === filters.status);
-    if (filters.targetSystem) results = credentialRepository.findByTargetSystem(filters.targetSystem);
+    if (filters.targetSystem) results = credentialRepository.findByTargetSystem(tenantId, filters.targetSystem);
     if (filters.ownerId) results = results.filter(c => c.ownerId === filters.ownerId);
     if (filters.applicationId) results = results.filter(c => c.applicationId === filters.applicationId);
     return results;
@@ -164,8 +167,8 @@ class CredentialRegistryService {
 
   // ── Retrieve (runtime — vault retrieval mode only) ────────────────────────
 
-  async retrieve(credentialId: string, actorId: string) {
-    const record = credentialRepository.findById(credentialId);
+  async retrieve(tenantId: string, credentialId: string, actorId: string) {
+    const record = credentialRepository.findById(tenantId, credentialId);
     if (!record) throw Object.assign(new Error(`Credential "${credentialId}" not found`), { statusCode: 404 });
     if (record.operatingMode !== 'retrieval') {
       throw Object.assign(new Error(`Credential "${record.name}" is in "${record.operatingMode}" mode — runtime retrieval not supported`), { statusCode: 400 });
@@ -174,8 +177,9 @@ class CredentialRegistryService {
       throw Object.assign(new Error(`Credential "${record.name}" has no vault reference — register a reference first`), { statusCode: 400 });
     }
 
-    const actor = authRepository.findById(actorId);
+    const actor = authRepository.findById(tenantId, actorId);
     const result = await vaultAdapterService.retrieve(
+      tenantId,
       record.vaultProvider,
       record.vaultPath,
       record.vaultSecretName,
@@ -188,7 +192,7 @@ class CredentialRegistryService {
     if (result.success) {
       record.lastAccessedAt = new Date().toISOString();
       record.accessCount += 1;
-      credentialRepository.save(record);
+      credentialRepository.save(tenantId, record);
     }
 
     return result;
@@ -196,16 +200,17 @@ class CredentialRegistryService {
 
   // ── Revoke ────────────────────────────────────────────────────────────────
 
-  revoke(credentialId: string, actorId: string, reason?: string): CredentialRecord {
-    const record = credentialRepository.findById(credentialId);
+  revoke(tenantId: string, credentialId: string, actorId: string, reason?: string): CredentialRecord {
+    const record = credentialRepository.findById(tenantId, credentialId);
     if (!record) throw Object.assign(new Error(`Credential "${credentialId}" not found`), { statusCode: 404 });
 
     record.status = 'revoked';
     record.updatedAt = new Date().toISOString();
-    credentialRepository.save(record);
+    credentialRepository.save(tenantId, record);
 
-    const actor = authRepository.findById(actorId);
+    const actor = authRepository.findById(tenantId, actorId);
     auditService.log({
+      tenantId,
       eventType: 'user.updated',
       actorId,
       actorName: actor?.displayName ?? actorId,
@@ -219,8 +224,8 @@ class CredentialRegistryService {
     return record;
   }
 
-  count(): number {
-    return credentialRepository.count();
+  count(tenantId: string): number {
+    return credentialRepository.count(tenantId);
   }
 }
 

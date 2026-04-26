@@ -15,7 +15,7 @@ import { auditService }                from '../security/audit/audit.service';
 class MaturityService {
   private runInProgress = false;
 
-  async runAssessment(triggeredBy = 'system'): Promise<MaturityAssessmentRun> {
+  async runAssessment(tenantId: string, triggeredBy = 'system'): Promise<MaturityAssessmentRun> {
     if (this.runInProgress) {
       throw new Error('An assessment is already in progress');
     }
@@ -27,7 +27,7 @@ class MaturityService {
       console.log(`[Maturity] Assessment started runId=${runId} by=${triggeredBy}`);
 
       // 1. Collect evidence
-      const evidence = await maturityEvidenceCollector.collect();
+      const evidence = await maturityEvidenceCollector.collect(tenantId);
       const lowConfEvidence = evidence.filter(e => e.quality === 'missing' || e.quality === 'mock');
 
       // 2. Score
@@ -53,9 +53,10 @@ class MaturityService {
         lowConfidenceCount: lowConfEvidence.length,
       };
 
-      maturityRepository.save(run);
+      maturityRepository.save(tenantId, run);
 
       auditService.log({
+        tenantId,
         eventType: 'authz.allow',
         actorId:   triggeredBy,
         actorName: triggeredBy,
@@ -73,12 +74,12 @@ class MaturityService {
     }
   }
 
-  getLatestRun(): MaturityAssessmentRun | undefined {
-    return maturityRepository.latest();
+  getLatestRun(tenantId: string): MaturityAssessmentRun | undefined {
+    return maturityRepository.latest(tenantId);
   }
 
-  async getOrRunAssessment(): Promise<MaturityAssessmentRun> {
-    return this.getLatestRun() ?? this.runAssessment('auto');
+  async getOrRunAssessment(tenantId: string): Promise<MaturityAssessmentRun> {
+    return this.getLatestRun(tenantId) ?? this.runAssessment(tenantId, 'auto');
   }
 
   buildSummary(run: MaturityAssessmentRun): MaturitySummaryResponse {

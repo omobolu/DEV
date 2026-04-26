@@ -51,11 +51,11 @@ export interface SecurityPostureReport {
 class SecurityGovernanceAgent {
   private lastReport: SecurityPostureReport | null = null;
 
-  async run(): Promise<SecurityPostureReport> {
+  async run(tenantId: string): Promise<SecurityPostureReport> {
     console.log('[SecurityGovernanceAgent] Starting security posture analysis...');
 
-    const allUsers = authRepository.findAll();
-    const auditEvents = auditService.query({ limit: 10000 });
+    const allUsers = authRepository.findAll(tenantId);
+    const auditEvents = auditService.query(tenantId, { limit: 10000 });
 
     // ── User Summary ─────────────────────────────────────────────────────────
     const userSummary = {
@@ -84,9 +84,9 @@ class SecurityGovernanceAgent {
     };
 
     // ── Approval Summary ─────────────────────────────────────────────────────
-    approvalService.expireStale();
-    const pending = approvalService.listPending();
-    const all = approvalService.listAll();
+    approvalService.expireStale(tenantId);
+    const pending = approvalService.listPending(tenantId);
+    const all = approvalService.listAll(tenantId);
     const approvalSummary = {
       pending: pending.length,
       resolved: all.filter(r => r.status === 'approved' || r.status === 'rejected').length,
@@ -165,10 +165,10 @@ class SecurityGovernanceAgent {
    * Runs the deterministic report, then asks Claude to reason over it
    * and generate a natural-language risk narrative.
    */
-  async runWithAI(): Promise<SecurityAiAnalysis> {
+  async runWithAI(tenantId: string): Promise<SecurityAiAnalysis> {
     console.log('[SecurityGovernanceAgent] Starting AI-enhanced security analysis...');
 
-    const baseReport = await this.run();
+    const baseReport = await this.run(tenantId);
 
     const tools: Tool[] = [
       {
@@ -218,7 +218,7 @@ class SecurityGovernanceAgent {
       get_risk_flags: () => ({ flags: baseReport.riskFlags, overallRisk: baseReport.overallRisk }),
       get_recent_audit_events: (input) => {
         const limit = typeof input.limit === 'number' ? input.limit : 50;
-        const events = auditService.query({ limit });
+        const events = auditService.query(tenantId, { limit });
         const typeFilter = typeof input.eventType === 'string' ? input.eventType : undefined;
         const filtered = typeFilter ? events.filter(e => e.eventType.startsWith(typeFilter)) : events;
         return filtered.map(e => ({

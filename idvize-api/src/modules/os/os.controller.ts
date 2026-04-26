@@ -31,12 +31,16 @@ import { approvalService }                  from '../security/approval/approval.
 import { credentialRotationMonitorService } from '../security/credentials/credential-rotation-monitor.service';
 import { auditService }                     from '../security/audit/audit.service';
 import { requireAuth }                      from '../../middleware/requireAuth';
+import { tenantContext }                    from '../../middleware/tenantContext';
 import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
+import { computePortfolioRisks, buildPortfolioRiskSummary } from './risk.engine';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
 import { IamPosture }                       from '../application/application.types';
 
 const router = Router();
+
+router.use(requireAuth, tenantContext);
 
 /** Timestamp when the OS module was loaded (proxy for server boot) */
 const BOOT_TIME = new Date().toISOString();
@@ -121,8 +125,8 @@ interface GapRecord {
 
 const TIER_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-function computeCoverage() {
-  const apps = applicationRepository.findAll();
+function computeCoverage(tenantId: string) {
+  const apps = applicationRepository.findAll(tenantId);
   const byTier: Record<string, { total: number; covered: number }> = {
     critical: { total: 0, covered: 0 },
     high:     { total: 0, covered: 0 },
@@ -367,12 +371,12 @@ const MOCK_IDENTITIES = [
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── GET /os/status ───────────────────────────────────────────────────────────
-router.get('/status', requireAuth, (_req: Request, res: Response) => {
-  const { apps, covered, gaps } = computeCoverage();
+router.get('/status', requireAuth, (req: Request, res: Response) => {
+  const { apps, covered, gaps } = computeCoverage(req.tenantId!);
   const drivers    = getDrivers();
-  const builds     = buildService.listBuilds();
-  const pending    = approvalService.listPending();
-  const rotReport  = credentialRotationMonitorService.runCheck();
+  const builds     = buildService.listBuilds(req.tenantId!);
+  const pending    = approvalService.listPending(req.tenantId!);
+  const rotReport  = credentialRotationMonitorService.runCheck(req.tenantId!);
 
   const healthyDrivers  = drivers.filter(d => d.status === 'healthy').length;
   const degradedDrivers = drivers.filter(d => d.status === 'degraded').length;
@@ -483,8 +487,8 @@ const POSTURE_DETECT: Record<string, PostureFn> = {
 };
 
 // ── GET /os/coverage ─────────────────────────────────────────────────────────
-router.get('/coverage', requireAuth, (_req: Request, res: Response) => {
-  const { apps, byTier } = computeCoverage();
+router.get('/coverage', requireAuth, (req: Request, res: Response) => {
+  const { apps, byTier } = computeCoverage(req.tenantId!);
   const total    = apps.length;
   const postures = apps.map(a => ({ appId: a.appId, posture: a.iamPosture }));
 
@@ -544,8 +548,8 @@ router.get('/coverage', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/gaps ──────────────────────────────────────────────────────────────
-router.get('/gaps', requireAuth, (_req: Request, res: Response) => {
-  const { gaps } = computeCoverage();
+router.get('/gaps', requireAuth, (req: Request, res: Response) => {
+  const { gaps } = computeCoverage(req.tenantId!);
   res.json({
     success: true,
     data: {
@@ -584,10 +588,10 @@ router.get('/drivers', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/processes ─────────────────────────────────────────────────────────
-router.get('/processes', requireAuth, (_req: Request, res: Response) => {
-  const builds     = buildService.listBuilds() as any[];
-  const pending    = approvalService.listPending() as any[];
-  const rotReport  = credentialRotationMonitorService.runCheck();
+router.get('/processes', requireAuth, (req: Request, res: Response) => {
+  const builds     = buildService.listBuilds(req.tenantId!) as any[];
+  const pending    = approvalService.listPending(req.tenantId!) as any[];
+  const rotReport  = credentialRotationMonitorService.runCheck(req.tenantId!);
 
   const processes = [
     ...builds.map(b => ({
@@ -631,8 +635,8 @@ router.get('/modules', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/events ────────────────────────────────────────────────────────────
-router.get('/events', requireAuth, (_req: Request, res: Response) => {
-  const raw = auditService.query({} as any).slice(0, 50);
+router.get('/events', requireAuth, (req: Request, res: Response) => {
+  const raw = auditService.query(req.tenantId!, {} as any).slice(0, 50);
 
   const events = raw.map((e: any) => ({
     eventId:   e.eventId,
@@ -651,9 +655,9 @@ router.get('/events', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/alerts ────────────────────────────────────────────────────────────
-router.get('/alerts', requireAuth, (_req: Request, res: Response) => {
-  const { gaps } = computeCoverage();
-  const rotReport = credentialRotationMonitorService.runCheck();
+router.get('/alerts', requireAuth, (req: Request, res: Response) => {
+  const { gaps } = computeCoverage(req.tenantId!);
+  const rotReport = credentialRotationMonitorService.runCheck(req.tenantId!);
   const drivers   = getDrivers();
 
   const alerts: object[] = [];
@@ -721,6 +725,46 @@ router.get('/alerts', requireAuth, (_req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: alerts });
+});
+
+// ── GET /os/risks — full portfolio ranked by IAM risk score ──────────────────
+router.get('/risks', requireAuth, (req: Request, res: Response) => {
+  const apps   = applicationRepository.findAll(req.tenantId!);
+  const ranked = computePortfolioRisks(apps);
+  const summary = buildPortfolioRiskSummary(ranked);
+
+  // Optional tier filter: ?tier=critical|high|medium|low
+  const tierFilter = req.query.tier as string | undefined;
+  const results    = tierFilter
+    ? ranked.filter(r => r.riskTier === tierFilter)
+    : ranked;
+
+  res.json({
+    success: true,
+    data: { summary, ranked: results },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ── GET /os/risks/:appId — single app risk summary with priority rank ─────────
+router.get('/risks/:appId', requireAuth, (req: Request, res: Response) => {
+  const appId = req.params.appId as string;
+  const app = applicationRepository.findById(req.tenantId!, appId);
+  if (!app) {
+    res.status(404).json({ success: false, error: `Application '${appId}' not found` });
+    return;
+  }
+
+  // Compute full portfolio so we can assign the correct priority rank
+  const allApps = applicationRepository.findAll(req.tenantId!);
+  const ranked  = computePortfolioRisks(allApps);
+  const result  = ranked.find(r => r.appId === appId);
+
+  res.json({
+    success: true,
+    data: result,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── Gap Engine — mock data ────────────────────────────────────────────────────
@@ -879,14 +923,14 @@ router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) =>
     return;
   }
 
-  const { gaps } = computeCoverage();
+  const { gaps } = computeCoverage(req.tenantId!);
   const gap = gaps.find(g => g.gapId === gapId);
   if (!gap) {
     res.status(404).json({ success: false, error: `Gap '${gapId}' not found` });
     return;
   }
 
-  const app = applicationRepository.findById(gap.appId);
+  const app = applicationRepository.findById(req.tenantId!, gap.appId);
   const riskLevel = (gap.riskTier === 'critical' || gap.riskTier === 'high') ? 'high_risk' : 'standard';
 
   const ACTION_LABEL: Record<string, string> = {
@@ -910,7 +954,7 @@ router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) =>
 
   try {
     // Step 1 — Approval (notification to app owner + IAM team)
-    const approval = approvalService.requestApproval({
+    const approval = approvalService.requestApproval(req.tenantId!, {
       requesterId:   actor?.userId ?? 'system',
       action:        `${ACTION_LABEL[action]} — ${gap.appName}`,
       resource:      gap.appName,
@@ -920,7 +964,7 @@ router.post('/gaps/:gapId/action', requireAuth, (req: Request, res: Response) =>
     });
 
     // Step 2 — Build job (AI agent task)
-    const job = buildService.startBuild({
+    const job = buildService.startBuild(req.tenantId!, {
       appId:      gap.appId,
       controlGap: (gap.missingControls[0] ?? 'IAM') as any,
       buildType:  BUILD_TYPE[action] as any,

@@ -21,9 +21,9 @@ class CredentialRotationMonitorService {
   /**
    * Run a full rotation health check across all credentials.
    */
-  runCheck(): RotationMonitorReport {
+  runCheck(tenantId: string): RotationMonitorReport {
     const now = new Date();
-    const allCredentials = credentialRepository.findAll()
+    const allCredentials = credentialRepository.findAll(tenantId)
       .filter(c => c.status !== 'revoked');
 
     const expiringSoon: RotationCheckResult[] = [];
@@ -45,7 +45,7 @@ class CredentialRotationMonitorService {
         } else {
           expiringSoon.push(result);
         }
-        credentialRepository.save(cred);
+        credentialRepository.save(tenantId, cred);
       } else {
         healthyCount++;
       }
@@ -53,6 +53,7 @@ class CredentialRotationMonitorService {
 
     if (expiringSoon.length + expired.length + rotationRequired.length > 0) {
       auditService.log({
+        tenantId,
         eventType: 'user.updated',
         actorId: 'system',
         actorName: 'RotationMonitor',

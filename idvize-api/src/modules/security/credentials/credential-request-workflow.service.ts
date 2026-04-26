@@ -36,7 +36,7 @@ class CredentialRequestWorkflowService {
 
   // ── Submit Request ────────────────────────────────────────────────────────
 
-  submitRequest(input: {
+  submitRequest(tenantId: string, input: {
     requestedBy: string;
     credentialId?: string;
     requestType: CredentialRequestType;
@@ -48,8 +48,8 @@ class CredentialRequestWorkflowService {
     justification: string;
     assignedTo?: string;
   }): CredentialRequest {
-    const requester = authRepository.findById(input.requestedBy);
-    const assignee = input.assignedTo ? authRepository.findById(input.assignedTo) : undefined;
+    const requester = authRepository.findById(tenantId, input.requestedBy);
+    const assignee = input.assignedTo ? authRepository.findById(tenantId, input.assignedTo) : undefined;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + REQUEST_EXPIRY_HOURS * 3600 * 1000).toISOString();
 
@@ -78,9 +78,10 @@ class CredentialRequestWorkflowService {
       request.workInstructions = this.generateHandoffInstructions(request);
     }
 
-    credentialRequestRepository.save(request);
+    credentialRequestRepository.save(tenantId, request);
 
     auditService.log({
+      tenantId,
       eventType: 'approval.requested',
       actorId: input.requestedBy,
       actorName: requester?.displayName ?? input.requestedBy,
@@ -101,16 +102,17 @@ class CredentialRequestWorkflowService {
   // ── Approve / Reject ──────────────────────────────────────────────────────
 
   resolve(
+    tenantId: string,
     requestId: string,
     approverId: string,
     decision: 'approved' | 'rejected',
     comment?: string,
   ): CredentialRequest {
-    const request = credentialRequestRepository.findById(requestId);
+    const request = credentialRequestRepository.findById(tenantId, requestId);
     if (!request) throw Object.assign(new Error(`Request "${requestId}" not found`), { statusCode: 404 });
     if (request.status !== 'pending') throw Object.assign(new Error(`Request is already ${request.status}`), { statusCode: 409 });
 
-    const approver = authRepository.findById(approverId);
+    const approver = authRepository.findById(tenantId, approverId);
     const now = new Date().toISOString();
 
     request.status = decision;
@@ -121,7 +123,7 @@ class CredentialRequestWorkflowService {
 
     // If approved + handoff mode: auto-register the credential record
     if (decision === 'approved' && request.operatingMode === 'handoff' && !request.credentialId) {
-      const record = credentialRegistryService.register({
+      const record = credentialRegistryService.register(tenantId, {
         name: `${request.targetSystem} ${request.credentialType} — ${request.targetEnvironment}`,
         description: request.justification,
         credentialType: request.credentialType,
@@ -135,9 +137,10 @@ class CredentialRequestWorkflowService {
       request.status = 'in_progress';
     }
 
-    credentialRequestRepository.save(request);
+    credentialRequestRepository.save(tenantId, request);
 
     auditService.log({
+      tenantId,
       eventType: decision === 'approved' ? 'approval.granted' : 'approval.rejected',
       actorId: approverId,
       actorName: approver?.displayName ?? approverId,
@@ -151,29 +154,29 @@ class CredentialRequestWorkflowService {
 
   // ── Mark Complete ─────────────────────────────────────────────────────────
 
-  markComplete(requestId: string, actorId: string): CredentialRequest {
-    const request = credentialRequestRepository.findById(requestId);
+  markComplete(tenantId: string, requestId: string, actorId: string): CredentialRequest {
+    const request = credentialRequestRepository.findById(tenantId, requestId);
     if (!request) throw Object.assign(new Error(`Request "${requestId}" not found`), { statusCode: 404 });
 
     request.status = 'completed';
     request.completedAt = new Date().toISOString();
     request.updatedAt = new Date().toISOString();
-    credentialRequestRepository.save(request);
+    credentialRequestRepository.save(tenantId, request);
     return request;
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  listAll(filters: { status?: CredentialRequestStatus; requestedBy?: string; assignedTo?: string } = {}): CredentialRequest[] {
-    let results = credentialRequestRepository.findAll();
+  listAll(tenantId: string, filters: { status?: CredentialRequestStatus; requestedBy?: string; assignedTo?: string } = {}): CredentialRequest[] {
+    let results = credentialRequestRepository.findAll(tenantId);
     if (filters.status) results = results.filter(r => r.status === filters.status);
     if (filters.requestedBy) results = results.filter(r => r.requestedBy === filters.requestedBy);
     if (filters.assignedTo) results = results.filter(r => r.assignedTo === filters.assignedTo);
     return results;
   }
 
-  getRequest(requestId: string): CredentialRequest | undefined {
-    return credentialRequestRepository.findById(requestId);
+  getRequest(tenantId: string, requestId: string): CredentialRequest | undefined {
+    return credentialRequestRepository.findById(tenantId, requestId);
   }
 
   // ── Handoff Work Instruction Generator ───────────────────────────────────

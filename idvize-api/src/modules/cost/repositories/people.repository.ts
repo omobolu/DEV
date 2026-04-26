@@ -1,45 +1,50 @@
 import { PersonCost, EmploymentType, IamRole } from '../cost.types';
 
 class PeopleRepository {
-  private store = new Map<string, PersonCost>();
+  private store = new Map<string, Map<string, PersonCost>>();
 
-  save(person: PersonCost): PersonCost {
-    this.store.set(person.personId, person);
+  private bucket(tenantId: string): Map<string, PersonCost> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
+  }
+
+  save(tenantId: string, person: PersonCost): PersonCost {
+    this.bucket(tenantId).set(person.personId, person);
     return person;
   }
 
-  saveMany(people: PersonCost[]): void {
-    people.forEach(p => this.save(p));
+  saveMany(tenantId: string, people: PersonCost[]): void {
+    people.forEach(p => this.save(tenantId, p));
   }
 
-  findAll(): PersonCost[] {
-    return Array.from(this.store.values());
+  findAll(tenantId: string): PersonCost[] {
+    return Array.from(this.bucket(tenantId).values());
   }
 
-  findByType(type: EmploymentType): PersonCost[] {
-    return Array.from(this.store.values()).filter(p => p.employmentType === type);
+  findByType(tenantId: string, type: EmploymentType): PersonCost[] {
+    return Array.from(this.bucket(tenantId).values()).filter(p => p.employmentType === type);
   }
 
-  findByRole(role: IamRole): PersonCost[] {
-    return Array.from(this.store.values()).filter(p => p.role === role);
+  findByRole(tenantId: string, role: IamRole): PersonCost[] {
+    return Array.from(this.bucket(tenantId).values()).filter(p => p.role === role);
   }
 
-  findByVendor(vendorId: string): PersonCost[] {
-    return Array.from(this.store.values()).filter(p => p.vendorId === vendorId);
+  findByVendor(tenantId: string, vendorId: string): PersonCost[] {
+    return Array.from(this.bucket(tenantId).values()).filter(p => p.vendorId === vendorId);
   }
 
-  totalCost(type?: EmploymentType): number {
-    const people = type ? this.findByType(type) : this.findAll();
+  totalCost(tenantId: string, type?: EmploymentType): number {
+    const people = type ? this.findByType(tenantId, type) : this.findAll(tenantId);
     return people.reduce((sum, p) => sum + p.annualCost, 0);
   }
 
-  totalFteEquivalent(type?: EmploymentType): number {
-    const people = type ? this.findByType(type) : this.findAll();
+  totalFteEquivalent(tenantId: string, type?: EmploymentType): number {
+    const people = type ? this.findByType(tenantId, type) : this.findAll(tenantId);
     return people.reduce((sum, p) => sum + p.fteEquivalent, 0);
   }
 
-  count(): number {
-    return this.store.size;
+  count(tenantId: string): number {
+    return this.bucket(tenantId).size;
   }
 }
 

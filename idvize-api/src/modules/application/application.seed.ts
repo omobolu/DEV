@@ -228,8 +228,8 @@ export const SEED_APPS: Application[] = [
 ];
 
 // ── Seed function — idempotent ─────────────────────────────────────────────
-export function seedApplications(): void {
-  if (applicationRepository.count() > 0) return; // already seeded
-  for (const a of SEED_APPS) applicationRepository.save(a);
+export function seedApplications(tenantId: string): void {
+  if (applicationRepository.count(tenantId) > 0) return; // already seeded
+  for (const a of SEED_APPS) applicationRepository.save(tenantId, a);
   console.log(`  ✓ Application seed loaded — ${SEED_APPS.length} apps\n`);
 }

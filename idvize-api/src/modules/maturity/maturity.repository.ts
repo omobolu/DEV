@@ -1,36 +1,42 @@
 /**
  * MaturityRepository — in-memory store for assessment run history.
- * Keeps the last 20 runs. Structured for future DB persistence.
+ * Keeps the last 20 runs per tenant. Structured for future DB persistence.
  */
 
 import { MaturityAssessmentRun } from './maturity.types';
 
 class MaturityRepository {
-  private store: MaturityAssessmentRun[] = [];
+  private log = new Map<string, MaturityAssessmentRun[]>();
   private readonly MAX_HISTORY = 20;
 
-  save(run: MaturityAssessmentRun): MaturityAssessmentRun {
-    this.store.unshift(run); // newest first
-    if (this.store.length > this.MAX_HISTORY) {
-      this.store = this.store.slice(0, this.MAX_HISTORY);
+  private bucket(tenantId: string): MaturityAssessmentRun[] {
+    if (!this.log.has(tenantId)) this.log.set(tenantId, []);
+    return this.log.get(tenantId)!;
+  }
+
+  save(tenantId: string, run: MaturityAssessmentRun): MaturityAssessmentRun {
+    const bucket = this.bucket(tenantId);
+    bucket.unshift(run); // newest first
+    if (bucket.length > this.MAX_HISTORY) {
+      bucket.splice(this.MAX_HISTORY);
     }
     return run;
   }
 
-  latest(): MaturityAssessmentRun | undefined {
-    return this.store[0];
+  latest(tenantId: string): MaturityAssessmentRun | undefined {
+    return this.bucket(tenantId)[0];
   }
 
-  history(): MaturityAssessmentRun[] {
-    return [...this.store];
+  history(tenantId: string): MaturityAssessmentRun[] {
+    return [...this.bucket(tenantId)];
   }
 
-  findById(runId: string): MaturityAssessmentRun | undefined {
-    return this.store.find(r => r.runId === runId);
+  findById(tenantId: string, runId: string): MaturityAssessmentRun | undefined {
+    return this.bucket(tenantId).find(r => r.runId === runId);
   }
 
-  count(): number {
-    return this.store.length;
+  count(tenantId: string): number {
+    return this.bucket(tenantId).length;
   }
 }
 

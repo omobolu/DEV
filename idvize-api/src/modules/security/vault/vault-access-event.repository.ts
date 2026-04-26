@@ -23,19 +23,24 @@ export interface VaultEventFilter {
 }
 
 class VaultAccessEventRepository {
-  private log: VaultAccessEvent[] = [];
+  private log = new Map<string, VaultAccessEvent[]>();
 
-  append(event: VaultAccessEvent): VaultAccessEvent {
-    this.log.push(event);
+  private bucket(tenantId: string): VaultAccessEvent[] {
+    if (!this.log.has(tenantId)) this.log.set(tenantId, []);
+    return this.log.get(tenantId)!;
+  }
+
+  append(tenantId: string, event: VaultAccessEvent): VaultAccessEvent {
+    this.bucket(tenantId).push(event);
     return event;
   }
 
-  findById(eventId: string): VaultAccessEvent | undefined {
-    return this.log.find(e => e.eventId === eventId);
+  findById(tenantId: string, eventId: string): VaultAccessEvent | undefined {
+    return this.bucket(tenantId).find(e => e.eventId === eventId);
   }
 
-  query(filter: VaultEventFilter = {}): VaultAccessEvent[] {
-    let results = [...this.log];
+  query(tenantId: string, filter: VaultEventFilter = {}): VaultAccessEvent[] {
+    let results = [...this.bucket(tenantId)];
 
     if (filter.credentialId) results = results.filter(e => e.credentialId === filter.credentialId);
     if (filter.actorId) results = results.filter(e => e.actorId === filter.actorId);
@@ -51,8 +56,8 @@ class VaultAccessEventRepository {
     return results.slice(offset, offset + limit);
   }
 
-  count(): number {
-    return this.log.length;
+  count(tenantId: string): number {
+    return this.bucket(tenantId).length;
   }
 }
 

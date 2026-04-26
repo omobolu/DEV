@@ -14,19 +14,19 @@ export class ControlService {
    * Evaluate all IAM controls for a single application.
    * Runs IAM correlation + control detection, caches result, attaches posture to app.
    */
-  async evaluateApp(appId: string, forceRefresh = false): Promise<ControlEvaluationResult | null> {
+  async evaluateApp(tenantId: string, appId: string, forceRefresh = false): Promise<ControlEvaluationResult | null> {
     if (!forceRefresh && controlCache.has(appId)) {
       return controlCache.get(appId)!;
     }
 
-    const app = applicationRepository.findById(appId);
+    const app = applicationRepository.findById(tenantId, appId);
     if (!app) return null;
 
     // Step 1: Correlate with IAM platforms
     const posture = await iamCorrelationEngine.correlate(app);
 
     // Step 2: Attach posture to app record
-    applicationService.attachPosture(appId, posture);
+    applicationService.attachPosture(tenantId, appId, posture);
 
     // Step 3: Evaluate controls
     const result = controlDetectionEngine.evaluate(app, posture);
@@ -40,12 +40,12 @@ export class ControlService {
   /**
    * Evaluate controls for all applications.
    */
-  async evaluateAll(): Promise<ControlEvaluationResult[]> {
-    const { apps } = applicationService.listApplications();
+  async evaluateAll(tenantId: string): Promise<ControlEvaluationResult[]> {
+    const { apps } = applicationService.listApplications(tenantId);
     const results: ControlEvaluationResult[] = [];
 
     for (const app of apps) {
-      const result = await this.evaluateApp(app.appId, true);
+      const result = await this.evaluateApp(tenantId, app.appId, true);
       if (result) results.push(result);
     }
 
@@ -56,8 +56,8 @@ export class ControlService {
     return controlCache.get(appId);
   }
 
-  getCacheSummary(): { total: number; evaluated: number; withCriticalGaps: number } {
-    const { apps, total } = applicationService.listApplications();
+  getCacheSummary(tenantId: string): { total: number; evaluated: number; withCriticalGaps: number } {
+    const { apps, total } = applicationService.listApplications(tenantId);
     let withCriticalGaps = 0;
 
     for (const app of apps) {
