@@ -1,6 +1,6 @@
 export const AM_KPIS = [
-  { id: 'identity-base', label: 'Identity Base',      value: '670,234', unit: '',   accentColor: '#6366f1' },
-  { id: 'mfa',           label: 'MFA Coverage',       value: '31.44',   unit: '%',  accentColor: '#a855f7' },
+  { id: 'identity-base', label: 'Identity Base',      value: '670,234', unit: '',   accentColor: '#2563eb' },
+  { id: 'mfa',           label: 'MFA Coverage',       value: '31.44',   unit: '%',  accentColor: '#475569' },
   { id: 'login-success', label: 'Login Success Rate', value: '96.01',   unit: '%',  accentColor: '#22c55e' },
   { id: 'login-time',    label: 'Avg Login Time',     value: '141.6',   unit: 'ms', accentColor: '#06b6d4' },
 ]

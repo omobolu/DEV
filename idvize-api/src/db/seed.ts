@@ -1,7 +1,8 @@
 /**
  * Database Seed — Populate PostgreSQL with demo data
  *
- * Seeds tenants, users (with bcrypt-hashed passwords), and applications.
+ * Seeds tenants, users (with bcrypt-hashed passwords), applications,
+ * and control assessments.
  * Safe to run multiple times (uses ON CONFLICT DO NOTHING).
  *
  * Usage: npx ts-node src/db/seed.ts
@@ -11,6 +12,8 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import pool from './pool';
 import { getSeedMode } from '../config/seed-mode';
+import { CONTROLS_CATALOG } from '../modules/control/control.catalog';
+import type { IamPosture } from '../modules/application/application.types';
 
 const SALT_ROUNDS = 10;
 const NOW = new Date().toISOString();
@@ -71,6 +74,75 @@ const USERS = [
   { user_id: 'usr-globex-developer-001', tenant_id: 'ten-globex', username: 'wei.zhou@globex.io', display_name: 'Wei Zhou', first_name: 'Wei', last_name: 'Zhou', email: 'wei.zhou@globex.io', department: 'Software Engineering', title: 'IAM Developer', roles: ['Developer'], groups: ['grp-developers'], status: 'active', auth_provider: 'local', mfa_enrolled: false, password: 'password123', attributes: { costCentre: 'ENG-004', clearanceLevel: 'standard' } },
 ];
 
+// ── Control outcome detection (mirrors risk-assessment.engine.ts) ──────────
+
+type PostureDetector = (posture: IamPosture) => boolean | null;
+
+const POSTURE_MAP: Record<string, PostureDetector> = {
+  'AM-001':  p => p.ssoEnabled,
+  'AM-002':  p => p.mfaEnforced,
+  'AM-003':  () => null,
+  'AM-004':  () => null,
+  'AM-005':  p => p.platforms.some(pl => pl.platform === 'AM' && pl.onboarded) || null,
+  'AM-006':  () => null,
+  'AM-007':  () => null,
+  'AM-008':  p => p.platforms.some(pl => pl.platform === 'IGA' && pl.onboarded) || null,
+  'AM-009':  () => null,
+  'AM-010':  p => p.ssoEnabled,
+  'AM-011':  () => null,
+  'AM-012':  p => (p.ssoEnabled && p.mfaEnforced) ? true : null,
+  'AM-013':  p => p.mfaEnforced ? true : null,
+  'AM-014':  () => null,
+  'AM-015':  p => p.platforms.some(pl => pl.platform === 'AM' && pl.onboarded) || null,
+  'IGA-001': p => p.jmlAutomated,
+  'IGA-002': p => p.scimEnabled,
+  'IGA-003': p => p.scimEnabled ? true : null,
+  'IGA-004': () => null,
+  'IGA-005': p => p.certificationsConfigured,
+  'IGA-006': () => null,
+  'IGA-007': () => null,
+  'IGA-008': () => null,
+  'IGA-009': () => null,
+  'IGA-010': p => p.certificationsConfigured,
+  'IGA-011': () => null,
+  'IGA-012': () => null,
+  'IGA-013': () => null,
+  'IGA-014': p => p.platforms.some(pl => pl.platform === 'IGA' && pl.onboarded) || null,
+  'IGA-015': () => null,
+  'PAM-001': p => p.privilegedAccountsVaulted,
+  'PAM-002': p => p.privilegedAccountsVaulted,
+  'PAM-003': () => null,
+  'PAM-004': p => p.platforms.some(pl => pl.platform === 'PAM' && pl.onboarded) || null,
+  'PAM-005': () => null,
+  'PAM-006': () => null,
+  'PAM-007': () => null,
+  'PAM-008': () => null,
+  'PAM-009': () => null,
+  'PAM-010': p => p.privilegedAccountsVaulted ? true : null,
+  'CIAM-001': p => p.platforms.some(pl => pl.platform === 'CIAM' && pl.onboarded) || null,
+  'CIAM-002': p => p.platforms.some(pl => pl.platform === 'CIAM' && pl.onboarded) || null,
+  'CIAM-003': p => p.mfaEnforced ? true : null,
+  'CIAM-004': () => null,
+  'CIAM-005': () => null,
+  'CIAM-006': () => null,
+  'CIAM-007': () => null,
+  'CIAM-008': () => null,
+  'CIAM-009': () => null,
+};
+
+type ControlOutcome = 'OK' | 'ATTN' | 'GAP';
+
+function detectOutcome(controlId: string, posture: IamPosture | undefined): ControlOutcome {
+  if (!posture) return 'ATTN';
+  const detector = POSTURE_MAP[controlId];
+  if (!detector) return 'ATTN';
+  const result = detector(posture);
+  if (result === null) return 'ATTN';
+  return result ? 'OK' : 'GAP';
+}
+
+// ── Seed logic ────────────────────────────────────────────────────────────────
+
 async function seed(): Promise<void> {
   const mode = getSeedMode();
   const raw = (process.env.SEED_MODE ?? '').trim();
@@ -107,6 +179,44 @@ async function seed(): Promise<void> {
   }
   console.log(`[SEED] Users: ${USERS.length} (passwords bcrypt-hashed)`);
 
+  // Applications + Control Assessments (imported from seed data)
+  const { SEED_ACME_APPS, SEED_GLOBEX_APPS } = await import('../modules/application/application.seed');
+
+  const appSets: Array<{ tenantId: string; apps: Array<{ appId: string; name: string; rawName: string; owner: string; ownerEmail: string; vendor: string; supportContact?: string; department: string; riskTier: string; dataClassification: string; userPopulation: number; appType: string; tags: string[]; source: string; status: string; iamPosture?: IamPosture }> }> = [
+    { tenantId: 'ten-acme',  apps: SEED_ACME_APPS },
+    { tenantId: 'ten-globex', apps: SEED_GLOBEX_APPS },
+  ];
+
+  let totalApps = 0;
+  let totalAssessments = 0;
+
+  for (const { tenantId, apps } of appSets) {
+    for (const a of apps) {
+      await pool.query(
+        `INSERT INTO applications (app_id, tenant_id, name, raw_name, owner, owner_email, vendor, support_contact, department, risk_tier, data_classification, user_population, app_type, tags, source, status, iam_posture, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18)
+         ON CONFLICT (app_id) DO NOTHING`,
+        [a.appId, tenantId, a.name, a.rawName, a.owner, a.ownerEmail, a.vendor, a.supportContact ?? null, a.department, a.riskTier, a.dataClassification, a.userPopulation, a.appType, JSON.stringify(a.tags), a.source, a.status, a.iamPosture ? JSON.stringify(a.iamPosture) : null, NOW]
+      );
+      totalApps++;
+
+      // Compute and persist control assessments for each app
+      for (const ctrl of CONTROLS_CATALOG) {
+        const outcome = detectOutcome(ctrl.controlId, a.iamPosture);
+        await pool.query(
+          `INSERT INTO control_assessments (tenant_id, app_id, control_id, control_name, pillar, outcome, evaluated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (tenant_id, app_id, control_id) DO NOTHING`,
+          [tenantId, a.appId, ctrl.controlId, ctrl.name, ctrl.pillar, outcome, NOW]
+        );
+        totalAssessments++;
+      }
+    }
+    console.log(`[SEED] Applications for ${tenantId}: ${apps.length}`);
+  }
+
+  console.log(`[SEED] Total applications: ${totalApps}`);
+  console.log(`[SEED] Total control assessments: ${totalAssessments}`);
   console.log('[SEED] Complete');
   await pool.end();
 }

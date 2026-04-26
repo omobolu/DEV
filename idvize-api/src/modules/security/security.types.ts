@@ -86,7 +86,9 @@ export type PermissionId =
   | 'secrets.approve'
   | 'secrets.manage.provider'
   // Tenant management (PlatformAdmin only)
-  | 'tenants.manage';
+  | 'tenants.manage'
+  // Risk Engine
+  | 'risks.view';
 
 export interface Permission {
   permissionId: PermissionId;

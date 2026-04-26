@@ -1,12 +1,14 @@
 export const COLORS = {
-  indigo: ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe'],
-  cyan:   ['#06b6d4', '#22d3ee', '#67e8f9', '#a5f3fc'],
-  amber:  ['#f59e0b', '#fbbf24', '#fcd34d', '#fde68a'],
-  green:  ['#22c55e', '#4ade80', '#86efac', '#bbf7d0'],
-  red:    ['#ef4444', '#f87171', '#fca5a5', '#fecaca'],
-  orange: ['#f97316', '#fb923c', '#fdba74', '#fed7aa'],
-  purple: ['#a855f7', '#c084fc', '#d8b4fe', '#ede9fe'],
-  teal:   ['#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4'],
+  /* Enterprise security palette — navy/blue primary, status-driven accents.
+     Purple is neutralized to slate (subtle accent only). */
+  indigo: ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd'], // navy → blue scale
+  cyan:   ['#0891b2', '#06b6d4', '#22d3ee', '#67e8f9'],
+  amber:  ['#d97706', '#f59e0b', '#fbbf24', '#fcd34d'], // ATTN
+  green:  ['#16a34a', '#22c55e', '#4ade80', '#86efac'], // OK
+  red:    ['#dc2626', '#ef4444', '#f87171', '#fca5a5'], // GAP
+  orange: ['#ea580c', '#f97316', '#fb923c', '#fdba74'],
+  purple: ['#475569', '#64748b', '#94a3b8', '#cbd5e1'], // neutralized → slate
+  teal:   ['#0f766e', '#14b8a6', '#2dd4bf', '#5eead4'],
 }
 
 // Legacy exports (kept for backward compat — prefer getChartTheme)

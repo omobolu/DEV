@@ -82,7 +82,7 @@ function fmtTime(iso: string): string {
 }
 
 function tierColor(tier: string): string {
-  return tier === 'critical' ? '#ef4444' : tier === 'high' ? '#f97316' : tier === 'medium' ? '#eab308' : '#6366f1'
+  return tier === 'critical' ? '#ef4444' : tier === 'high' ? '#f97316' : tier === 'medium' ? '#eab308' : '#2563eb'
 }
 
 function severityColor(sev: string): string {
@@ -436,8 +436,8 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
                     {[Mail, ClipboardList, Bot, UserCog].map((Icon, i) => (
                       <div key={i} className="flex flex-col items-center">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                             style={{ backgroundColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '30')[i],
-                                      borderWidth: 1, borderStyle: 'solid', borderColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '50')[i] }}>
+                             style={{ backgroundColor: [sc, '#1e3a8a', '#0891b2', '#d97706'].map(c => c + '30')[i],
+                                      borderWidth: 1, borderStyle: 'solid', borderColor: [sc, '#1e3a8a', '#0891b2', '#d97706'].map(c => c + '50')[i] }}>
                           <Icon size={11} style={{ color: [sc, '#a78bfa', '#22d3ee', '#fbbf24'][i] }} />
                         </div>
                         {i < 3 && <div className="w-px h-4 bg-surface-600" />}
@@ -633,12 +633,12 @@ function ModuleCard({ mod, onClick }: { mod: OsModule; onClick: () => void }) {
 // ── Process Row ───────────────────────────────────────────────────────────────
 
 const STATE_COLOR: Record<string, string> = {
-  running: '#22c55e', pending: '#6366f1', queued: '#eab308',
+  running: '#22c55e', pending: '#2563eb', queued: '#eab308',
   overdue: '#ef4444', failed: '#ef4444', completed: '#64748b',
   build_in_progress: '#22c55e', classified: '#eab308', cancelled: '#64748b',
 }
 const TYPE_COLOR: Record<string, string> = {
-  build: '#6366f1', approval: '#06b6d4', rotation: '#f59e0b', certification: '#22c55e',
+  build: '#2563eb', approval: '#06b6d4', rotation: '#f59e0b', certification: '#22c55e',
 }
 
 function ProcessRow({ proc }: { proc: Process }) {
@@ -815,7 +815,7 @@ export default function OSControlPanel() {
               label="Identity Protection"
               value={`${cov?.protectionPct ?? 0}%`}
               sub={`${cov?.protectedIdentities?.toLocaleString()}/${cov?.totalIdentities?.toLocaleString()}`}
-              color="#6366f1"
+              color="#2563eb"
               icon={Users}
             />
             <KpiTile
@@ -1143,7 +1143,7 @@ export default function OSControlPanel() {
                 { tier: 'Critical', controls: ['SSO', 'MFA', 'PAM', 'Access Review'], color: '#ef4444' },
                 { tier: 'High',     controls: ['SSO', 'MFA'],                          color: '#f97316' },
                 { tier: 'Medium',   controls: ['SSO'],                                 color: '#eab308' },
-                { tier: 'Low',      controls: ['No mandatory controls'],               color: '#6366f1' },
+                { tier: 'Low',      controls: ['No mandatory controls'],               color: '#2563eb' },
               ].map(p => (
                 <div key={p.tier} className="flex items-center gap-4 p-3 rounded-lg bg-surface-900/50">
                   <span className="text-sm font-medium w-16" style={{ color: p.color }}>{p.tier}</span>

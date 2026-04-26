@@ -33,7 +33,8 @@ import { auditService }                     from '../security/audit/audit.servic
 import { requireAuth }                      from '../../middleware/requireAuth';
 import { tenantContext }                    from '../../middleware/tenantContext';
 import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
-import { computePortfolioRisks, buildPortfolioRiskSummary } from './risk.engine';
+import { riskService } from './risk.service';
+import { requirePermission } from '../../middleware/requirePermission';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
 import { IamPosture }                       from '../application/application.types';
@@ -730,44 +731,50 @@ router.get('/alerts', async (req: Request, res: Response) => {
   res.json({ success: true, data: alerts });
 });
 
-// ── GET /os/risks — full portfolio ranked by IAM risk score ──────────────────
-router.get('/risks', (req: Request, res: Response) => {
-  const apps   = applicationRepository.findAll(req.tenantId!);
-  const ranked = computePortfolioRisks(apps);
-  const summary = buildPortfolioRiskSummary(ranked);
+// ── GET /os/risks — Top IAM Risk Engine (v1) ────────────────────────────────
+// Controller → Service → Repository (PostgreSQL) layering.
+// tenantId comes ONLY from JWT (req.tenantId). Never from query/body/params.
+// Production fail-closed: PG unavailable → 503.
+router.get('/risks', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const levelFilter = req.query.level as string | undefined;
+    const result = await riskService.getPortfolioRisks(tenantId, levelFilter);
 
-  // Optional tier filter: ?tier=critical|high|medium|low
-  const tierFilter = req.query.tier as string | undefined;
-  const results    = tierFilter
-    ? ranked.filter(r => r.riskTier === tierFilter)
-    : ranked;
-
-  res.json({
-    success: true,
-    data: { summary, ranked: results },
-    timestamp: new Date().toISOString(),
-  });
+    res.json({
+      success: true,
+      data: { summary: result.summary, risks: result.risks },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
+  }
 });
 
-// ── GET /os/risks/:appId — single app risk summary with priority rank ─────────
-router.get('/risks/:appId', (req: Request, res: Response) => {
-  const appId = req.params.appId as string;
-  const app = applicationRepository.findById(req.tenantId!, appId);
-  if (!app) {
-    res.status(404).json({ success: false, error: `Application '${appId}' not found` });
-    return;
+// ── GET /os/risks/:applicationId — single app risk assessment ─────────────────
+// Queries by BOTH applicationId AND tenantId via PostgreSQL. Returns 404 if not found.
+// Production fail-closed: PG unavailable → 503.
+router.get('/risks/:appId', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const appId    = req.params.appId as string;
+    const risk     = await riskService.getApplicationRisk(tenantId, appId);
+
+    if (!risk) {
+      res.status(404).json({ success: false, error: 'Application not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: risk,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks/:appId failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
   }
-
-  // Compute full portfolio so we can assign the correct priority rank
-  const allApps = applicationRepository.findAll(req.tenantId!);
-  const ranked  = computePortfolioRisks(allApps);
-  const result  = ranked.find(r => r.appId === appId);
-
-  res.json({
-    success: true,
-    data: result,
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // ── Gap Engine — mock data ────────────────────────────────────────────────────
