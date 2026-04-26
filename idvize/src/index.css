@@ -92,4 +92,28 @@
     scrollbar-width: thin;
     scrollbar-color: var(--s-scrollbar) transparent;
   }
+
+  /* ── Subtle entrance + ambient motion (enterprise-tasteful) ── */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up { animation: fade-up 320ms ease-out both; }
+
+  @keyframes wash-drift-a {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(4%, 3%, 0) scale(1.06); }
+  }
+  @keyframes wash-drift-b {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(-3%, -4%, 0) scale(1.05); }
+  }
+  .animate-wash-a { animation: wash-drift-a 26s ease-in-out infinite alternate; }
+  .animate-wash-b { animation: wash-drift-b 32s ease-in-out infinite alternate; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-up,
+    .animate-wash-a,
+    .animate-wash-b { animation: none !important; }
+  }
 }
