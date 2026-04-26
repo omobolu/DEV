@@ -15,33 +15,71 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, RefreshCw, Filter, Search, ArrowUpDown,
-  ShieldAlert, ShieldCheck, AlertTriangle, X,
-  ChevronRight, Wrench, BookOpen, Layers, Clock,
-  Bot, Loader2, CheckCircle2,
+  ShieldAlert, ShieldCheck, AlertTriangle, X, AlertCircle,
+  BookOpen, Layers, Clock,
+  Bot, Loader2, CheckCircle2, Mail, ListChecks,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 
-// ── Remediation kickoff (existing backend endpoint, no contract change) ────
+// ── Pillar → friendly agent name (UI-only mapping) ─────────────────────────
+//
+// The backend's `buildType` is technical (sso_integration, iga_onboarding…).
+// CISOs and business stakeholders need a recognizable, function-specific name
+// so they understand exactly what the agent will do before approving it.
 
-type RemediationKind = 'fix' | 'agent'
+const AGENT_BY_PILLAR: Record<'AM' | 'IGA' | 'PAM' | 'CIAM', { name: string; verb: string; configures: string }> = {
+  AM:   { name: 'SSO Configuration Agent',           verb: 'configure SSO and MFA',                       configures: 'identity provider, protocol, redirect URIs, and MFA policy' },
+  IGA:  { name: 'Lifecycle Provisioning Agent',      verb: 'wire up SCIM provisioning and access reviews', configures: 'SCIM endpoint, joiner/mover/leaver triggers, and certification cadence' },
+  PAM:  { name: 'Privileged Access Vault Agent',     verb: 'onboard privileged accounts to the vault',    configures: 'vaulted account types, rotation policy, and session recording' },
+  CIAM: { name: 'Customer Identity Onboarding Agent', verb: 'configure customer identity flows',           configures: 'customer journey, MFA methods, and external IdPs' },
+}
+
+// ── Remediation kickoff (existing backend endpoint, no contract change) ────
+//
+// The endpoint creates BOTH the approval request and the AI-agent build job
+// in one call. The pre-flight modal acts as the operator's confirmation gate
+// before this fires (since the backend doesn't currently wait for IAM Manager
+// approval before notifying — see PR description for the planned backend gating).
+
+interface RemediationFormField {
+  label: string
+  hint: string
+  required: boolean
+}
+
+interface RemediationRecipient {
+  role: string
+  name: string
+  email: string
+}
 
 interface RemediationResult {
   approvalId?: string
-  buildJobId?: string
-  notifiedParties?: string[]
+  buildId?: string
+  appName?: string
+  controlName?: string
+  pillar?: string
+  sentTo: RemediationRecipient[]
+  formFields: RemediationFormField[]
+  nextSteps: string[]
   message: string
 }
 
 async function triggerRemediation(appId: string, controlId: string): Promise<RemediationResult> {
   const res  = await apiFetch(`/controls/app/${appId}/${controlId}/remediate`, { method: 'POST' })
   const json = await res.json()
-  if (!json.success) throw new Error(json.error || 'Remediation request failed')
+  if (!json.success) throw new Error(json.error || 'Agent dispatch failed')
   const data = json.data ?? {}
   return {
-    approvalId:      data.approvalId,
-    buildJobId:      data.buildJobId,
-    notifiedParties: data.notifiedParties,
-    message:         data.message ?? 'Remediation request submitted',
+    approvalId:  data.approvalId,
+    buildId:     data.buildId,
+    appName:     data.appName,
+    controlName: data.controlName,
+    pillar:      data.pillar,
+    sentTo:      Array.isArray(data.sentTo)     ? data.sentTo     : [],
+    formFields:  Array.isArray(data.formFields) ? data.formFields : [],
+    nextSteps:   Array.isArray(data.nextSteps)  ? data.nextSteps  : [],
+    message:     data.message ?? 'Agent dispatch submitted',
   }
 }
 
@@ -147,17 +185,17 @@ function PillarBadge({ pillar }: { pillar: Pillar }) {
 // ── Control table row ───────────────────────────────────────────────────────
 
 function ControlRow({
-  ctrl, onSelect, onRemediate, busyKind,
+  ctrl, onSelect, onLaunch,
 }: {
   ctrl: EnrichedControl
   onSelect: () => void
-  onRemediate: (controlId: string, kind: RemediationKind) => void
-  busyKind: RemediationKind | null
+  onLaunch: (ctrl: EnrichedControl) => void
 }) {
   const outcomeCfg = OUTCOME_CFG[ctrl.outcome]
   const isActionable = ctrl.outcome !== 'OK'
-  // OK rows are visually quieter — slightly muted text, no action buttons
+  // OK rows are visually quieter — slightly muted, no action button
   const rowMutedClass = ctrl.outcome === 'OK' ? 'opacity-75 hover:opacity-100' : ''
+  const agent = AGENT_BY_PILLAR[ctrl.pillar]
 
   return (
     <tr
@@ -202,28 +240,18 @@ function ControlRow({
         </span>
       </td>
 
-      {/* Action — inline buttons for GAP/ATTN; quiet "Passing" for OK */}
+      {/* Action — single Launch button for GAP/ATTN; quiet "Passing" for OK */}
       <td className="px-4 py-3 text-right">
         {isActionable ? (
-          <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-end" onClick={e => e.stopPropagation()}>
             <button
               type="button"
-              onClick={() => onRemediate(ctrl.controlId, 'fix')}
-              disabled={busyKind !== null}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              aria-label={`Fix issue for ${ctrl.controlName}`}
+              onClick={() => onLaunch(ctrl)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              title={`Launch ${agent.name} for ${ctrl.controlName}`}
+              aria-label={`Launch ${agent.name} for ${ctrl.controlName}`}
             >
-              {busyKind === 'fix' ? <Loader2 size={11} className="animate-spin" /> : <Wrench size={11} />}
-              Fix Issue
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemediate(ctrl.controlId, 'agent')}
-              disabled={busyKind !== null}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border border-blue-500/60 text-blue-300 hover:bg-blue-500/10 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              aria-label={`Launch AI agent for ${ctrl.controlName}`}
-            >
-              {busyKind === 'agent' ? <Loader2 size={11} className="animate-spin" /> : <Bot size={11} />}
+              <Bot size={11} />
               Launch Agent
             </button>
           </div>
@@ -241,16 +269,16 @@ function ControlRow({
 // ── Control Detail Drawer ───────────────────────────────────────────────────
 
 function ControlDrawer({
-  ctrl, onClose, onRemediate, busyKind,
+  ctrl, onClose, onLaunch,
 }: {
   ctrl: EnrichedControl
   onClose: () => void
-  onRemediate: (controlId: string, kind: RemediationKind) => void
-  busyKind: RemediationKind | null
+  onLaunch: (ctrl: EnrichedControl) => void
 }) {
   const outcomeCfg = OUTCOME_CFG[ctrl.outcome]
   const pillarCfg = PILLAR_CFG[ctrl.pillar]
   const complexityCfg = COMPLEXITY_CFG[ctrl.implementationComplexity] ?? COMPLEXITY_CFG.medium
+  const agent = AGENT_BY_PILLAR[ctrl.pillar]
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -353,7 +381,7 @@ function ControlDrawer({
             </div>
           )}
 
-          {/* Recommended Actions + Remediation buttons — for GAP/ATTN */}
+          {/* Remediation — single Launch button + recommended steps (GAP/ATTN only) */}
           {ctrl.outcome !== 'OK' && (
             <div className={`rounded-xl p-4 border ${
               ctrl.outcome === 'GAP'
@@ -361,7 +389,7 @@ function ControlDrawer({
                 : 'bg-amber-900/10 border-amber-800/30'
             }`}>
               <div className="flex items-center gap-2 mb-3">
-                <Wrench size={14} className={ctrl.outcome === 'GAP' ? 'text-a-red' : 'text-a-amber'} />
+                <Bot size={14} className={ctrl.outcome === 'GAP' ? 'text-a-red' : 'text-a-amber'} />
                 <p className={`text-xs font-bold uppercase tracking-wider ${
                   ctrl.outcome === 'GAP' ? 'text-a-red' : 'text-a-amber'
                 }`}>
@@ -369,35 +397,21 @@ function ControlDrawer({
                 </p>
               </div>
 
-              {/* Prominent action buttons */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => onRemediate(ctrl.controlId, 'fix')}
-                  disabled={busyKind !== null}
-                  className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {busyKind === 'fix' ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
-                  Fix Issue
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemediate(ctrl.controlId, 'agent')}
-                  disabled={busyKind !== null}
-                  className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-blue-500/60 text-blue-300 hover:bg-blue-500/10 text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {busyKind === 'agent' ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-                  Launch Agent
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onLaunch(ctrl)}
+                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors mb-2"
+              >
+                <Bot size={15} />
+                Launch {agent.name}
+              </button>
               <p className="text-[11px] text-muted mb-4 leading-relaxed">
-                <strong className="text-body">Fix Issue</strong> opens an approval request and notifies the app owner.
-                <strong className="text-body"> Launch Agent</strong> dispatches an AI build job to gather context and propose changes.
+                The agent will {agent.verb} on this app. You'll confirm the workflow and recipients in the next step.
               </p>
 
               {ctrl.recommendedActions.length > 0 && (
                 <>
-                  <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Recommended steps</p>
+                  <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">What the agent will do</p>
                   <ol className="space-y-2">
                     {ctrl.recommendedActions.map((action, i) => (
                       <li key={i} className="flex gap-2.5 text-sm text-secondary">
@@ -443,6 +457,330 @@ function ControlDrawer({
   )
 }
 
+// ── Launch Agent Modal — pre-flight confirmation, then result view ─────────
+//
+// State machine:
+//   confirm  — show what will happen, [Cancel] [Confirm Launch]
+//   loading  — POST in flight
+//   result   — show actual approval/build IDs, recipients, form fields, next steps
+//   error    — show failure message, [Close] [Retry]
+
+type ModalState =
+  | { kind: 'confirm' }
+  | { kind: 'loading' }
+  | { kind: 'result'; data: RemediationResult }
+  | { kind: 'error'; message: string }
+
+function LaunchAgentModal({
+  ctrl, appId, appName, onClose,
+}: {
+  ctrl: EnrichedControl
+  appId: string
+  appName: string | undefined
+  onClose: () => void
+}) {
+  const [state, setState] = useState<ModalState>({ kind: 'confirm' })
+  const agent = AGENT_BY_PILLAR[ctrl.pillar]
+
+  const handleConfirm = useCallback(async () => {
+    setState({ kind: 'loading' })
+    try {
+      const data = await triggerRemediation(appId, ctrl.controlId)
+      setState({ kind: 'result', data })
+    } catch (e) {
+      setState({ kind: 'error', message: (e as Error).message })
+    }
+  }, [appId, ctrl.controlId])
+
+  // Close on Escape (only allowed when not in flight)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && state.kind !== 'loading') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose, state.kind])
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={() => state.kind !== 'loading' && onClose()}
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="launch-agent-modal-title"
+        className="relative w-full max-w-xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-surface-700">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
+              <Bot size={18} className="text-blue-400" />
+            </div>
+            <div className="min-w-0">
+              <h2 id="launch-agent-modal-title" className="text-base font-bold text-heading">
+                {agent.name}
+              </h2>
+              <p className="text-xs text-muted mt-0.5 truncate">
+                {appName ?? 'Application'} · {ctrl.controlId} {ctrl.controlName}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => state.kind !== 'loading' && onClose()}
+            disabled={state.kind === 'loading'}
+            className="p-1.5 text-muted hover:text-body hover:bg-surface-700 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 max-h-[70vh] overflow-y-auto">
+          {state.kind === 'confirm' && (
+            <ConfirmStep ctrl={ctrl} agent={agent} appName={appName} />
+          )}
+
+          {state.kind === 'loading' && (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <Loader2 size={28} className="animate-spin text-blue-400 mb-3" />
+              <p className="text-sm font-medium text-body">Dispatching {agent.name}…</p>
+              <p className="text-xs text-muted mt-1">Creating approval and queueing build job</p>
+            </div>
+          )}
+
+          {state.kind === 'result' && (
+            <ResultStep result={state.data} agent={agent} />
+          )}
+
+          {state.kind === 'error' && (
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-red-900/15 border border-red-800/40">
+              <AlertCircle size={18} className="text-a-red flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-a-red">Dispatch failed</p>
+                <p className="text-xs text-muted mt-1">{state.message}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-surface-700 bg-surface-800/40">
+          {state.kind === 'confirm' && (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-muted hover:text-body hover:bg-surface-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+              >
+                <Bot size={13} />
+                Launch {agent.name}
+              </button>
+            </>
+          )}
+          {state.kind === 'loading' && (
+            <span className="text-xs text-muted">Please wait…</span>
+          )}
+          {state.kind === 'result' && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+            >
+              Done
+            </button>
+          )}
+          {state.kind === 'error' && (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-muted hover:text-body hover:bg-surface-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+              >
+                Retry
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ConfirmStep({
+  ctrl, agent, appName,
+}: {
+  ctrl: EnrichedControl
+  agent: { name: string; verb: string; configures: string }
+  appName: string | undefined
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-surface-800 border border-surface-700 rounded-lg p-4">
+        <p className="text-xs text-muted leading-relaxed">
+          The <strong className="text-body">{agent.name}</strong> will {agent.verb} on
+          {' '}<strong className="text-body">{appName ?? 'this application'}</strong>. It will configure
+          the {agent.configures}.
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">
+          Workflow that will be triggered
+        </p>
+        <ol className="space-y-2">
+          {[
+            'Approval queued for IAM Manager review (visible in their work list)',
+            'Notifications sent to Business Owner (from CMDB) and Technical Admin',
+            'Configuration form delivered to the App Owner with required SSO/IAM fields',
+            `Build job queued — ${agent.name} will run once the form is submitted`,
+          ].map((line, i) => (
+            <li key={i} className="flex gap-2.5 text-xs text-secondary">
+              <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-blue-900/30 text-blue-300 text-[10px] font-bold">
+                {i + 1}
+              </span>
+              <span className="leading-relaxed">{line}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Honest framing — backend doesn't yet gate on approval before notifying */}
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-900/10 border border-amber-800/30">
+        <AlertCircle size={14} className="text-a-amber flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-muted leading-relaxed">
+          <strong className="text-a-amber">Note:</strong> in this version, notifications and the
+          form are sent in parallel with creating the IAM Manager approval. The
+          approver-gates-first ordering and the App Owner approval toggle are tracked as a
+          backend follow-up.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function ResultStep({
+  result, agent,
+}: {
+  result: RemediationResult
+  agent: { name: string }
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2.5 p-3 rounded-lg bg-emerald-900/15 border border-emerald-700/40">
+        <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
+        <p className="text-sm font-medium text-emerald-300">{result.message}</p>
+      </div>
+
+      {/* IDs */}
+      <div className="grid grid-cols-2 gap-3">
+        {result.approvalId && (
+          <div className="bg-surface-800 border border-surface-700 rounded-lg p-3">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">Approval</p>
+            <p className="text-xs font-mono text-body break-all">{result.approvalId}</p>
+          </div>
+        )}
+        {result.buildId && (
+          <div className="bg-surface-800 border border-surface-700 rounded-lg p-3">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">Build job</p>
+            <p className="text-xs font-mono text-body break-all">{result.buildId}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Sent to */}
+      {result.sentTo.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Mail size={12} className="text-muted" />
+            <p className="text-[10px] font-semibold text-muted uppercase tracking-wider">
+              Notifications sent to
+            </p>
+          </div>
+          <ul className="space-y-1.5">
+            {result.sentTo.map((r, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 text-xs px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg">
+                <div className="min-w-0">
+                  <p className="font-medium text-body truncate">{r.name}</p>
+                  <p className="text-[10px] text-muted truncate">{r.email}</p>
+                </div>
+                <span className="text-[10px] text-blue-300 font-semibold flex-shrink-0">{r.role}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Form fields the SME will see */}
+      {result.formFields.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <ListChecks size={12} className="text-muted" />
+            <p className="text-[10px] font-semibold text-muted uppercase tracking-wider">
+              Form fields the App Owner will receive
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            {result.formFields.map((f, i) => (
+              <div key={i} className="flex items-baseline justify-between gap-3 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-body">
+                    {f.label}
+                    {f.required && <span className="text-a-red ml-1">*</span>}
+                  </p>
+                  <p className="text-[10px] text-muted truncate">{f.hint}</p>
+                </div>
+                <span className="text-[10px] text-muted flex-shrink-0">{f.required ? 'required' : 'optional'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Next steps */}
+      {result.nextSteps.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Next steps</p>
+          <ol className="space-y-1.5">
+            {result.nextSteps.map((step, i) => (
+              <li key={i} className="flex gap-2 text-xs text-secondary">
+                <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full bg-blue-900/30 text-blue-300 text-[9px] font-bold">
+                  {i + 1}
+                </span>
+                <span className="leading-relaxed">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="text-[11px] text-muted">
+        {agent.name} will pick up this build automatically once the configuration form is submitted.
+      </p>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ControlDetailView() {
@@ -456,10 +794,8 @@ export default function ControlDetailView() {
   const [search,   setSearch]   = useState('')
   const [sortBy,   setSortBy]   = useState<SortKey>('outcome')
   const [selected, setSelected] = useState<EnrichedControl | null>(null)
-  // Tracks the in-flight remediation: which control + which kind (fix vs agent)
-  const [remediating, setRemediating] = useState<{ controlId: string; kind: RemediationKind } | null>(null)
-  // Inline confirmation banner shown after a successful remediation request
-  const [notice, setNotice] = useState<{ kind: RemediationKind; controlId: string; message: string; details?: string } | null>(null)
+  // The control currently being launched via the agent modal (null = closed)
+  const [launching, setLaunching] = useState<EnrichedControl | null>(null)
 
   const load = useCallback(async () => {
     if (!appId) return
@@ -488,47 +824,9 @@ export default function ControlDetailView() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Auto-dismiss success notice after 6 seconds
-  useEffect(() => {
-    if (!notice) return
-    const t = setTimeout(() => setNotice(null), 6000)
-    return () => clearTimeout(t)
-  }, [notice])
-
-  const handleRemediate = useCallback(async (controlId: string, kind: RemediationKind) => {
-    if (!appId || remediating) return
-    setRemediating({ controlId, kind })
-    setError('')
-    try {
-      const result = await triggerRemediation(appId, controlId)
-      const detailParts: string[] = []
-      if (kind === 'fix' && result.approvalId) {
-        detailParts.push(`Approval ${result.approvalId}`)
-        if (result.notifiedParties && result.notifiedParties.length > 0) {
-          detailParts.push(`notified ${result.notifiedParties.join(', ')}`)
-        }
-      }
-      if (kind === 'agent' && result.buildJobId) {
-        detailParts.push(`Build job ${result.buildJobId} dispatched`)
-      }
-      setNotice({
-        kind,
-        controlId,
-        message: kind === 'fix'
-          ? `Fix request submitted for ${controlId}`
-          : `AI agent dispatched for ${controlId}`,
-        details: detailParts.join(' · '),
-      })
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setRemediating(null)
-    }
-  }, [appId, remediating])
-
-  const busyKindFor = useCallback((controlId: string): RemediationKind | null => {
-    return remediating?.controlId === controlId ? remediating.kind : null
-  }, [remediating])
+  const handleLaunch = useCallback((ctrl: EnrichedControl) => {
+    setLaunching(ctrl)
+  }, [])
 
   const visible = useMemo(() => {
     if (!data) return []
@@ -677,30 +975,6 @@ export default function ControlDetailView() {
         )
       })()}
 
-      {/* Inline confirmation banner after a remediation request */}
-      {notice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-start gap-3 p-3 bg-emerald-900/15 border border-emerald-700/40 rounded-lg"
-        >
-          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-emerald-300">{notice.message}</p>
-            {notice.details && (
-              <p className="text-xs text-muted mt-0.5">{notice.details}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className="text-muted hover:text-body transition-colors"
-            aria-label="Dismiss notification"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {/* Filter + Search + Sort bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -789,8 +1063,7 @@ export default function ControlDetailView() {
                     key={ctrl.controlId}
                     ctrl={ctrl}
                     onSelect={() => setSelected(ctrl)}
-                    onRemediate={handleRemediate}
-                    busyKind={busyKindFor(ctrl.controlId)}
+                    onLaunch={handleLaunch}
                   />
                 ))}
                 {visible.length === 0 && (
@@ -820,8 +1093,17 @@ export default function ControlDetailView() {
         <ControlDrawer
           ctrl={selected}
           onClose={() => setSelected(null)}
-          onRemediate={handleRemediate}
-          busyKind={busyKindFor(selected.controlId)}
+          onLaunch={handleLaunch}
+        />
+      )}
+
+      {/* Launch agent modal — pre-flight confirmation + result view */}
+      {launching && appId && (
+        <LaunchAgentModal
+          ctrl={launching}
+          appId={appId}
+          appName={data?.applicationName}
+          onClose={() => setLaunching(null)}
         />
       )}
     </div>
