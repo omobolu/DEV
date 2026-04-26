@@ -132,6 +132,64 @@ class RiskRepository {
       drivers: r.drivers ?? [],
     };
   }
+
+  /**
+   * Fetch ALL control assessments for a single application, scoped by tenantId.
+   * Returns every control row (OK, ATTN, GAP) — not just drivers.
+   */
+  async getApplicationControls(tenantId: string, applicationId: string): Promise<ControlAssessmentRow[]> {
+    const { rows } = await pool.query<{
+      app_id: string;
+      app_name: string;
+      tenant_id: string;
+      control_id: string;
+      control_name: string;
+      pillar: IamPillar;
+      outcome: 'OK' | 'ATTN' | 'GAP';
+      evaluated_at: string;
+    }>(
+      `SELECT
+         a.app_id,
+         a.name AS app_name,
+         a.tenant_id,
+         ca.control_id,
+         ca.control_name,
+         ca.pillar,
+         ca.outcome,
+         ca.evaluated_at::text
+       FROM applications a
+       JOIN control_assessments ca
+         ON ca.app_id = a.app_id
+        AND ca.tenant_id = a.tenant_id
+       WHERE a.tenant_id = $1
+         AND a.app_id = $2
+         AND a.status = 'active'
+       ORDER BY ca.control_id`,
+      [tenantId, applicationId],
+    );
+
+    return rows.map(r => ({
+      appId: r.app_id,
+      applicationName: r.app_name,
+      tenantId: r.tenant_id,
+      controlId: r.control_id,
+      controlName: r.control_name,
+      pillar: r.pillar,
+      outcome: r.outcome,
+      evaluatedAt: r.evaluated_at,
+    }));
+  }
+}
+
+export interface ControlAssessmentRow {
+  appId: string;
+  applicationName: string;
+  tenantId: string;
+  controlId: string;
+  controlName: string;
+  pillar: IamPillar;
+  outcome: 'OK' | 'ATTN' | 'GAP';
+  evaluatedAt: string;
 }
 
 export const riskRepository = new RiskRepository();

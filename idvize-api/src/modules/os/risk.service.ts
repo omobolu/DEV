@@ -10,6 +10,8 @@
 
 import { riskRepository } from './risk.repository';
 import type { AssessmentRiskLevel, ApplicationRisk, RiskSummary, ControlDriver } from './risk-assessment.engine';
+import { CONTROLS_CATALOG } from '../control/control.catalog';
+import type { IamPillar } from '../control/control.catalog';
 
 const VALID_LEVELS = new Set<string>(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
 
@@ -96,6 +98,87 @@ class RiskService {
       drivers: row.drivers as ControlDriver[],
     };
   }
+
+  /**
+   * Fetch all 49 controls for an application, enriched with catalog metadata.
+   * GAP and ATTN controls include recommended remediation actions from the catalog.
+   * Returns undefined if the app doesn't belong to the tenant.
+   */
+  async getApplicationControls(tenantId: string, applicationId: string): Promise<ApplicationControlsResult | undefined> {
+    // Existence check: verify app belongs to this tenant (uses LEFT JOIN, always returns for valid apps)
+    const appRisk = await riskRepository.getApplicationRisk(tenantId, applicationId);
+    if (!appRisk) return undefined;
+
+    // Fetch control rows (INNER JOIN — may be empty for apps with no assessments)
+    const rows = await riskRepository.getApplicationControls(tenantId, applicationId);
+
+    const catalogMap = new Map(CONTROLS_CATALOG.map(c => [c.controlId, c]));
+
+    const controls: EnrichedControl[] = rows.map(r => {
+      const catalog = catalogMap.get(r.controlId);
+      return {
+        controlId: r.controlId,
+        controlName: r.controlName,
+        pillar: r.pillar,
+        outcome: r.outcome,
+        category: catalog?.category ?? 'Unknown',
+        description: catalog?.description ?? '',
+        riskReduction: catalog?.riskReduction ?? 'medium',
+        implementationComplexity: catalog?.implementationComplexity ?? 'medium',
+        policyDrivers: catalog?.policyDrivers ?? [],
+        capabilities: catalog?.capabilities ?? [],
+        recommendedActions: catalog?.platform.agentActions ?? [],
+        platformName: catalog?.platform.platformName ?? '',
+        evaluatedAt: r.evaluatedAt,
+      };
+    });
+
+    // Sort: GAP first, then ATTN, then OK. Within same outcome, sort by controlId.
+    const OUTCOME_ORDER: Record<string, number> = { GAP: 0, ATTN: 1, OK: 2 };
+    controls.sort((a, b) => {
+      const outcomeDiff = (OUTCOME_ORDER[a.outcome] ?? 2) - (OUTCOME_ORDER[b.outcome] ?? 2);
+      if (outcomeDiff !== 0) return outcomeDiff;
+      return a.controlId.localeCompare(b.controlId);
+    });
+
+    const gapCount = controls.filter(c => c.outcome === 'GAP').length;
+    const attentionCount = controls.filter(c => c.outcome === 'ATTN').length;
+    const okCount = controls.filter(c => c.outcome === 'OK').length;
+
+    return {
+      applicationId: appRisk.appId,
+      applicationName: appRisk.applicationName,
+      tenantId: appRisk.tenantId,
+      riskLevel: classifyRisk(gapCount, attentionCount),
+      summary: { total: controls.length, gap: gapCount, attention: attentionCount, ok: okCount },
+      controls,
+    };
+  }
+}
+
+export interface EnrichedControl {
+  controlId: string;
+  controlName: string;
+  pillar: IamPillar;
+  outcome: 'OK' | 'ATTN' | 'GAP';
+  category: string;
+  description: string;
+  riskReduction: string;
+  implementationComplexity: string;
+  policyDrivers: string[];
+  capabilities: string[];
+  recommendedActions: string[];
+  platformName: string;
+  evaluatedAt: string;
+}
+
+export interface ApplicationControlsResult {
+  applicationId: string;
+  applicationName: string;
+  tenantId: string;
+  riskLevel: AssessmentRiskLevel;
+  summary: { total: number; gap: number; attention: number; ok: number };
+  controls: EnrichedControl[];
 }
 
 export const riskService = new RiskService();

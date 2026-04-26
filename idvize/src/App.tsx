@@ -22,6 +22,7 @@ import MaturityPage from '@/pages/maturity/MaturityPage'
 import MaturityDomainDetail from '@/pages/maturity/MaturityDomainDetail'
 import OSControlPanel from '@/pages/os/OSControlPanel'
 import TopRisks from '@/pages/os/TopRisks'
+import ControlDetailView from '@/pages/os/ControlDetailView'
 import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import ValueDashboard  from '@/pages/value/ValueDashboard'
 import SystemEventsPage from '@/pages/os/SystemEventsPage'
@@ -82,6 +83,7 @@ export default function App() {
               <Route index element={<Navigate to="/os" replace />} />
               <Route path="os" element={<OSControlPanel />} />
               <Route path="risks" element={<TopRisks />} />
+              <Route path="risks/:appId/controls" element={<ControlDetailView />} />
               <Route path="controls/library" element={<ControlsLibrary />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="insights/program-maturity" element={<ProgramInsights />} />
