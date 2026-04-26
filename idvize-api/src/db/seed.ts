@@ -54,6 +54,8 @@ const TENANTS = [
 // ── User data ────────────────────────────────────────────────────────────────
 
 const USERS = [
+  // Platform Admin (SaaS operator — can manage tenants via POST /tenants)
+  { user_id: 'usr-platform-admin-001', tenant_id: 'ten-acme', username: 'platform@idvize.io', display_name: 'Platform Admin', first_name: 'Platform', last_name: 'Admin', email: 'platform@idvize.io', department: 'Platform Operations', title: 'SaaS Platform Administrator', roles: ['PlatformAdmin'], groups: ['grp-platform-admins'], status: 'active', auth_provider: 'local', mfa_enrolled: true, password: 'password123', attributes: { clearanceLevel: 'critical' } },
   // ACME
   { user_id: 'usr-acme-manager-001', tenant_id: 'ten-acme', username: 'admin@acme.com', display_name: 'Alex Morgan', first_name: 'Alex', last_name: 'Morgan', email: 'admin@acme.com', department: 'IAM Program Office', title: 'IAM Program Manager', roles: ['Manager'], groups: ['grp-managers'], status: 'active', auth_provider: 'local', mfa_enrolled: true, password: 'password123', attributes: { costCentre: 'IAM-001', clearanceLevel: 'high' } },
   { user_id: 'usr-acme-architect-001', tenant_id: 'ten-acme', username: 'sarah.chen@acme.com', display_name: 'Sarah Chen', first_name: 'Sarah', last_name: 'Chen', email: 'sarah.chen@acme.com', department: 'IAM Architecture', title: 'Senior IAM Architect', roles: ['Architect'], groups: ['grp-architects'], status: 'active', auth_provider: 'local', mfa_enrolled: true, password: 'password123', attributes: { costCentre: 'IAM-002', clearanceLevel: 'high' } },

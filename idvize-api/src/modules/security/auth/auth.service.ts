@@ -44,6 +44,10 @@ class AuthService {
         user = await authRepository.findByUsernameGlobalPg(username);
         if (user) fromPg = true;
       } catch (err) {
+        // Re-throw application-level errors (e.g. 409 ambiguous username) as-is
+        if ((err as { statusCode?: number }).statusCode && (err as { statusCode?: number }).statusCode !== 503) {
+          throw err;
+        }
         throw Object.assign(
           new Error('Authentication service unavailable — database connection failed'),
           { statusCode: 503 },

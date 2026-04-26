@@ -77,7 +77,24 @@ const TENANT_GLOBEX: Tenant = {
 
 // ── Users — ACME Financial ────────────────────────────────────────────────────
 
+// ── Platform Admin (SaaS operator) ────────────────────────────────────────────
+// In production, the PlatformAdmin is the SaaS operator who manages tenants.
+// In demo/dev, we seed one in the ACME tenant for testing tenant CRUD APIs.
+
+const PLATFORM_ADMIN: User = {
+  userId: 'usr-platform-admin-001', tenantId: 'ten-acme',
+  username: 'platform@idvize.io', displayName: 'Platform Admin',
+  firstName: 'Platform', lastName: 'Admin', email: 'platform@idvize.io',
+  department: 'Platform Operations', title: 'SaaS Platform Administrator',
+  roles: ['PlatformAdmin'], groups: ['grp-platform-admins'], status: 'active',
+  authProvider: 'local', mfaEnrolled: true,
+  passwordHash: DEMO_PASSWORD_HASH,
+  attributes: { clearanceLevel: 'critical' },
+  createdAt: NOW, updatedAt: NOW,
+};
+
 const ACME_USERS: User[] = [
+  PLATFORM_ADMIN,
   {
     userId: 'usr-acme-manager-001', tenantId: 'ten-acme',
     username: 'admin@acme.com', displayName: 'Alex Morgan',
@@ -259,7 +276,7 @@ export async function seedTenants(): Promise<void> {
 
   console.log(`  [SEED] SEED_MODE=${mode} -- demo data loaded`);
   console.log('  \u2713 Tenant seed loaded \u2014 2 tenants (ACME Financial, Globex Technologies)');
-  console.log('  \u2713 Users seeded: 5 per tenant (admin@acme.com, admin@globex.io / password123)');
+  console.log('  \u2713 Users seeded: 6 ACME (incl. platform@idvize.io PlatformAdmin), 5 Globex');
   console.log('  \u2713 Application portfolios seeded: ACME=50 apps, Globex=30 apps');
   console.log(`  \u2713 PostgreSQL: ${pgAvailable ? 'connected \u2014 tenants + users persisted with bcrypt passwords' : 'unavailable \u2014 running in-memory only'}`);
 }

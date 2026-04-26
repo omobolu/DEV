@@ -68,9 +68,16 @@ The system supports three modes of operation via the `SEED_MODE` environment var
 SEED_MODE=demo npm run seed
 ```
 
-Seeds 2 demo tenants with 5 users each (all passwords bcrypt-hashed):
-- **ACME Financial Services** (`ten-acme`) — admin@acme.com / password123
-- **Globex Technologies** (`ten-globex`) — admin@globex.io / password123
+Seeds 2 demo tenants with users (all passwords bcrypt-hashed):
+- **ACME Financial Services** (`ten-acme`) — 6 users incl. `platform@idvize.io` (PlatformAdmin)
+- **Globex Technologies** (`ten-globex`) — 5 users
+
+**PlatformAdmin** (SaaS operator — can manage tenants):
+- `platform@idvize.io` / `password123` — PlatformAdmin role (tenants.manage permission)
+
+**Tenant admins** (per-tenant Manager role):
+- `admin@acme.com` / `password123` — ACME Manager
+- `admin@globex.io` / `password123` — Globex Manager
 
 #### Production Mode
 
@@ -103,11 +110,11 @@ npm run dev    # → http://localhost:5173
 Create a tenant and admin user with a single API call. No restart needed — the new tenant is immediately available for login.
 
 ```bash
-# First, get a token from an existing Manager account
+# First, get a token from the PlatformAdmin account (only PlatformAdmin has tenants.manage permission)
 TOKEN=$(curl -s -X POST http://localhost:3001/security/auth/token \
   -H "Content-Type: application/json" \
   -H "x-api-key: idvize-dev-key-change-me" \
-  -d '{"username":"admin@acme.com","password":"password123"}' | \
+  -d '{"username":"platform@idvize.io","password":"password123"}' | \
   python3 -c "import sys,json; print(json.load(sys.stdin)['data']['token'])")
 
 # Create the new tenant + admin user
@@ -165,10 +172,13 @@ Login as users from different tenants to verify data isolation:
 
 | Tenant | Username | Password | Role |
 |--------|----------|----------|------|
+| Platform (SaaS) | platform@idvize.io | password123 | PlatformAdmin |
 | ACME Financial | admin@acme.com | password123 | Manager |
 | ACME Financial | sarah.chen@acme.com | password123 | Architect |
 | Globex Tech | admin@globex.io | password123 | Manager |
 | Globex Tech | priya.kumar@globex.io | password123 | Architect |
+
+**PlatformAdmin** can manage tenants (create, list, view). **Manager** has full access within their own tenant but cannot manage other tenants.
 
 Each tenant sees only its own applications, controls, and audit events.
 
@@ -209,7 +219,7 @@ When a new tenant is created via the API, an admin user is atomically created in
 1. Caller provides `name`, `slug`, `domain`, `adminEmail`, `adminPassword`
 2. System validates all inputs (slug format, email format, password length, plan value)
 3. Both tenant and admin user are inserted in a single PostgreSQL transaction (COMMIT or ROLLBACK)
-4. Admin user gets the `Manager` role (full access)
+4. Admin user gets the `Manager` role (full access within the new tenant)
 5. In-memory caches are updated immediately — no restart required
 6. Audit event `tenant.created` is logged with the actual actor's identity
 
