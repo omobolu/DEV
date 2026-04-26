@@ -17,8 +17,33 @@ import {
   ArrowLeft, RefreshCw, Filter, Search, ArrowUpDown,
   ShieldAlert, ShieldCheck, AlertTriangle, X,
   ChevronRight, Wrench, BookOpen, Layers, Clock,
+  Bot, Loader2, CheckCircle2,
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
+
+// ── Remediation kickoff (existing backend endpoint, no contract change) ────
+
+type RemediationKind = 'fix' | 'agent'
+
+interface RemediationResult {
+  approvalId?: string
+  buildJobId?: string
+  notifiedParties?: string[]
+  message: string
+}
+
+async function triggerRemediation(appId: string, controlId: string): Promise<RemediationResult> {
+  const res  = await apiFetch(`/controls/app/${appId}/${controlId}/remediate`, { method: 'POST' })
+  const json = await res.json()
+  if (!json.success) throw new Error(json.error || 'Remediation request failed')
+  const data = json.data ?? {}
+  return {
+    approvalId:      data.approvalId,
+    buildJobId:      data.buildJobId,
+    notifiedParties: data.notifiedParties,
+    message:         data.message ?? 'Remediation request submitted',
+  }
+}
 
 // ── Types (matches GET /os/risks/:appId/controls response) ─────────────────
 
@@ -121,12 +146,22 @@ function PillarBadge({ pillar }: { pillar: Pillar }) {
 
 // ── Control table row ───────────────────────────────────────────────────────
 
-function ControlRow({ ctrl, onSelect }: { ctrl: EnrichedControl; onSelect: () => void }) {
+function ControlRow({
+  ctrl, onSelect, onRemediate, busyKind,
+}: {
+  ctrl: EnrichedControl
+  onSelect: () => void
+  onRemediate: (controlId: string, kind: RemediationKind) => void
+  busyKind: RemediationKind | null
+}) {
   const outcomeCfg = OUTCOME_CFG[ctrl.outcome]
+  const isActionable = ctrl.outcome !== 'OK'
+  // OK rows are visually quieter — slightly muted text, no action buttons
+  const rowMutedClass = ctrl.outcome === 'OK' ? 'opacity-75 hover:opacity-100' : ''
 
   return (
     <tr
-      className="border-b border-surface-700/60 hover:bg-surface-700/30 cursor-pointer transition-colors group"
+      className={`border-b border-surface-700/60 hover:bg-surface-700/30 cursor-pointer transition-colors group ${rowMutedClass}`}
       onClick={onSelect}
     >
       {/* Control ID */}
@@ -167,11 +202,37 @@ function ControlRow({ ctrl, onSelect }: { ctrl: EnrichedControl; onSelect: () =>
         </span>
       </td>
 
-      {/* Action */}
+      {/* Action — inline buttons for GAP/ATTN; quiet "Passing" for OK */}
       <td className="px-4 py-3 text-right">
-        <span className="inline-flex items-center gap-1 text-xs text-a-indigo group-hover:text-a-indigo transition-colors">
-          Details <ChevronRight size={12} />
-        </span>
+        {isActionable ? (
+          <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onRemediate(ctrl.controlId, 'fix')}
+              disabled={busyKind !== null}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              aria-label={`Fix issue for ${ctrl.controlName}`}
+            >
+              {busyKind === 'fix' ? <Loader2 size={11} className="animate-spin" /> : <Wrench size={11} />}
+              Fix Issue
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemediate(ctrl.controlId, 'agent')}
+              disabled={busyKind !== null}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border border-blue-500/60 text-blue-300 hover:bg-blue-500/10 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              aria-label={`Launch AI agent for ${ctrl.controlName}`}
+            >
+              {busyKind === 'agent' ? <Loader2 size={11} className="animate-spin" /> : <Bot size={11} />}
+              Launch Agent
+            </button>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400/90">
+            <CheckCircle2 size={11} />
+            Passing
+          </span>
+        )}
       </td>
     </tr>
   )
@@ -179,7 +240,14 @@ function ControlRow({ ctrl, onSelect }: { ctrl: EnrichedControl; onSelect: () =>
 
 // ── Control Detail Drawer ───────────────────────────────────────────────────
 
-function ControlDrawer({ ctrl, onClose }: { ctrl: EnrichedControl; onClose: () => void }) {
+function ControlDrawer({
+  ctrl, onClose, onRemediate, busyKind,
+}: {
+  ctrl: EnrichedControl
+  onClose: () => void
+  onRemediate: (controlId: string, kind: RemediationKind) => void
+  busyKind: RemediationKind | null
+}) {
   const outcomeCfg = OUTCOME_CFG[ctrl.outcome]
   const pillarCfg = PILLAR_CFG[ctrl.pillar]
   const complexityCfg = COMPLEXITY_CFG[ctrl.implementationComplexity] ?? COMPLEXITY_CFG.medium
@@ -285,8 +353,8 @@ function ControlDrawer({ ctrl, onClose }: { ctrl: EnrichedControl; onClose: () =
             </div>
           )}
 
-          {/* Recommended Actions — highlighted section for GAP/ATTN */}
-          {ctrl.outcome !== 'OK' && ctrl.recommendedActions.length > 0 && (
+          {/* Recommended Actions + Remediation buttons — for GAP/ATTN */}
+          {ctrl.outcome !== 'OK' && (
             <div className={`rounded-xl p-4 border ${
               ctrl.outcome === 'GAP'
                 ? 'bg-red-900/10 border-red-800/30'
@@ -297,23 +365,55 @@ function ControlDrawer({ ctrl, onClose }: { ctrl: EnrichedControl; onClose: () =
                 <p className={`text-xs font-bold uppercase tracking-wider ${
                   ctrl.outcome === 'GAP' ? 'text-a-red' : 'text-a-amber'
                 }`}>
-                  Recommended Actions
+                  Remediation
                 </p>
               </div>
-              <ol className="space-y-2">
-                {ctrl.recommendedActions.map((action, i) => (
-                  <li key={i} className="flex gap-2.5 text-sm text-secondary">
-                    <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${
-                      ctrl.outcome === 'GAP'
-                        ? 'bg-red-900/30 text-red-300'
-                        : 'bg-amber-900/30 text-amber-300'
-                    }`}>
-                      {i + 1}
-                    </span>
-                    <span className="leading-relaxed">{action}</span>
-                  </li>
-                ))}
-              </ol>
+
+              {/* Prominent action buttons */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => onRemediate(ctrl.controlId, 'fix')}
+                  disabled={busyKind !== null}
+                  className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {busyKind === 'fix' ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+                  Fix Issue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemediate(ctrl.controlId, 'agent')}
+                  disabled={busyKind !== null}
+                  className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-blue-500/60 text-blue-300 hover:bg-blue-500/10 text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {busyKind === 'agent' ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+                  Launch Agent
+                </button>
+              </div>
+              <p className="text-[11px] text-muted mb-4 leading-relaxed">
+                <strong className="text-body">Fix Issue</strong> opens an approval request and notifies the app owner.
+                <strong className="text-body"> Launch Agent</strong> dispatches an AI build job to gather context and propose changes.
+              </p>
+
+              {ctrl.recommendedActions.length > 0 && (
+                <>
+                  <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Recommended steps</p>
+                  <ol className="space-y-2">
+                    {ctrl.recommendedActions.map((action, i) => (
+                      <li key={i} className="flex gap-2.5 text-sm text-secondary">
+                        <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${
+                          ctrl.outcome === 'GAP'
+                            ? 'bg-red-900/30 text-red-300'
+                            : 'bg-amber-900/30 text-amber-300'
+                        }`}>
+                          {i + 1}
+                        </span>
+                        <span className="leading-relaxed">{action}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
             </div>
           )}
 
@@ -356,6 +456,10 @@ export default function ControlDetailView() {
   const [search,   setSearch]   = useState('')
   const [sortBy,   setSortBy]   = useState<SortKey>('outcome')
   const [selected, setSelected] = useState<EnrichedControl | null>(null)
+  // Tracks the in-flight remediation: which control + which kind (fix vs agent)
+  const [remediating, setRemediating] = useState<{ controlId: string; kind: RemediationKind } | null>(null)
+  // Inline confirmation banner shown after a successful remediation request
+  const [notice, setNotice] = useState<{ kind: RemediationKind; controlId: string; message: string; details?: string } | null>(null)
 
   const load = useCallback(async () => {
     if (!appId) return
@@ -383,6 +487,48 @@ export default function ControlDetailView() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
+
+  // Auto-dismiss success notice after 6 seconds
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [notice])
+
+  const handleRemediate = useCallback(async (controlId: string, kind: RemediationKind) => {
+    if (!appId || remediating) return
+    setRemediating({ controlId, kind })
+    setError('')
+    try {
+      const result = await triggerRemediation(appId, controlId)
+      const detailParts: string[] = []
+      if (kind === 'fix' && result.approvalId) {
+        detailParts.push(`Approval ${result.approvalId}`)
+        if (result.notifiedParties && result.notifiedParties.length > 0) {
+          detailParts.push(`notified ${result.notifiedParties.join(', ')}`)
+        }
+      }
+      if (kind === 'agent' && result.buildJobId) {
+        detailParts.push(`Build job ${result.buildJobId} dispatched`)
+      }
+      setNotice({
+        kind,
+        controlId,
+        message: kind === 'fix'
+          ? `Fix request submitted for ${controlId}`
+          : `AI agent dispatched for ${controlId}`,
+        details: detailParts.join(' · '),
+      })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setRemediating(null)
+    }
+  }, [appId, remediating])
+
+  const busyKindFor = useCallback((controlId: string): RemediationKind | null => {
+    return remediating?.controlId === controlId ? remediating.kind : null
+  }, [remediating])
 
   const visible = useMemo(() => {
     if (!data) return []
@@ -491,54 +637,70 @@ export default function ControlDetailView() {
         </div>
       )}
 
-      {/* Pillar breakdown */}
+      {/* Pillar strip — compact, no charts. Click to filter the table. */}
       {data && (() => {
-        const pillarCounts: Record<Pillar, { gap: number; attn: number; ok: number }> = {
-          AM: { gap: 0, attn: 0, ok: 0 },
-          IGA: { gap: 0, attn: 0, ok: 0 },
-          PAM: { gap: 0, attn: 0, ok: 0 },
-          CIAM: { gap: 0, attn: 0, ok: 0 },
+        const pillarCounts: Record<Pillar, { gap: number; attn: number; ok: number; total: number }> = {
+          AM: { gap: 0, attn: 0, ok: 0, total: 0 },
+          IGA: { gap: 0, attn: 0, ok: 0, total: 0 },
+          PAM: { gap: 0, attn: 0, ok: 0, total: 0 },
+          CIAM: { gap: 0, attn: 0, ok: 0, total: 0 },
         }
         for (const c of data.controls) {
+          pillarCounts[c.pillar].total++
           if (c.outcome === 'GAP') pillarCounts[c.pillar].gap++
           else if (c.outcome === 'ATTN') pillarCounts[c.pillar].attn++
           else pillarCounts[c.pillar].ok++
         }
         return (
-          <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-              Assessment by Pillar
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(Object.entries(pillarCounts) as [Pillar, { gap: number; attn: number; ok: number }][]).map(([pillar, counts]) => {
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold text-muted uppercase tracking-wider mr-1">By pillar</span>
+            {(Object.entries(pillarCounts) as [Pillar, { gap: number; attn: number; ok: number; total: number }][])
+              .map(([pillar, counts]) => {
                 const pcfg = PILLAR_CFG[pillar]
-                const total = counts.gap + counts.attn + counts.ok
+                const hasIssue = counts.gap > 0 || counts.attn > 0
                 return (
-                  <div key={pillar} className="bg-surface-900/60 border border-surface-700 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-xs font-bold ${pcfg.color}`}>{pcfg.label}</span>
-                      <span className="text-[10px] text-muted">{total} controls</span>
-                    </div>
-                    <div className="flex gap-3 text-[11px]">
-                      <span className="text-a-red font-medium">{counts.gap} GAP</span>
-                      <span className="text-a-amber font-medium">{counts.attn} ATTN</span>
-                      <span className="text-emerald-400 font-medium">{counts.ok} OK</span>
-                    </div>
-                    {/* Mini bar */}
-                    {total > 0 && (
-                      <div className="flex h-1.5 rounded-full overflow-hidden mt-2 bg-surface-700">
-                        {counts.gap > 0 && <div className="bg-red-500" style={{ width: `${(counts.gap / total) * 100}%` }} />}
-                        {counts.attn > 0 && <div className="bg-amber-500" style={{ width: `${(counts.attn / total) * 100}%` }} />}
-                        {counts.ok > 0 && <div className="bg-emerald-500" style={{ width: `${(counts.ok / total) * 100}%` }} />}
-                      </div>
-                    )}
-                  </div>
+                  <span
+                    key={pillar}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-800 border border-surface-700"
+                    title={`${pcfg.fullName} — ${counts.total} controls`}
+                  >
+                    <span className={`text-[11px] font-bold ${pcfg.color}`}>{pcfg.label}</span>
+                    <span className="text-[10px] text-muted">{counts.total}</span>
+                    {hasIssue && <span className="w-px h-3 bg-surface-600" />}
+                    {counts.gap > 0 && <span className="text-[10px] font-semibold text-a-red">{counts.gap} GAP</span>}
+                    {counts.attn > 0 && <span className="text-[10px] font-semibold text-a-amber">{counts.attn} ATTN</span>}
+                    {!hasIssue && <span className="text-[10px] font-semibold text-emerald-400">all OK</span>}
+                  </span>
                 )
               })}
-            </div>
           </div>
         )
       })()}
+
+      {/* Inline confirmation banner after a remediation request */}
+      {notice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-3 p-3 bg-emerald-900/15 border border-emerald-700/40 rounded-lg"
+        >
+          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-emerald-300">{notice.message}</p>
+            {notice.details && (
+              <p className="text-xs text-muted mt-0.5">{notice.details}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="text-muted hover:text-body transition-colors"
+            aria-label="Dismiss notification"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Filter + Search + Sort bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -627,6 +789,8 @@ export default function ControlDetailView() {
                     key={ctrl.controlId}
                     ctrl={ctrl}
                     onSelect={() => setSelected(ctrl)}
+                    onRemediate={handleRemediate}
+                    busyKind={busyKindFor(ctrl.controlId)}
                   />
                 ))}
                 {visible.length === 0 && (
@@ -653,7 +817,12 @@ export default function ControlDetailView() {
 
       {/* Detail drawer */}
       {selected && (
-        <ControlDrawer ctrl={selected} onClose={() => setSelected(null)} />
+        <ControlDrawer
+          ctrl={selected}
+          onClose={() => setSelected(null)}
+          onRemediate={handleRemediate}
+          busyKind={busyKindFor(selected.controlId)}
+        />
       )}
     </div>
   )
