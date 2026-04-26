@@ -133,6 +133,20 @@ class AuthRepository {
     this.save(tenantId, user);
   }
 
+  /**
+   * Load all users from PostgreSQL into the in-memory store.
+   * Called during startup so authzService, SCIM, and other modules
+   * can find users without individual PG lookups.
+   */
+  async loadAllUsersFromPg(): Promise<number> {
+    const result = await pool.query('SELECT * FROM users');
+    for (const row of result.rows) {
+      const user = this.rowToUser(row);
+      this.save(user.tenantId, user);
+    }
+    return result.rows.length;
+  }
+
   findByIdGlobal(userId: string): User | undefined {
     for (const [, userMap] of this.memStore) {
       const u = userMap.get(userId);

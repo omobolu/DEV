@@ -208,6 +208,12 @@ export async function seedTenants(): Promise<void> {
   try {
     await tenantRepository.loadCache();
     pgAvailable = true;
+    // Load all users from PG into in-memory authRepository for ALL modes.
+    // Without this, authzService, SCIM, and user endpoints return empty after restart.
+    const userCount = await authRepository.loadAllUsersFromPg();
+    if (userCount > 0) {
+      console.log(`  [SEED] Loaded ${userCount} user(s) from PostgreSQL into memory`);
+    }
   } catch (err) {
     // Step 2: Production mode REQUIRES PostgreSQL — abort startup
     if (mode === 'production') {

@@ -72,6 +72,10 @@ class TenantService {
 
   validateCreateInput(input: CreateTenantInput): string[] {
     const errors: string[] = [];
+    if (!input || typeof input !== 'object') {
+      errors.push('Request body must be a JSON object');
+      return errors;
+    }
     if (!input.name || !input.slug || !input.domain || !input.adminEmail || !input.adminPassword) {
       errors.push('Missing required fields: name, slug, domain, adminEmail, adminPassword');
       return errors;
