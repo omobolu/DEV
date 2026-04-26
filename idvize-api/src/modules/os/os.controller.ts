@@ -33,7 +33,7 @@ import { auditService }                     from '../security/audit/audit.servic
 import { requireAuth }                      from '../../middleware/requireAuth';
 import { tenantContext }                    from '../../middleware/tenantContext';
 import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
-import { computePortfolioRisks, buildPortfolioRiskSummary } from './risk.engine';
+import { assessPortfolioRisks, assessApplicationRisk, buildRiskSummary } from './risk-assessment.engine';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
 import { IamPosture }                       from '../application/application.types';
@@ -730,42 +730,43 @@ router.get('/alerts', async (req: Request, res: Response) => {
   res.json({ success: true, data: alerts });
 });
 
-// ── GET /os/risks — full portfolio ranked by IAM risk score ──────────────────
+// ── GET /os/risks — Top IAM Risk Engine (v1) ────────────────────────────────
+// Control-assessment-based risk: counts GAP/ATTN across the 49-control catalog.
+// CRITICAL >= 3 GAP | HIGH >= 2 GAP or 1 GAP + 2 ATTN | MEDIUM ATTN only | LOW all OK
 router.get('/risks', (req: Request, res: Response) => {
-  const apps   = applicationRepository.findAll(req.tenantId!);
-  const ranked = computePortfolioRisks(apps);
-  const summary = buildPortfolioRiskSummary(ranked);
+  const tenantId = req.tenantId!;
+  const apps     = applicationRepository.findAll(tenantId);
+  const risks    = assessPortfolioRisks(apps, tenantId);
+  const summary  = buildRiskSummary(risks);
 
-  // Optional tier filter: ?tier=critical|high|medium|low
-  const tierFilter = req.query.tier as string | undefined;
-  const results    = tierFilter
-    ? ranked.filter(r => r.riskTier === tierFilter)
-    : ranked;
+  // Optional risk level filter: ?level=CRITICAL|HIGH|MEDIUM|LOW
+  const levelFilter = (req.query.level as string | undefined)?.toUpperCase();
+  const results = levelFilter
+    ? risks.filter(r => r.riskLevel === levelFilter)
+    : risks;
 
   res.json({
     success: true,
-    data: { summary, ranked: results },
+    data: { summary, risks: results },
     timestamp: new Date().toISOString(),
   });
 });
 
-// ── GET /os/risks/:appId — single app risk summary with priority rank ─────────
+// ── GET /os/risks/:applicationId — single app risk assessment ─────────────────
 router.get('/risks/:appId', (req: Request, res: Response) => {
-  const appId = req.params.appId as string;
-  const app = applicationRepository.findById(req.tenantId!, appId);
+  const tenantId = req.tenantId!;
+  const appId    = req.params.appId as string;
+  const app      = applicationRepository.findById(tenantId, appId);
   if (!app) {
     res.status(404).json({ success: false, error: `Application '${appId}' not found` });
     return;
   }
 
-  // Compute full portfolio so we can assign the correct priority rank
-  const allApps = applicationRepository.findAll(req.tenantId!);
-  const ranked  = computePortfolioRisks(allApps);
-  const result  = ranked.find(r => r.appId === appId);
+  const risk = assessApplicationRisk(app, tenantId);
 
   res.json({
     success: true,
-    data: result,
+    data: risk,
     timestamp: new Date().toISOString(),
   });
 });
