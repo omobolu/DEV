@@ -21,6 +21,11 @@ class TenantRepository {
 
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
+    // If cache was already populated by save() (e.g. seed), skip PG retry
+    if (this.cache.size > 0) {
+      this.loaded = true;
+      return;
+    }
     if (!this.loadPromise) {
       this.loadPromise = pool.query('SELECT * FROM tenants').then(result => {
         for (const row of result.rows) {
@@ -32,6 +37,11 @@ class TenantRepository {
         this.loadPromise = null;
       }).catch(err => {
         this.loadPromise = null;
+        // In non-production, if cache has data from seed, use it
+        if (getSeedMode() !== 'production' && this.cache.size > 0) {
+          this.loaded = true;
+          return;
+        }
         throw err;
       });
     }
