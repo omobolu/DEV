@@ -59,11 +59,11 @@ class AuthService {
       throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
     }
 
-    // Verify password — support both bcrypt hashes and plaintext fallback
+    // Verify password — bcrypt only (no plaintext fallback)
     const hash = user.passwordHash ?? '';
     const isValid = hash.startsWith('$2')
       ? await bcrypt.compare(password, hash)
-      : hash === password;
+      : false;
 
     if (!isValid) {
       auditService.log({

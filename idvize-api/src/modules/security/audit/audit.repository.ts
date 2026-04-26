@@ -80,9 +80,10 @@ class AuditRepository {
       if (filter.dateFrom) { conditions.push(`created_at >= $${idx}`); params.push(filter.dateFrom); idx++; }
       if (filter.dateTo) { conditions.push(`created_at <= $${idx}`); params.push(filter.dateTo); idx++; }
 
-      const limit = filter.limit ?? 200;
-      const offset = filter.offset ?? 0;
-      const sql = `SELECT * FROM audit_logs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      const limit = Math.max(1, Math.min(filter.limit ?? 200, 10000));
+      const offset = Math.max(0, filter.offset ?? 0);
+      const sql = `SELECT * FROM audit_logs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+      params.push(limit, offset);
       const result = await pool.query(sql, params);
       return result.rows.map((row: Record<string, unknown>) => this.rowToEvent(row));
     } catch {

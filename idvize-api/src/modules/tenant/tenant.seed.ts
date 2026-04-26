@@ -30,6 +30,11 @@ import { getSeedMode, SeedMode } from '../../config/seed-mode';
 
 const NOW = new Date().toISOString();
 
+// Pre-computed bcrypt hash of 'password123' (cost factor 10).
+// All demo users share this hash. In production, users are created via POST /tenants
+// with bcrypt hashing at write time — this constant is never used in production mode.
+const DEMO_PASSWORD_HASH = '$2b$10$eJbeuHvdE3yRNXovQ1XE..gc4YlXZsxcR8wlru3dAHNUEhIDDO8Gu';
+
 // ── Tenant definitions ────────────────────────────────────────────────────────
 
 const TENANT_ACME: Tenant = {
@@ -80,7 +85,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Program Office', title: 'IAM Program Manager',
     roles: ['Manager'], groups: ['grp-managers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-001', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -91,7 +96,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Architecture', title: 'Senior IAM Architect',
     roles: ['Architect'], groups: ['grp-architects'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-002', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -102,7 +107,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Business Analysis', title: 'IAM Business Analyst',
     roles: ['BusinessAnalyst'], groups: ['grp-analysts'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-003', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -113,7 +118,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Engineering', title: 'IAM Engineer',
     roles: ['Engineer'], groups: ['grp-engineers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-004', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -124,7 +129,7 @@ const ACME_USERS: User[] = [
     department: 'IAM Engineering', title: 'IAM Developer',
     roles: ['Developer'], groups: ['grp-developers'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'IAM-005', clearanceLevel: 'standard' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -140,7 +145,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Security & Identity', title: 'CISO',
     roles: ['Manager'], groups: ['grp-managers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'SEC-001', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -151,7 +156,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Platform Engineering', title: 'Identity Architect',
     roles: ['Architect'], groups: ['grp-architects'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-002', clearanceLevel: 'high' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -162,7 +167,7 @@ const GLOBEX_USERS: User[] = [
     department: 'GRC', title: 'GRC Analyst',
     roles: ['BusinessAnalyst'], groups: ['grp-analysts'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'GRC-001', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -173,7 +178,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Cloud Engineering', title: 'Cloud Identity Engineer',
     roles: ['Engineer'], groups: ['grp-engineers'], status: 'active',
     authProvider: 'local', mfaEnrolled: true,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-003', clearanceLevel: 'medium' },
     createdAt: NOW, updatedAt: NOW,
   },
@@ -184,7 +189,7 @@ const GLOBEX_USERS: User[] = [
     department: 'Software Engineering', title: 'IAM Developer',
     roles: ['Developer'], groups: ['grp-developers'], status: 'active',
     authProvider: 'local', mfaEnrolled: false,
-    passwordHash: 'password123',
+    passwordHash: DEMO_PASSWORD_HASH,
     attributes: { costCentre: 'ENG-004', clearanceLevel: 'standard' },
     createdAt: NOW, updatedAt: NOW,
   },
