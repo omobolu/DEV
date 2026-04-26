@@ -35,17 +35,7 @@ This creates the following tables:
 - `applications` — Application inventory (placeholder for Go migration)
 - `audit_logs` — Append-only security event log
 
-### 4. Seed Demo Data
-
-```bash
-npm run seed
-```
-
-Seeds 2 demo tenants with 5 users each (all passwords bcrypt-hashed):
-- **ACME Financial Services** (`ten-acme`) — admin@acme.com / password123
-- **Globex Technologies** (`ten-globex`) — admin@globex.io / password123
-
-### 5. Configure Environment
+### 4. Configure Environment
 
 Copy or create `idvize-api/.env`:
 
@@ -54,9 +44,42 @@ PORT=3001
 NODE_ENV=development
 JWT_SECRET=idvize-dev-secret-2026
 DATABASE_URL=postgresql://idvize:idvize_dev_2026@localhost:5432/idvize
+SEED_MODE=development
 ```
 
 > **Note:** `.env` is gitignored. Never commit real credentials.
+
+### 5. Data Initialization Strategy
+
+The system supports three modes of operation via the `SEED_MODE` environment variable:
+
+| Mode | Value | Behavior |
+|------|-------|----------|
+| **Production** | `production` (default) | NO demo data. System starts empty. For real SaaS customers. |
+| **Demo** | `demo` | Seeds ACME + Globex demo tenants with full application portfolios. |
+| **Development** | `development` | Same as demo; allows flexible seeding + data reset. |
+
+**Production mode is the default.** If `SEED_MODE` is not set, no demo data is loaded.
+
+#### Seed Demo Data (Demo/Dev modes only)
+
+```bash
+# Set SEED_MODE before seeding
+SEED_MODE=demo npm run seed
+```
+
+Seeds 2 demo tenants with 5 users each (all passwords bcrypt-hashed):
+- **ACME Financial Services** (`ten-acme`) — admin@acme.com / password123
+- **Globex Technologies** (`ten-globex`) — admin@globex.io / password123
+
+#### Production Mode
+
+In production, the database starts empty. Tenants are created exclusively via the `POST /tenants` API. No demo data is ever auto-loaded.
+
+```bash
+# Production — no demo data
+SEED_MODE=production npm run dev
+```
 
 ## Running the Application
 
@@ -161,3 +184,63 @@ audit_logs      — event_id (PK), tenant_id, event_type, actor_id, outcome, met
 ```
 
 All tenant-owned tables include `tenant_id` for strict isolation.
+
+## Tenant Isolation Confirmation
+
+Each tenant (customer organization) has **complete data isolation**:
+
+| Layer | Enforcement |
+|-------|-------------|
+| **Database** | Every tenant-owned table includes `tenant_id`. All queries filter by `tenant_id`. |
+| **Middleware** | `requireAuth` extracts `tenantId` from JWT and attaches it to `req.tenantId`. |
+| **Repositories** | All repository methods accept `tenantId` and scope data access. In-memory caches are partitioned by `tenantId`. |
+| **Controllers** | All route handlers use `req.tenantId` (120+ occurrences across codebase). |
+| **Frontend** | `apiFetch()` sends JWT with embedded `tenantId`. Backend returns only the authenticated user's tenant data. |
+| **Audit logs** | Every audit event is tagged with `tenantId`. |
+
+**No customer can ever see another customer's data.**
+
+## How Tenant Admin Users Are Created
+
+### Via POST /tenants API (Recommended)
+
+When a new tenant is created via the API, an admin user is atomically created in the same transaction:
+
+1. Caller provides `name`, `slug`, `domain`, `adminEmail`, `adminPassword`
+2. System validates all inputs (slug format, email format, password length, plan value)
+3. Both tenant and admin user are inserted in a single PostgreSQL transaction (COMMIT or ROLLBACK)
+4. Admin user gets the `Manager` role (full access)
+5. In-memory caches are updated immediately — no restart required
+6. Audit event `tenant.created` is logged with the actual actor's identity
+
+### Via Direct SQL (Dev/Migration only)
+
+See "Creating a New Tenant — Option B" above. Requires manual bcrypt hashing and backend restart.
+
+## SaaS Readiness — What Still Needs Improvement
+
+### Ready Now
+- Strict tenant isolation (all queries scoped by `tenantId`)
+- Bcrypt password hashing (no plaintext)
+- JWT-based authentication with role-based permissions
+- Audit logging for security-relevant actions
+- Input validation on tenant creation
+- Controlled data initialization (production starts empty)
+- API-based tenant provisioning (no restart required)
+
+### Needs Improvement Before Production SaaS
+
+| Area | Current State | Needed |
+|------|--------------|--------|
+| **Authentication** | Local bcrypt passwords + JWT | OIDC integration (Entra ID / Okta) for SSO |
+| **RBAC** | Role-based permissions in JWT | Fine-grained policy engine (ABAC) |
+| **Backend** | Node.js/Express (temporary) | Go/Golang backend (next PR) |
+| **Application data** | In-memory seed (not persisted to PG) | Full PostgreSQL persistence for applications, controls |
+| **Tenant management** | API + direct SQL | Admin portal UI for tenant CRUD |
+| **Rate limiting** | None | Per-tenant rate limiting |
+| **Encryption** | TLS not enforced | HTTPS required, encryption at rest |
+| **Secrets management** | `.env` file | Vault / KMS integration |
+| **Monitoring** | Console logging | Structured logging, APM, alerts |
+| **Billing** | Not implemented | Subscription management per plan tier |
+| **Data retention** | No policies | Tenant data lifecycle policies |
+| **Compliance** | Audit log exists | SOC2 / FedRAMP audit evidence generation |

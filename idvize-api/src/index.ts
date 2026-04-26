@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { apiKeyAuth } from './middleware/apiKey';
 import { errorHandler } from './middleware/errorHandler';
 import { controlService } from './modules/control/control.service';
-import { seedTenants } from './modules/tenant/tenant.seed';
+import { seedTenants, getSeedMode } from './modules/tenant/tenant.seed';
 
 // ── Module Controllers ──────────────────────────────────────────────────────
 import applicationController from './modules/application/application.controller';
@@ -106,7 +106,7 @@ app.use(errorHandler);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 async function bootstrap(): Promise<void> {
-  // Seed demo tenants, users, and application portfolios BEFORE accepting requests
+  // Initialize data based on SEED_MODE (production=empty, demo/development=seed)
   await seedTenants();
 
   app.listen(PORT, () => {
@@ -116,6 +116,7 @@ async function bootstrap(): Promise<void> {
     console.log(`========================================================`);
     console.log(`  URL         : http://localhost:${PORT}`);
     console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
+    console.log(`  Seed Mode   : ${getSeedMode()}`);
     console.log(`  Entra ID    : ${process.env.ENTRA_TENANT_ID ? '[live]' : '[mock]'}`);
     console.log(`  SailPoint   : ${process.env.SAILPOINT_BASE_URL ? '[live]' : '[mock]'}`);
     console.log(`  CyberArk    : ${process.env.CYBERARK_BASE_URL ? '[live]' : '[mock]'}`);

@@ -1,15 +1,20 @@
 /**
- * Tenant Seed
+ * Tenant Seed — Controlled Data Initialization
  *
- * Creates two demo tenants with their own users and application portfolios.
- * Called once on API startup (no-op if tenants already exist).
+ * Respects the SEED_MODE environment variable:
+ *   - "production" (default)  — NO seed data. System starts empty.
+ *   - "demo"                  — Seeds ACME + Globex demo tenants with full data.
+ *   - "development"           — Same as demo; allows flexible seeding + data reset.
+ *
+ * Production must NEVER auto-load demo tenants.
  *
  * Tenant 1 — ACME Financial Services  (ten-acme)
  * Tenant 2 — Globex Technologies      (ten-globex)
  *
  * On startup:
- *   1. Load tenant cache from PostgreSQL (persistent tenants)
- *   2. Seed in-memory stores for modules not yet migrated to PostgreSQL
+ *   1. Load tenant cache from PostgreSQL (persistent tenants — always)
+ *   2. If SEED_MODE is demo/development AND cache is empty, seed demo data
+ *   3. In production mode, only the PG cache is loaded; no demo data created
  */
 
 import { Tenant } from './tenant.types';
@@ -182,10 +187,19 @@ const GLOBEX_USERS: User[] = [
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+export type SeedMode = 'production' | 'demo' | 'development';
+
+export function getSeedMode(): SeedMode {
+  const raw = (process.env.SEED_MODE ?? 'production').toLowerCase().trim();
+  if (raw === 'demo' || raw === 'development') return raw;
+  return 'production';
+}
+
 export async function seedTenants(): Promise<void> {
+  const mode = getSeedMode();
   let pgAvailable = false;
 
-  // Try loading tenant cache from PostgreSQL
+  // Step 1: Always load tenant cache from PostgreSQL (picks up real customer tenants)
   try {
     await tenantRepository.loadCache();
     pgAvailable = true;
@@ -193,7 +207,19 @@ export async function seedTenants(): Promise<void> {
     console.warn('[SEED] PostgreSQL unavailable, falling back to in-memory only:', (err as Error).message);
   }
 
-  // Seed tenants if not already loaded from PostgreSQL
+  // Step 2: In production mode, skip all demo data seeding
+  if (mode === 'production') {
+    const count = tenantRepository.countSync();
+    console.log('  [SEED] SEED_MODE=production -- no demo data loaded');
+    console.log(`  [SEED] Tenants in database: ${count}`);
+    console.log(`  [SEED] PostgreSQL: ${pgAvailable ? 'connected' : 'unavailable'}`);
+    if (count === 0) {
+      console.log('  [SEED] Database is empty. Create tenants via POST /tenants API.');
+    }
+    return;
+  }
+
+  // Step 3: In demo/development mode, seed demo tenants if not already present
   if (tenantRepository.countSync() === 0) {
     await tenantRepository.save(TENANT_ACME);
     await tenantRepository.save(TENANT_GLOBEX);

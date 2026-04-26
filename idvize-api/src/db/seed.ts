@@ -69,7 +69,14 @@ const USERS = [
 ];
 
 async function seed(): Promise<void> {
-  console.log('[SEED] Seeding PostgreSQL...');
+  const mode = (process.env.SEED_MODE ?? 'production').toLowerCase().trim();
+  if (mode === 'production') {
+    console.log('[SEED] SEED_MODE=production — refusing to seed demo data.');
+    console.log('[SEED] Set SEED_MODE=demo or SEED_MODE=development to load demo tenants.');
+    await pool.end();
+    return;
+  }
+  console.log(`[SEED] SEED_MODE=${mode} — seeding PostgreSQL with demo data...`);
 
   // Tenants
   for (const t of TENANTS) {
