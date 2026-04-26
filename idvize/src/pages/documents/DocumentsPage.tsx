@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FileText, Plus, RefreshCw, BookOpen, Clock, CheckCircle, Archive } from 'lucide-react'
 import Badge from '@/components/common/Badge'
+import EmptyState from '@/components/common/EmptyState'
 import DocumentDetail from './DocumentDetail'
 
 const API = 'http://localhost:3001'
@@ -283,10 +284,15 @@ export default function DocumentsPage() {
       {loading ? (
         <div className="flex items-center justify-center h-32 text-muted text-sm">Loading documents…</div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted">
-          <BookOpen size={28} />
-          <p className="text-sm">No documents found</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title={docs.length === 0 ? 'No documents yet' : 'No documents match your filters'}
+          description={
+            docs.length === 0
+              ? 'Policies, runbooks, and standards added to the registry will appear here.'
+              : 'Try adjusting the search term or status filter to see more results.'
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCMDB } from '@/context/CMDBContext'
 import DataTable from '@/components/common/DataTable'
 import Badge from '@/components/common/Badge'
-import { Download, RefreshCw, ExternalLink } from 'lucide-react'
+import { Download, RefreshCw, ExternalLink, LayoutDashboard } from 'lucide-react'
 import type { CMDBApp, Criticality, OnboardingStatus } from '@/types/cmdb'
 import type { Column } from '@/components/common/DataTable'
 import { generateSampleCsv } from '@/data/cmdbMock'
@@ -114,6 +114,13 @@ export default function CMDBDataView() {
           if (detailIds.has(app.appId)) navigate(`/cmdb/${app.appId}`)
         }}
         rowClickable={(app) => detailIds.has(app.appId)}
+        emptyIcon={LayoutDashboard}
+        emptyMessage={apps.length === 0 ? 'No applications onboarded' : 'No applications match your filter'}
+        emptyDescription={
+          apps.length === 0
+            ? 'Get started by importing your application catalog from the Import tab.'
+            : 'Try a different search term or clear the filter to see all applications.'
+        }
       />
     </div>
   )
