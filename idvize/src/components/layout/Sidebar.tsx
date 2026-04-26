@@ -25,7 +25,7 @@ const IDENTITY_DOMAINS = [
     icon: Users,
     items: [
       { icon: RefreshCw,   label: 'Lifecycle Management', path: '/iga',                color: '#2563eb' },
-      { icon: ShieldCheck, label: 'Access Management',    path: '/access-management',  color: '#06b6d4' },
+      { icon: ShieldCheck, label: 'Access Management',    path: '/access-management',  color: '#06b6d4', end: true },
       { icon: ShieldAlert, label: 'Privileged Access',    path: '/pam',                color: '#d97706' },
     ],
   },
@@ -69,13 +69,13 @@ function SectionLabel({ label }: { label: string }) {
   )
 }
 
-function NavItem({ icon: Icon, label, path, color, onClick }: {
-  icon: React.ElementType; label: string; path: string; color?: string; onClick?: () => void
+function NavItem({ icon: Icon, label, path, color, end, onClick }: {
+  icon: React.ElementType; label: string; path: string; color?: string; end?: boolean; onClick?: () => void
 }) {
   return (
     <NavLink
       to={path}
-      end
+      end={end}
       onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors text-sm
@@ -100,7 +100,7 @@ function DomainGroup({
   label: string
   sublabel: string
   icon: LucideIcon
-  items: ReadonlyArray<{ icon: LucideIcon; label: string; path: string; color: string }>
+  items: ReadonlyArray<{ icon: LucideIcon; label: string; path: string; color: string; end?: boolean }>
 }) {
   return (
     <div className="mt-1">
