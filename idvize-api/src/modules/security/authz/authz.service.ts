@@ -137,7 +137,7 @@ class AuthzService {
    * Return a permission matrix view: for each role, which permissions are granted.
    */
   getPermissionMatrix(): Record<UserRole, PermissionId[]> {
-    const roles: UserRole[] = ['Manager', 'Architect', 'BusinessAnalyst', 'Engineer', 'Developer'];
+    const roles: UserRole[] = ['PlatformAdmin', 'Manager', 'Architect', 'BusinessAnalyst', 'Engineer', 'Developer'];
     const matrix = {} as Record<UserRole, PermissionId[]>;
     for (const role of roles) {
       matrix[role] = resolvePermissions([role]);
