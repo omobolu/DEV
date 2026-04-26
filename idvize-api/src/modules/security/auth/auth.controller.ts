@@ -32,8 +32,8 @@ router.post('/token', async (req: Request, res: Response) => {
 });
 
 // POST /security/auth/logout
-router.post('/logout', requireAuth, (req: Request, res: Response) => {
-  authService.recordLogout(req.user!.sub, req.user!.tenantId, req.user!.sessionId, req.ip);
+router.post('/logout', requireAuth, async (req: Request, res: Response) => {
+  await authService.recordLogout(req.user!.sub, req.user!.tenantId, req.user!.sessionId, req.ip);
   res.json({ success: true, data: { message: 'Logged out successfully' }, timestamp: new Date().toISOString() });
 });
 

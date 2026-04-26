@@ -30,7 +30,7 @@ router.use(requireAuth, tenantContext);
 // ── Credential Requests ────────────────────────────────────────────────────
 
 // POST /credentials/request
-router.post('/request', requirePermission('secrets.request'), (req: Request, res: Response) => {
+router.post('/request', requirePermission('secrets.request'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const {
     credentialId, requestType, targetSystem, credentialType, targetEnvironment,
@@ -42,7 +42,7 @@ router.post('/request', requirePermission('secrets.request'), (req: Request, res
     return;
   }
 
-  const request = credentialRequestWorkflowService.submitRequest(tenantId, {
+  const request = await credentialRequestWorkflowService.submitRequest(tenantId, {
     requestedBy: req.user!.sub,
     credentialId,
     requestType,
@@ -83,7 +83,7 @@ router.get('/requests/:id', requirePermission('secrets.view.metadata'), (req: Re
 });
 
 // POST /credentials/requests/:id/resolve
-router.post('/requests/:id/resolve', requirePermission('secrets.approve'), (req: Request, res: Response) => {
+router.post('/requests/:id/resolve', requirePermission('secrets.approve'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const { decision, comment } = req.body;
@@ -91,14 +91,14 @@ router.post('/requests/:id/resolve', requirePermission('secrets.approve'), (req:
     res.status(400).json({ success: false, error: '"decision" must be "approved" or "rejected"', timestamp: new Date().toISOString() });
     return;
   }
-  const request = credentialRequestWorkflowService.resolve(tenantId, id, req.user!.sub, decision, comment);
+  const request = await credentialRequestWorkflowService.resolve(tenantId, id, req.user!.sub, decision, comment);
   res.json({ success: true, data: request, timestamp: new Date().toISOString() });
 });
 
 // ── Credential Registry ────────────────────────────────────────────────────
 
 // POST /credentials
-router.post('/', requirePermission('secrets.request'), (req: Request, res: Response) => {
+router.post('/', requirePermission('secrets.request'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const {
     name, description, credentialType, targetSystem, targetEnvironment,
@@ -111,7 +111,7 @@ router.post('/', requirePermission('secrets.request'), (req: Request, res: Respo
     return;
   }
 
-  const record = credentialRegistryService.register(tenantId, {
+  const record = await credentialRegistryService.register(tenantId, {
     name, description: description ?? '', credentialType, targetSystem, targetEnvironment,
     operatingMode, vaultProvider, expiresAt, rotationIntervalDays,
     ownerId: ownerId ?? req.user!.sub,
@@ -137,8 +137,8 @@ router.get('/', requirePermission('secrets.view.metadata'), (req: Request, res: 
 });
 
 // GET /credentials/rotation/report
-router.get('/rotation/report', requirePermission('secrets.rotate'), (req: Request, res: Response) => {
-  const report = credentialRotationMonitorService.runCheck(req.tenantId!);
+router.get('/rotation/report', requirePermission('secrets.rotate'), async (req: Request, res: Response) => {
+  const report = await credentialRotationMonitorService.runCheck(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
 
@@ -188,7 +188,7 @@ router.post('/:id/rotate', requirePermission('secrets.rotate'), async (req: Requ
   record.rotationDue = true;
   record.updatedAt = new Date().toISOString();
 
-  const request = credentialRequestWorkflowService.submitRequest(tenantId, {
+  const request = await credentialRequestWorkflowService.submitRequest(tenantId, {
     requestedBy: req.user!.sub,
     credentialId: id,
     requestType: 'rotate',
@@ -204,10 +204,10 @@ router.post('/:id/rotate', requirePermission('secrets.rotate'), async (req: Requ
 });
 
 // POST /credentials/:id/revoke
-router.post('/:id/revoke', requirePermission('secrets.approve'), (req: Request, res: Response) => {
+router.post('/:id/revoke', requirePermission('secrets.approve'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const record = credentialRegistryService.revoke(tenantId, id, req.user!.sub, req.body.reason);
+  const record = await credentialRegistryService.revoke(tenantId, id, req.user!.sub, req.body.reason);
   res.json({ success: true, data: record, timestamp: new Date().toISOString() });
 });
 
