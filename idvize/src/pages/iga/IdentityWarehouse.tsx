@@ -79,7 +79,7 @@ export default function IdentityWarehouse() {
                 data={HIRE_TREND_DATA as unknown as Record<string, unknown>[]}
                 xKey="month"
                 bars={[
-                  { key: 'hired',      name: 'Hired',      color: '#6366f1' },
+                  { key: 'hired',      name: 'Hired',      color: '#2563eb' },
                   { key: 'terminated', name: 'Terminated', color: '#ef4444' },
                 ]}
                 line={{ key: 'netChange', name: 'Net Change', color: '#22d3ee', yAxisId: 'right' }}

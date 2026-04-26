@@ -86,7 +86,7 @@ function fmtPct(n: number): string { return `${n}%` }
 // ── Color helpers ─────────────────────────────────────────────────────────────
 
 function tierColor(t: string): string {
-  return t === 'critical' ? '#ef4444' : t === 'high' ? '#f97316' : t === 'medium' ? '#eab308' : '#6366f1'
+  return t === 'critical' ? '#ef4444' : t === 'high' ? '#f97316' : t === 'medium' ? '#eab308' : '#2563eb'
 }
 
 function pillarColor(p: string): string {
@@ -760,7 +760,7 @@ export default function ValueDashboard() {
                         { k: 'Residual Exposure', v: fmtMoney(d.exposure), c: '#ef4444' },
                         { k: 'Value Protected',   v: fmtMoney(d.valueProtected), c: '#22c55e' },
                         { k: 'Portfolio ROI',     v: `${d.portfolioROI}%`, c: roiColor(d.portfolioROI) },
-                        { k: 'Coverage',          v: `${d.coveragePct}%`, c: '#6366f1' },
+                        { k: 'Coverage',          v: `${d.coveragePct}%`, c: '#2563eb' },
                       ].map(({ k, v, c }) => (
                         <div key={k} className="flex items-center justify-between text-xs">
                           <span className="text-muted">{k}</span>

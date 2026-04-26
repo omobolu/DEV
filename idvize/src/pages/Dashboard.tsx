@@ -17,7 +17,7 @@ interface MaturitySummary {
 
 // ── Domain card config ──────────────────────────────────────────────────────
 const DOMAIN_CARDS = [
-  { domainId: 'iga',         icon: BarChart2,   label: 'IGA',    title: 'Identity Governance & Administration', path: '/iga',               color: '#6366f1', bg: 'bg-indigo-900/20 border-indigo-800/40' },
+  { domainId: 'iga',         icon: BarChart2,   label: 'IGA',    title: 'Identity Governance & Administration', path: '/iga',               color: '#2563eb', bg: 'bg-indigo-900/20 border-indigo-800/40' },
   { domainId: 'am',          icon: ShieldCheck, label: 'AM',     title: 'Authentication, SSO & MFA',            path: '/access-management', color: '#06b6d4', bg: 'bg-cyan-900/20 border-cyan-800/40' },
   { domainId: 'pam',         icon: ShieldAlert, label: 'PAM',    title: 'Privileged Access Management',          path: '/pam',               color: '#f59e0b', bg: 'bg-amber-900/20 border-amber-800/40' },
   { domainId: 'ciam',        icon: UserCheck,   label: 'CIAM',   title: 'Customer Identity & Access Management', path: '/ciam',              color: '#22c55e', bg: 'bg-green-900/20 border-green-800/40' },
@@ -30,7 +30,7 @@ function levelNumber(level: string): number {
 }
 
 function levelColor(score: number): string {
-  if (score >= 81) return '#6366f1'
+  if (score >= 81) return '#2563eb'
   if (score >= 61) return '#22c55e'
   if (score >= 41) return '#eab308'
   if (score >= 21) return '#f97316'

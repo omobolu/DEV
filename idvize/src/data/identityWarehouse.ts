@@ -1,12 +1,12 @@
 export const IGA_KPIS = [
   { id: 'orphan',     label: 'Orphan Accounts',                   value: '34',   unit: '%', accentColor: '#ef4444' },
   { id: 'sod',        label: 'SOD Coverage',                      value: '23',   unit: '%', accentColor: '#f97316' },
-  { id: 'apps',       label: 'Applications Coverage',             value: '57.3', unit: '%', accentColor: '#6366f1' },
+  { id: 'apps',       label: 'Applications Coverage',             value: '57.3', unit: '%', accentColor: '#2563eb' },
   { id: 'terminated', label: 'Terminated Users w/ Active Access', value: '79',   unit: '%', accentColor: '#ef4444' },
 ]
 
 export const ACTIVE_IDENTITIES_DATA = [
-  { name: 'Americas', value: 142300, fill: '#6366f1' },
+  { name: 'Americas', value: 142300, fill: '#2563eb' },
   { name: 'EMEA',     value: 98700,  fill: '#818cf8' },
   { name: 'APAC',     value: 76500,  fill: '#a5b4fc' },
   { name: 'Other',    value: 21000,  fill: '#c7d2fe' },
@@ -20,7 +20,7 @@ export const APP_TYPE_DATA = [
 ]
 
 export const APPS_PORTFOLIO_DATA = [
-  { name: 'HR',       value: 28, fill: '#6366f1' },
+  { name: 'HR',       value: 28, fill: '#2563eb' },
   { name: 'Finance',  value: 22, fill: '#818cf8' },
   { name: 'IT Ops',   value: 19, fill: '#a5b4fc' },
   { name: 'Sales',    value: 16, fill: '#c7d2fe' },

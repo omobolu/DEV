@@ -13,22 +13,22 @@ const SECTION_SYSTEM = [
 ]
 
 const SECTION_IAM = [
-  { icon: BarChart2,   label: 'IGA',           path: '/iga',                color: '#6366f1' },
+  { icon: BarChart2,   label: 'IGA',           path: '/iga',                color: '#2563eb' },
   { icon: ShieldCheck, label: 'Access Mgmt',   path: '/access-management',  color: '#06b6d4' },
   { icon: ShieldAlert, label: 'PAM',           path: '/pam',                color: '#f59e0b' },
   { icon: UserCheck,   label: 'CIAM',          path: '/ciam',               color: '#22c55e' },
 ]
 
 const SECTION_DATA = [
-  { icon: Database,        label: 'Identity CMDB',    path: '/cmdb',             color: '#8b5cf6' },
+  { icon: Database,        label: 'Identity CMDB',    path: '/cmdb',             color: '#1e40af' },
   { icon: FileText,        label: 'Policy & Docs',    path: '/documents',        color: '#10b981' },
-  { icon: BookOpen,        label: 'Controls Library', path: '/controls/library', color: '#6366f1' },
+  { icon: BookOpen,        label: 'Controls Library', path: '/controls/library', color: '#2563eb' },
   { icon: LayoutDashboard, label: 'IAM Overview',     path: '/dashboard',        color: '#64748b' },
 ]
 
 const SECTION_INTEL = [
   { icon: AlertTriangle, label: 'Top IAM Risks',  path: '/risks',                     color: '#ef4444' },
-  { icon: Award,         label: 'Maturity',       path: '/maturity',                  color: '#a855f7' },
+  { icon: Award,         label: 'Maturity',       path: '/maturity',                  color: '#475569' },
   { icon: DollarSign,    label: 'Cost Intel',     path: '/insights/program-maturity', color: '#f97316' },
   { icon: TrendingUp,    label: 'Business Value', path: '/value',                     color: '#22c55e' },
 ]
