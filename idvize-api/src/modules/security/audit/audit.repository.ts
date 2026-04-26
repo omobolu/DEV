@@ -29,7 +29,8 @@ class AuditRepository {
   }
 
   async append(tenantId: string, event: AuditEvent): Promise<AuditEvent> {
-    this.bucket(tenantId).push(event);
+    // Only accumulate in-memory in dev/demo (production reads from PG exclusively)
+    if (getSeedMode() !== 'production') this.bucket(tenantId).push(event);
 
     const pgParams = [event.eventId, tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp];
 

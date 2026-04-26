@@ -100,8 +100,14 @@ class TenantService {
     }
 
     // Prevent duplicate adminEmail across tenants (would cause 409 "Ambiguous login" on auth)
-    const existingUser = authRepository.findByUsernameGlobal(input.adminEmail)
-      ?? await authRepository.findByUsernameGlobalPg(input.adminEmail).catch(() => undefined);
+    let existingUser = authRepository.findByUsernameGlobal(input.adminEmail);
+    if (!existingUser) {
+      try {
+        existingUser = await authRepository.findByUsernameGlobalPg(input.adminEmail);
+      } catch (err) {
+        if ((err as { statusCode?: number }).statusCode) throw err;
+      }
+    }
     if (existingUser) {
       throw Object.assign(new Error('adminEmail is already in use as a username in another tenant'), { statusCode: 409 });
     }
