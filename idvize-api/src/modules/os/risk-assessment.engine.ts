@@ -42,8 +42,6 @@ export interface ApplicationRisk {
   riskLevel: AssessmentRiskLevel;
   gapCount: number;
   attentionCount: number;
-  okCount: number;
-  totalControls: number;
   drivers: ControlDriver[];
 }
 
@@ -149,6 +147,7 @@ function classifyRisk(gapCount: number, attentionCount: number): AssessmentRiskL
   if (gapCount >= 3) return 'CRITICAL';
   if (gapCount >= 2) return 'HIGH';
   if (gapCount === 1 && attentionCount >= 2) return 'HIGH';
+  if (gapCount === 1) return 'MEDIUM';
   if (attentionCount > 0) return 'MEDIUM';
   return 'LOW';
 }
@@ -159,7 +158,6 @@ function classifyRisk(gapCount: number, attentionCount: number): AssessmentRiskL
 export function assessApplicationRisk(app: Application, tenantId: string): ApplicationRisk {
   let gapCount = 0;
   let attentionCount = 0;
-  let okCount = 0;
   const drivers: ControlDriver[] = [];
 
   for (const ctrl of CONTROLS_CATALOG) {
@@ -180,8 +178,6 @@ export function assessApplicationRisk(app: Application, tenantId: string): Appli
         pillar: ctrl.pillar,
         outcome: 'ATTN',
       });
-    } else {
-      okCount++;
     }
   }
 
@@ -192,8 +188,6 @@ export function assessApplicationRisk(app: Application, tenantId: string): Appli
     riskLevel: classifyRisk(gapCount, attentionCount),
     gapCount,
     attentionCount,
-    okCount,
-    totalControls: CONTROLS_CATALOG.length,
     drivers,
   };
 }
