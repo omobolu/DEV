@@ -38,7 +38,9 @@ class AuthService {
     try {
       user = await authRepository.findByUsernameGlobalPg(username);
     } catch {
-      // PostgreSQL not available — fall back to in-memory
+      // PostgreSQL not available
+    }
+    if (!user) {
       user = authRepository.findByUsernameGlobal(username);
     }
 
