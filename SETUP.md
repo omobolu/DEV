@@ -90,15 +90,23 @@ SEED_MODE=production npm run dev
 
 **First-time production bootstrap:**
 
-Use the bootstrap CLI to create the first PlatformAdmin user. This is a one-time operation:
+Use the bootstrap CLI to create the first PlatformAdmin user. This is a one-time operation.
+The password is read from the `IDVIZE_BOOTSTRAP_PASSWORD` environment variable or an interactive prompt — never from CLI arguments.
 
 ```bash
 cd idvize-api
-npx ts-node src/db/bootstrap-admin.ts \
-  --email admin@yourcompany.com \
-  --password "YourSecurePassword123!" \
-  --name "Admin Name" \
-  --org "Your Company"
+
+# Option 1: Password via env var (recommended for automation)
+IDVIZE_BOOTSTRAP_PASSWORD="YourSecurePassword123!" \
+DATABASE_URL=postgres://user:pass@prod-host:5432/idvize \
+  npx ts-node src/db/bootstrap-admin.ts \
+    --email admin@yourcompany.com \
+    --name "Admin Name" \
+    --org "Your Company"
+
+# Option 2: Interactive prompt (password input is hidden)
+DATABASE_URL=postgres://user:pass@prod-host:5432/idvize \
+  npx ts-node src/db/bootstrap-admin.ts --email admin@yourcompany.com
 ```
 
 This creates:
@@ -107,7 +115,10 @@ This creates:
 - No demo data is seeded
 
 **Requirements:**
+- `DATABASE_URL` must be explicitly set (refuses to run without it)
+- In `NODE_ENV=production`, rejects local/default database URLs
 - Password must be at least 12 characters
+- `--password` CLI argument is blocked (leaks via shell history / process listings)
 - Refuses to run if a PlatformAdmin already exists
 - Uses atomic PG transaction (tenant + user created together or not at all)
 

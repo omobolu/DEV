@@ -14,6 +14,7 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { TokenClaims } from '../modules/security/security.types'
 import { authService } from '../modules/security/auth/auth.service'
+import { authRepository } from '../modules/security/auth/auth.repository'
 import { logger } from '../lib/logger'
 import { getSeedMode } from '../config/seed-mode'
 import pool from '../db/pool'
@@ -31,7 +32,8 @@ declare global {
 
 /**
  * In production mode, revalidate user + tenant status directly from PostgreSQL.
- * Catches deactivated users and suspended tenants between token issuance and request.
+ * Also refreshes the user's roles/status in the in-memory cache so that
+ * authzService.check() uses current PG data (not stale startup-loaded cache).
  * Returns null if validation passes, or an error string if the request should be rejected.
  */
 async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
@@ -40,7 +42,7 @@ async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
   try {
     const [userResult, tenantResult] = await Promise.all([
       pool.query(
-        'SELECT status FROM users WHERE user_id = $1 AND tenant_id = $2',
+        'SELECT user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, last_login_at, created_at, updated_at FROM users WHERE user_id = $1 AND tenant_id = $2',
         [claims.sub, claims.tenantId]
       ),
       pool.query(
@@ -50,9 +52,37 @@ async function revalidateFromPg(claims: TokenClaims): Promise<string | null> {
     ]);
 
     if (userResult.rows.length === 0) return 'User no longer exists';
-    if (userResult.rows[0].status !== 'active') return `User account is ${userResult.rows[0].status}`;
+    const userRow = userResult.rows[0];
+    if (userRow.status !== 'active') return `User account is ${userRow.status}`;
     if (tenantResult.rows.length === 0) return 'Tenant no longer exists';
     if (tenantResult.rows[0].status !== 'active') return `Tenant is ${tenantResult.rows[0].status}`;
+
+    // Refresh in-memory cache with current PG roles/status so authzService
+    // uses fresh data instead of stale startup-loaded values.
+    const roles = typeof userRow.roles === 'string' ? JSON.parse(userRow.roles) : userRow.roles;
+    const groups = typeof userRow.groups === 'string' ? JSON.parse(userRow.groups) : userRow.groups;
+    const attributes = typeof userRow.attributes === 'string' ? JSON.parse(userRow.attributes) : userRow.attributes;
+    authRepository.save(claims.tenantId, {
+      userId: userRow.user_id,
+      tenantId: userRow.tenant_id,
+      username: userRow.username,
+      displayName: userRow.display_name,
+      firstName: userRow.first_name,
+      lastName: userRow.last_name,
+      email: userRow.email,
+      department: userRow.department,
+      title: userRow.title,
+      roles,
+      groups,
+      status: userRow.status,
+      authProvider: userRow.auth_provider,
+      mfaEnrolled: userRow.mfa_enrolled,
+      passwordHash: userRow.password_hash,
+      attributes,
+      lastLoginAt: userRow.last_login_at ? new Date(userRow.last_login_at).toISOString() : undefined,
+      createdAt: new Date(userRow.created_at).toISOString(),
+      updatedAt: new Date(userRow.updated_at).toISOString(),
+    });
 
     return null;
   } catch (err) {
