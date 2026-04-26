@@ -75,47 +75,66 @@ npm run dev    # → http://localhost:5173
 
 ## Creating a New Tenant
 
-### Step 1: Insert Tenant
+### Option A: API (Recommended — No Restart Required)
 
-```sql
-INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, settings)
-VALUES (
-  'ten-yourco',
-  'YourCo Inc',
-  'yourco',
-  'yourco.com',
-  'active',
-  'professional',
-  '{"mfaRequired":false,"sessionTimeoutSeconds":28800,"allowedAuthProviders":["oidc"],"maxUsers":100,"maxApps":50}'
-);
-```
-
-### Step 2: Generate Password Hash
+Create a tenant and admin user with a single API call. No restart needed — the new tenant is immediately available for login.
 
 ```bash
+# First, get a token from an existing Manager account
+TOKEN=$(curl -s -X POST http://localhost:3001/security/auth/token \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: idvize-dev-key-change-me" \
+  -d '{"username":"admin@acme.com","password":"password123"}' | \
+  python3 -c "import sys,json; print(json.load(sys.stdin)['data']['token'])")
+
+# Create the new tenant + admin user
+curl -X POST http://localhost:3001/tenants \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: idvize-dev-key-change-me" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "name": "YourCo Inc",
+    "slug": "yourco",
+    "domain": "yourco.com",
+    "plan": "professional",
+    "adminEmail": "admin@yourco.com",
+    "adminPassword": "your-secure-password",
+    "adminDisplayName": "Admin User"
+  }'
+```
+
+The new admin can immediately log in at the login page — no restart needed.
+
+### Option B: Direct SQL (Requires Restart)
+
+If you prefer to insert directly into PostgreSQL:
+
+```bash
+# Step 1: Generate password hash
 cd idvize-api
 node -e "require('bcryptjs').hash('your-password', 10).then(h => console.log(h))"
 ```
 
-### Step 3: Insert User
-
 ```sql
+-- Step 2: Insert tenant
+INSERT INTO tenants (tenant_id, name, slug, domain, status, plan, settings)
+VALUES (
+  'ten-yourco', 'YourCo Inc', 'yourco', 'yourco.com', 'active', 'professional',
+  '{"mfaRequired":false,"sessionTimeoutSeconds":28800,"allowedAuthProviders":["oidc"],"maxUsers":100,"maxApps":50}'
+);
+
+-- Step 3: Insert admin user (paste bcrypt hash from Step 1)
 INSERT INTO users (
   user_id, tenant_id, username, display_name, first_name, last_name,
   email, roles, status, auth_provider, password_hash
 ) VALUES (
   'usr-yourco-admin-001', 'ten-yourco', 'admin@yourco.com', 'Admin User',
   'Admin', 'User', 'admin@yourco.com', '["Manager"]', 'active', 'local',
-  '$2b$10$...'  -- paste the hash from Step 2
+  '$2b$10$...'  -- paste the hash from Step 1
 );
 ```
 
-### Step 4: Restart Backend
-
-```bash
-# The backend loads tenants from PostgreSQL on startup
-# Just restart: Ctrl+C then npm run dev
-```
+> **Note:** Direct SQL inserts require a backend restart (`Ctrl+C` then `npm run dev`) because the in-memory tenant cache only loads at startup. The API approach (Option A) avoids this by updating both PostgreSQL and the cache in one call.
 
 ## Multi-Tenant Testing
 
