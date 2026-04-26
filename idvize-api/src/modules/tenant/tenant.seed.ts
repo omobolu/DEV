@@ -6,6 +6,10 @@
  *
  * Tenant 1 — ACME Financial Services  (ten-acme)
  * Tenant 2 — Globex Technologies      (ten-globex)
+ *
+ * On startup:
+ *   1. Load tenant cache from PostgreSQL (persistent tenants)
+ *   2. Seed in-memory stores for modules not yet migrated to PostgreSQL
  */
 
 import { Tenant } from './tenant.types';
@@ -178,24 +182,28 @@ const GLOBEX_USERS: User[] = [
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-export function seedTenants(): void {
-  // No-op if already seeded
-  if (tenantRepository.count() > 0) return;
+export async function seedTenants(): Promise<void> {
+  // Load tenant cache from PostgreSQL
+  await tenantRepository.loadCache();
 
-  // Save tenants
-  tenantRepository.save(TENANT_ACME);
-  tenantRepository.save(TENANT_GLOBEX);
+  // If tenants already in PostgreSQL, skip in-memory tenant creation
+  // but still seed in-memory user/app stores for modules not yet on PostgreSQL
+  if (tenantRepository.countSync() === 0) {
+    // No tenants in PostgreSQL — seed in-memory (fallback for dev without DB)
+    await tenantRepository.save(TENANT_ACME);
+    await tenantRepository.save(TENANT_GLOBEX);
+  }
 
-  // Seed users per tenant
+  // Seed in-memory user store (still needed for RBAC, SCIM, and other modules)
   for (const user of ACME_USERS)   authRepository.save('ten-acme',   user);
   for (const user of GLOBEX_USERS) authRepository.save('ten-globex', user);
 
-  // Seed application portfolios — each tenant gets the full 50-app demo portfolio
-  // (same apps, different tenantId — demonstrates data isolation)
+  // Seed application portfolios in-memory
   seedApplications('ten-acme');
   seedApplications('ten-globex');
 
-  console.log('  ✓ Tenant seed loaded — 2 tenants (ACME Financial, Globex Technologies)');
-  console.log('  ✓ Users seeded: 5 per tenant (admin@acme.com, admin@globex.io / password123)');
-  console.log('  ✓ Application portfolios seeded: 50 apps × 2 tenants');
+  console.log('  \u2713 Tenant seed loaded — 2 tenants (ACME Financial, Globex Technologies)');
+  console.log('  \u2713 Users seeded: 5 per tenant (admin@acme.com, admin@globex.io / password123)');
+  console.log('  \u2713 Application portfolios seeded: 50 apps \u00d7 2 tenants');
+  console.log('  \u2713 PostgreSQL: tenants + users persisted with bcrypt passwords');
 }

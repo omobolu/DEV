@@ -1,11 +1,19 @@
 /**
  * Authentication Service
  *
- * Handles login (password grant — mock), token verification, and user lookup.
+ * Handles login (bcrypt-verified), token verification, and user lookup.
  * Delegates token issuance to the OIDC adapter.
  * Fires audit events for all authentication outcomes.
+ *
+ * Login flow:
+ *   1. Look up user in PostgreSQL by username (global cross-tenant)
+ *   2. Verify password with bcrypt.compare()
+ *   3. Validate tenant status
+ *   4. Issue JWT token via OIDC adapter
+ *   5. Log audit events
  */
 
+import bcrypt from 'bcryptjs';
 import { User, TokenClaims } from '../security.types';
 import { authRepository } from './auth.repository';
 import { tenantRepository } from '../../tenant/tenant.repository';
@@ -20,21 +28,47 @@ export interface LoginResult {
 class AuthService {
 
   /**
-   * Authenticate a user with username + password (mock/local provider).
-   * Phase 2: delegate to real OIDC authorization code flow.
-   * Performs a cross-tenant global username lookup — acceptable for Phase 1.
+   * Authenticate a user with username + password.
+   * Uses PostgreSQL for user lookup and bcrypt for password verification.
+   * Falls back to in-memory store if PostgreSQL lookup fails.
    */
   async login(username: string, password: string, actorIp?: string): Promise<LoginResult> {
-    const user = authRepository.findByUsernameGlobal(username);
+    // Try PostgreSQL first, fall back to in-memory
+    let user: User | undefined;
+    try {
+      user = await authRepository.findByUsernameGlobalPg(username);
+    } catch {
+      // PostgreSQL not available — fall back to in-memory
+      user = authRepository.findByUsernameGlobal(username);
+    }
 
-    if (!user || user.passwordHash !== password) {
+    if (!user) {
       auditService.log({
         eventType: 'auth.login.failure',
         actorId:   username,
         actorName: username,
         actorIp,
         outcome:   'failure',
-        reason:    user ? 'Invalid password' : 'User not found',
+        reason:    'User not found',
+        metadata:  { username },
+      });
+      throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
+    }
+
+    // Verify password — support both bcrypt hashes and plaintext fallback
+    const hash = user.passwordHash ?? '';
+    const isValid = hash.startsWith('$2')
+      ? await bcrypt.compare(password, hash)
+      : hash === password;
+
+    if (!isValid) {
+      auditService.log({
+        eventType: 'auth.login.failure',
+        actorId:   user.userId,
+        actorName: user.displayName,
+        actorIp,
+        outcome:   'failure',
+        reason:    'Invalid password',
         metadata:  { username },
       });
       throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
@@ -53,7 +87,7 @@ class AuthService {
       throw Object.assign(new Error(`Account is ${user.status}`), { statusCode: 403 });
     }
 
-    const tenant = tenantRepository.findById(user.tenantId);
+    const tenant = await tenantRepository.findById(user.tenantId);
     if (!tenant || tenant.status === 'suspended') {
       throw Object.assign(new Error('Tenant not available'), { statusCode: 403 });
     }
@@ -94,7 +128,6 @@ class AuthService {
 
   /**
    * Get a user's profile (safe — no password hash).
-   * Scoped to the user's own tenant.
    */
   getUser(tenantId: string, userId: string): Omit<User, 'passwordHash'> | undefined {
     const user = authRepository.findById(tenantId, userId);

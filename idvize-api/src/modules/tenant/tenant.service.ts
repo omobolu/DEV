@@ -2,6 +2,7 @@
  * Tenant Service
  *
  * Business logic for tenant lookup, validation, and listing.
+ * Uses PostgreSQL-backed tenant repository with in-memory cache.
  */
 
 import { Tenant, TenantSummary } from './tenant.types';
@@ -10,17 +11,18 @@ import { authRepository } from '../security/auth/auth.repository';
 import { applicationRepository } from '../application/application.repository';
 
 class TenantService {
-  getTenant(tenantId: string): Tenant | undefined {
+  async getTenant(tenantId: string): Promise<Tenant | undefined> {
     return tenantRepository.findById(tenantId);
   }
 
-  getTenantBySlug(slug: string): Tenant | undefined {
+  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
     return tenantRepository.findBySlug(slug);
   }
 
   /** Throws a typed error if tenantId is invalid or suspended. */
   validateTenant(tenantId: string): Tenant {
-    const tenant = tenantRepository.findById(tenantId);
+    // Uses sync cache accessor — cache is loaded at startup
+    const tenant = tenantRepository.findByIdSync(tenantId);
     if (!tenant) {
       throw Object.assign(new Error(`Tenant not found: ${tenantId}`), { statusCode: 404 });
     }
@@ -30,8 +32,9 @@ class TenantService {
     return tenant;
   }
 
-  listTenants(): TenantSummary[] {
-    return tenantRepository.findAll().map(t => ({
+  async listTenants(): Promise<TenantSummary[]> {
+    const tenants = await tenantRepository.findAll();
+    return tenants.map(t => ({
       tenantId:  t.tenantId,
       name:      t.name,
       slug:      t.slug,

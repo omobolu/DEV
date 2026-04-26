@@ -1,11 +1,12 @@
 /**
- * Audit Repository
+ * Audit Repository — PostgreSQL-backed
  *
- * Append-only in-memory event store. Events are never deleted.
- * Phase 2: replace with PostgreSQL, SIEM, or immutable object store.
+ * Append-only event store. Events are written to PostgreSQL and cached in memory
+ * for fast query access. Never deleted.
  */
 
 import { AuditEvent, AuditEventType } from '../security.types';
+import pool from '../../../db/pool';
 
 export interface AuditFilter {
   eventType?: AuditEventType;
@@ -27,7 +28,18 @@ class AuditRepository {
   }
 
   append(tenantId: string, event: AuditEvent): AuditEvent {
+    // In-memory append
     this.bucket(tenantId).push(event);
+
+    // PostgreSQL append (fire-and-forget)
+    pool.query(
+      `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      [event.eventId, event.tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp]
+    ).catch((err) => {
+      console.error('[Audit] PostgreSQL write failed:', err.message);
+    });
+
     return event;
   }
 
@@ -45,7 +57,6 @@ class AuditRepository {
     if (filter.dateFrom) results = results.filter(e => e.timestamp >= filter.dateFrom!);
     if (filter.dateTo) results = results.filter(e => e.timestamp <= filter.dateTo!);
 
-    // Most recent first
     results.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     const offset = filter.offset ?? 0;
@@ -53,9 +64,6 @@ class AuditRepository {
     return results.slice(offset, offset + limit);
   }
 
-  /**
-   * Query across ALL tenant buckets — for cross-tenant admin views.
-   */
   queryAll(filter: AuditFilter = {}): AuditEvent[] {
     let results: AuditEvent[] = [];
     for (const events of this.log.values()) {
@@ -80,9 +88,6 @@ class AuditRepository {
     return this.bucket(tenantId).length;
   }
 
-  /**
-   * Count across ALL tenant buckets — for cross-tenant admin views.
-   */
   countAll(): number {
     let total = 0;
     for (const events of this.log.values()) {

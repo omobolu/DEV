@@ -196,7 +196,7 @@ app.listen(PORT, () => {
   console.log(`========================================================\n`);
 
   // Seed demo tenants, users, and application portfolios
-  seedTenants();
+  seedTenants().catch(err => console.error('[SEED] Failed to seed:', err.message));
 });
 
 export default app;

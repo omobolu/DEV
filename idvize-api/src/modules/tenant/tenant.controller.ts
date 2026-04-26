@@ -15,8 +15,8 @@ import { tenantService } from './tenant.service';
 const router = Router();
 
 // ── GET /tenants/me — current tenant (any authenticated user) ─────────────────
-router.get('/me', requireAuth, (req: Request, res: Response) => {
-  const tenant = tenantService.getTenant(req.tenantId!);
+router.get('/me', requireAuth, async (req: Request, res: Response) => {
+  const tenant = await tenantService.getTenant(req.tenantId!);
   if (!tenant) {
     res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
     return;
@@ -25,8 +25,8 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
 });
 
 // ── GET /tenants — list all tenants (Manager only) ────────────────────────────
-router.get('/', requireAuth, requirePermission('security.manage.access'), (_req: Request, res: Response) => {
-  const tenants = tenantService.listTenants();
+router.get('/', requireAuth, requirePermission('security.manage.access'), async (_req: Request, res: Response) => {
+  const tenants = await tenantService.listTenants();
   res.json({
     success: true,
     data: { total: tenants.length, tenants },
@@ -35,8 +35,9 @@ router.get('/', requireAuth, requirePermission('security.manage.access'), (_req:
 });
 
 // ── GET /tenants/:tenantId — get one tenant ───────────────────────────────────
-router.get('/:tenantId', requireAuth, requirePermission('security.manage.access'), (req: Request, res: Response) => {
-  const summary = tenantService.listTenants().find(t => t.tenantId === req.params.tenantId);
+router.get('/:tenantId', requireAuth, requirePermission('security.manage.access'), async (req: Request, res: Response) => {
+  const tenants = await tenantService.listTenants();
+  const summary = tenants.find(t => t.tenantId === req.params.tenantId);
   if (!summary) {
     res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
     return;
