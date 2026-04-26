@@ -266,9 +266,13 @@ export async function seedTenants(): Promise<void> {
     await tenantRepository.save(TENANT_GLOBEX);
   }
 
-  // Seed in-memory user store (still needed for RBAC, SCIM, and other modules)
-  for (const user of ACME_USERS)   authRepository.save('ten-acme',   user);
-  for (const user of GLOBEX_USERS) authRepository.save('ten-globex', user);
+  // Seed in-memory user store only if PG didn't already provide them
+  if (authRepository.count('ten-acme') === 0) {
+    for (const user of ACME_USERS) authRepository.save('ten-acme', user);
+  }
+  if (authRepository.count('ten-globex') === 0) {
+    for (const user of GLOBEX_USERS) authRepository.save('ten-globex', user);
+  }
 
   // Seed application portfolios in-memory
   seedApplications('ten-acme');
