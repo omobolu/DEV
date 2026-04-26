@@ -41,7 +41,7 @@ router.post('/logout', requireAuth, (req: Request, res: Response) => {
 router.get('/me', requireAuth, (req: Request, res: Response) => {
   const claims = req.user!;
   const user = authService.getUser(claims.tenantId, claims.sub);
-  const permissions = authzService.getUserPermissions(claims.sub);
+  const permissions = authzService.getUserPermissions(claims.sub, claims.tenantId);
   res.json({ success: true, data: { user, permissions, roles: claims.roles }, timestamp: new Date().toISOString() });
 });
 

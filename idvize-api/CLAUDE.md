@@ -43,7 +43,7 @@ app.use('/integrations', integrationController)  // API key only, no JWT
 | PORT | Server port (default: 3001) |
 | NODE_ENV | Environment (default: development) |
 | API_KEY | Static API key for dev |
-| JWT_SECRET | JWT signing secret (falls back to hardcoded dev secret) |
+| JWT_SIGNING_SECRET | JWT signing secret (REQUIRED in production — no dev default) |
 | ANTHROPIC_API_KEY | Claude API (optional — AI features degrade gracefully) |
 | ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET | Entra ID (optional) |
 | SAILPOINT_BASE_URL, SAILPOINT_CLIENT_ID, SAILPOINT_CLIENT_SECRET | SailPoint (optional) |

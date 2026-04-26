@@ -96,13 +96,13 @@ router.get('/authz/check', requireAuth, (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: '"permission" query param required', timestamp: new Date().toISOString() });
     return;
   }
-  const decision = authzService.check(req.user!.sub, permission);
+  const decision = authzService.check(req.user!.sub, req.user!.tenantId, permission);
   res.json({ success: true, data: decision, timestamp: new Date().toISOString() });
 });
 
 // GET /security/authz/my-permissions — effective permissions for current user
 router.get('/authz/my-permissions', requireAuth, (req: Request, res: Response) => {
-  const permissions = authzService.getUserPermissions(req.user!.sub);
+  const permissions = authzService.getUserPermissions(req.user!.sub, req.user!.tenantId);
   res.json({ success: true, data: { userId: req.user!.sub, roles: req.user!.roles, permissions }, timestamp: new Date().toISOString() });
 });
 
@@ -136,11 +136,12 @@ router.get('/masking/demo', requireAuth, requirePermission('cost.view.summary'),
   const masked = maskingService.maskArray(
     samplePeople as unknown as Record<string, unknown>[],
     userId,
+    req.user!.tenantId,
     'PersonCost',
     req.requestId,
   );
 
-  const hasSalaryAccess = authzService.check(userId, 'cost.view.salary_detail').allowed;
+  const hasSalaryAccess = authzService.check(userId, req.user!.tenantId, 'cost.view.salary_detail').allowed;
 
   res.json({
     success: true,

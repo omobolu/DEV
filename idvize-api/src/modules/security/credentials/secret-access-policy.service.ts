@@ -66,7 +66,7 @@ class SecretAccessPolicyService {
     requestId?: string,
   ): PolicyDecision {
     const permissionId = ACTION_TO_PERMISSION[action];
-    const decision = authzService.check(userId, permissionId);
+    const decision = authzService.check(userId, tenantId, permissionId);
 
     // Base permission denied
     if (!decision.allowed) {
@@ -146,9 +146,9 @@ class SecretAccessPolicyService {
    * Returns metadata-only view for users lacking secrets.view.metadata,
    * and omits vault path for users lacking secrets.reference.
    */
-  applyFieldRestrictions(credential: CredentialRecord, userId: string): Partial<CredentialRecord> {
-    const canViewMetadata = authzService.check(userId, 'secrets.view.metadata').allowed;
-    const canViewReference = authzService.check(userId, 'secrets.reference').allowed;
+  applyFieldRestrictions(credential: CredentialRecord, userId: string, tenantId: string): Partial<CredentialRecord> {
+    const canViewMetadata = authzService.check(userId, tenantId, 'secrets.view.metadata').allowed;
+    const canViewReference = authzService.check(userId, tenantId, 'secrets.reference').allowed;
 
     if (!canViewMetadata) {
       // Absolute minimum — just the ID and name

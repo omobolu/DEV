@@ -80,7 +80,7 @@ class ApprovalService {
       ? 'approval.grant.high_risk'
       : 'approval.grant.standard';
 
-    const authzDecision = authzService.check(approverId, requiredPermission);
+    const authzDecision = authzService.check(approverId, tenantId, requiredPermission);
     if (!authzDecision.allowed) {
       throw new Error(`Approver lacks "${requiredPermission}": ${authzDecision.reason}`);
     }

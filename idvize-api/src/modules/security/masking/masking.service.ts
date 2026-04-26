@@ -54,6 +54,7 @@ class MaskingService {
   maskObject<T extends Record<string, unknown>>(
     obj: T,
     userId: string,
+    tenantId: string,
     schemaName: string,
     requestId?: string,
   ): T {
@@ -64,7 +65,7 @@ class MaskingService {
     let masked = false;
 
     for (const rule of schema) {
-      const decision = authzService.check(userId, rule.permission);
+      const decision = authzService.check(userId, tenantId, rule.permission);
       if (!decision.allowed) {
         for (const field of rule.fields) {
           this.setNestedField(clone, field, REDACTED);
@@ -94,21 +95,22 @@ class MaskingService {
   maskArray<T extends Record<string, unknown>>(
     items: T[],
     userId: string,
+    tenantId: string,
     schemaName: string,
     requestId?: string,
   ): T[] {
-    return items.map(item => this.maskObject(item, userId, schemaName, requestId));
+    return items.map(item => this.maskObject(item, userId, tenantId, schemaName, requestId));
   }
 
   /**
    * Check if a user can see a specific field.
    */
-  canSeeField(userId: string, schemaName: string, fieldPath: string): boolean {
+  canSeeField(userId: string, tenantId: string, schemaName: string, fieldPath: string): boolean {
     const schema = FIELD_CLASSIFICATION_SCHEMAS[schemaName];
     if (!schema) return true;
     for (const rule of schema) {
       if (rule.fields.includes(fieldPath)) {
-        return authzService.check(userId, rule.permission).allowed;
+        return authzService.check(userId, tenantId, rule.permission).allowed;
       }
     }
     return true;

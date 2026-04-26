@@ -132,7 +132,7 @@ router.get('/', requirePermission('secrets.view.metadata'), (req: Request, res: 
     applicationId: applicationId as string,
   });
   // Apply field restrictions per caller
-  const restricted = all.map(c => secretAccessPolicyService.applyFieldRestrictions(c, req.user!.sub));
+  const restricted = all.map(c => secretAccessPolicyService.applyFieldRestrictions(c, req.user!.sub, tenantId));
   res.json({ success: true, data: { total: restricted.length, credentials: restricted }, timestamp: new Date().toISOString() });
 });
 
@@ -151,7 +151,7 @@ router.get('/:id', requirePermission('secrets.view.metadata'), (req: Request, re
     res.status(404).json({ success: false, error: 'Credential not found', timestamp: new Date().toISOString() });
     return;
   }
-  const restricted = secretAccessPolicyService.applyFieldRestrictions(record, req.user!.sub);
+  const restricted = secretAccessPolicyService.applyFieldRestrictions(record, req.user!.sub, tenantId);
   res.json({ success: true, data: restricted, timestamp: new Date().toISOString() });
 });
 

@@ -29,7 +29,7 @@ export function requirePermission(
     const userId = req.user.sub;
     const tenantId = req.user.tenantId;
     const context = contextFn ? contextFn(req) : {};
-    const decision = authzService.check(userId, permissionId, context, tenantId);
+    const decision = authzService.check(userId, tenantId, permissionId, context);
 
     auditService.log({
       eventType: decision.allowed ? 'authz.allow' : 'authz.deny',

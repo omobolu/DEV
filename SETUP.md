@@ -42,7 +42,7 @@ Copy or create `idvize-api/.env`:
 ```env
 PORT=3001
 NODE_ENV=development
-JWT_SECRET=idvize-dev-secret-2026
+JWT_SIGNING_SECRET=idvize-dev-secret-2026
 DATABASE_URL=postgresql://idvize:idvize_dev_2026@localhost:5432/idvize
 SEED_MODE=development
 ```
@@ -81,12 +81,35 @@ Seeds 2 demo tenants with users (all passwords bcrypt-hashed):
 
 #### Production Mode
 
-In production, the database starts empty. Tenants are created exclusively via the `POST /tenants` API. No demo data is ever auto-loaded.
+In production, the database starts empty. No demo data is ever auto-loaded.
 
 ```bash
 # Production — no demo data
 SEED_MODE=production npm run dev
 ```
+
+**First-time production bootstrap:**
+
+Use the bootstrap CLI to create the first PlatformAdmin user. This is a one-time operation:
+
+```bash
+cd idvize-api
+npx ts-node src/db/bootstrap-admin.ts \
+  --email admin@yourcompany.com \
+  --password "YourSecurePassword123!" \
+  --name "Admin Name" \
+  --org "Your Company"
+```
+
+This creates:
+- A `ten-platform` tenant for the platform operator
+- A PlatformAdmin user who can create new customer tenants via `POST /tenants`
+- No demo data is seeded
+
+**Requirements:**
+- Password must be at least 12 characters
+- Refuses to run if a PlatformAdmin already exists
+- Uses atomic PG transaction (tenant + user created together or not at all)
 
 ## Running the Application
 

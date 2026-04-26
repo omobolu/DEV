@@ -10,6 +10,7 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import pool from './pool';
+import { getSeedMode } from '../config/seed-mode';
 
 const SALT_ROUNDS = 10;
 const NOW = new Date().toISOString();
@@ -71,10 +72,13 @@ const USERS = [
 ];
 
 async function seed(): Promise<void> {
-  const mode = (process.env.SEED_MODE ?? 'production').toLowerCase().trim();
-  if (mode === 'production') {
-    console.log('[SEED] SEED_MODE=production — refusing to seed demo data.');
+  const mode = getSeedMode();
+  const raw = (process.env.SEED_MODE ?? '').trim();
+
+  if (mode !== 'demo' && mode !== 'development') {
+    console.log(`[SEED] SEED_MODE="${raw}" resolved to "${mode}" — refusing to seed demo data.`);
     console.log('[SEED] Set SEED_MODE=demo or SEED_MODE=development to load demo tenants.');
+    console.log('[SEED] Invalid or missing values (prod, devv, empty, etc.) default to production — no seeding.');
     await pool.end();
     return;
   }
