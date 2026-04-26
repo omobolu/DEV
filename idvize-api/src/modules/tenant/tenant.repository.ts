@@ -68,6 +68,7 @@ class TenantRepository {
     }
     this.cache.set(tenant.tenantId, tenant);
     this.slugIndex.set(tenant.slug, tenant.tenantId);
+    this.loaded = true;
     return tenant;
   }
 

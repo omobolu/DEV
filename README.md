@@ -56,6 +56,19 @@ The **Enterprise Foundation** PR introduces the persistence layer, multi-tenant 
 | **Clean Login Page** | Demo tenant names (ACME, Globex) removed from login UI. Clean username/password/sign-in form only. |
 | **System Events Page** | Dedicated `/system-events` page under System sidebar showing live IAM event stream from PostgreSQL with search and severity filters. |
 | **Graceful Degradation** | If PostgreSQL is unavailable, the app falls back to in-memory seed data. Server always starts. |
+| **Controlled Data Initialization** | `SEED_MODE` env var: `production` (default, empty), `demo`, `development`. Production never auto-loads demo data. |
+| **API Tenant Provisioning** | `POST /tenants` creates tenant + admin user atomically in a single PG transaction. No restart required. |
+| **Differentiated Tenant Data** | ACME: 50 financial/banking apps. Globex: 30 tech/platform/SRE apps. Different names, counts, vendors, IAM postures. |
+
+### Data Initialization Strategy
+
+The system supports **three modes** via the `SEED_MODE` environment variable:
+
+- **`production`** (default) — NO demo data. System starts empty. Tenants created exclusively via API.
+- **`demo`** — Seeds ACME + Globex demo tenants with differentiated application portfolios.
+- **`development`** — Same as demo; allows flexible seeding + data reset.
+
+**Production mode is the default.** If `SEED_MODE` is not set, no demo tenants are created. See [SETUP.md](SETUP.md) for full details.
 
 ### What Remains Node.js (Temporary)
 
