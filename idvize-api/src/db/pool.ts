@@ -6,9 +6,21 @@
  */
 
 import { Pool } from 'pg';
+import { getSeedMode } from '../config/seed-mode';
+
+const DEV_FALLBACK = 'postgresql://idvize:idvize_dev_2026@localhost:5432/idvize';
+
+function getConnectionString(): string {
+  const url = process.env.DATABASE_URL;
+  if (url) return url;
+  if (getSeedMode() === 'production') {
+    throw new Error('[FATAL] SEED_MODE=production but DATABASE_URL is not set. Production must not use a fallback database.');
+  }
+  return DEV_FALLBACK;
+}
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://idvize:idvize_dev_2026@localhost:5432/idvize',
+  connectionString: getConnectionString(),
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
