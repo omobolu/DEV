@@ -11,7 +11,7 @@
  * Risk classification rules:
  *   CRITICAL — >= 3 GAP controls
  *   HIGH     — >= 2 GAP controls OR (1 GAP + >= 2 ATTN)
- *   MEDIUM   — only ATTN controls (zero GAPs)
+ *   MEDIUM   — 1 GAP with < 2 ATTN, OR only ATTN controls (zero GAPs)
  *   LOW      — all OK (zero GAPs, zero ATTNs)
  *
  * This engine is separate from the existing risk.engine.ts which scores
@@ -140,7 +140,7 @@ function assessControlOutcome(controlId: string, appId: string, posture: IamPost
  *
  *   CRITICAL — >= 3 GAP controls
  *   HIGH     — >= 2 GAP controls OR (1 GAP + >= 2 ATTN)
- *   MEDIUM   — only ATTN controls (zero GAPs but ATTN > 0)
+ *   MEDIUM   — 1 GAP with < 2 ATTN, OR only ATTN controls (zero GAPs)
  *   LOW      — all OK (zero GAPs and zero ATTNs)
  */
 function classifyRisk(gapCount: number, attentionCount: number): AssessmentRiskLevel {
