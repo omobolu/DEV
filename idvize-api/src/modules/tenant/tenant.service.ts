@@ -148,8 +148,8 @@ class TenantService {
     await tenantRepository.createTenantWithAdmin(tenant, user);
     authRepository.save(tenantId, user);
 
-    // Audit log
-    await auditService.log({
+    // Audit log — fire-and-forget so audit failure doesn't mask a successful creation
+    auditService.log({
       eventType: 'tenant.created',
       actorId,
       actorName,
@@ -158,6 +158,8 @@ class TenantService {
       outcome: 'success',
       tenantId: 'system',
       metadata: { tenantName: tenant.name, slug: tenant.slug, adminEmail: input.adminEmail },
+    }).catch(err => {
+      console.error('[TenantService] Audit log failed after tenant creation (tenant was created successfully):', (err as Error).message);
     });
 
     return {
