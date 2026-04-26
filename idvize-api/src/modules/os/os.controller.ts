@@ -372,7 +372,7 @@ const MOCK_IDENTITIES = [
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── GET /os/status ───────────────────────────────────────────────────────────
-router.get('/status', requireAuth, async (req: Request, res: Response) => {
+router.get('/status', async (req: Request, res: Response) => {
   const { apps, covered, gaps } = computeCoverage(req.tenantId!);
   const drivers    = getDrivers();
   const builds     = buildService.listBuilds(req.tenantId!);
@@ -488,7 +488,7 @@ const POSTURE_DETECT: Record<string, PostureFn> = {
 };
 
 // ── GET /os/coverage ─────────────────────────────────────────────────────────
-router.get('/coverage', requireAuth, (req: Request, res: Response) => {
+router.get('/coverage', (req: Request, res: Response) => {
   const { apps, byTier } = computeCoverage(req.tenantId!);
   const total    = apps.length;
   const postures = apps.map(a => ({ appId: a.appId, posture: a.iamPosture }));
@@ -549,7 +549,7 @@ router.get('/coverage', requireAuth, (req: Request, res: Response) => {
 });
 
 // ── GET /os/gaps ──────────────────────────────────────────────────────────────
-router.get('/gaps', requireAuth, (req: Request, res: Response) => {
+router.get('/gaps', (req: Request, res: Response) => {
   const { gaps } = computeCoverage(req.tenantId!);
   res.json({
     success: true,
@@ -567,7 +567,7 @@ router.get('/gaps', requireAuth, (req: Request, res: Response) => {
 });
 
 // ── GET /os/identity-plane ────────────────────────────────────────────────────
-router.get('/identity-plane', requireAuth, (_req: Request, res: Response) => {
+router.get('/identity-plane', (_req: Request, res: Response) => {
   res.json({
     success: true,
     data: {
@@ -584,12 +584,12 @@ router.get('/identity-plane', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/drivers ───────────────────────────────────────────────────────────
-router.get('/drivers', requireAuth, (_req: Request, res: Response) => {
+router.get('/drivers', (_req: Request, res: Response) => {
   res.json({ success: true, data: getDrivers() });
 });
 
 // ── GET /os/processes ─────────────────────────────────────────────────────────
-router.get('/processes', requireAuth, async (req: Request, res: Response) => {
+router.get('/processes', async (req: Request, res: Response) => {
   const builds     = buildService.listBuilds(req.tenantId!) as any[];
   const pending    = approvalService.listPending(req.tenantId!) as any[];
   const rotReport  = await credentialRotationMonitorService.runCheck(req.tenantId!);
@@ -628,7 +628,7 @@ router.get('/processes', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── GET /os/modules ───────────────────────────────────────────────────────────
-router.get('/modules', requireAuth, (_req: Request, res: Response) => {
+router.get('/modules', (_req: Request, res: Response) => {
   res.json({
     success: true,
     data: MODULE_DEFS.map(m => ({ ...m, status: 'healthy' })),
@@ -636,7 +636,7 @@ router.get('/modules', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/events ────────────────────────────────────────────────────────────
-router.get('/events', requireAuth, async (req: Request, res: Response) => {
+router.get('/events', async (req: Request, res: Response) => {
   const raw = getSeedMode() === 'production'
     ? await auditService.queryPg(req.tenantId!, { limit: 50 })
     : auditService.query(req.tenantId!, { limit: 50 });
@@ -658,7 +658,7 @@ router.get('/events', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── GET /os/alerts ────────────────────────────────────────────────────────────
-router.get('/alerts', requireAuth, async (req: Request, res: Response) => {
+router.get('/alerts', async (req: Request, res: Response) => {
   const { gaps } = computeCoverage(req.tenantId!);
   const rotReport = await credentialRotationMonitorService.runCheck(req.tenantId!);
   const drivers   = getDrivers();
@@ -731,7 +731,7 @@ router.get('/alerts', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ── GET /os/risks — full portfolio ranked by IAM risk score ──────────────────
-router.get('/risks', requireAuth, (req: Request, res: Response) => {
+router.get('/risks', (req: Request, res: Response) => {
   const apps   = applicationRepository.findAll(req.tenantId!);
   const ranked = computePortfolioRisks(apps);
   const summary = buildPortfolioRiskSummary(ranked);
@@ -750,7 +750,7 @@ router.get('/risks', requireAuth, (req: Request, res: Response) => {
 });
 
 // ── GET /os/risks/:appId — single app risk summary with priority rank ─────────
-router.get('/risks/:appId', requireAuth, (req: Request, res: Response) => {
+router.get('/risks/:appId', (req: Request, res: Response) => {
   const appId = req.params.appId as string;
   const app = applicationRepository.findById(req.tenantId!, appId);
   if (!app) {
@@ -825,7 +825,7 @@ const MOCK_APPS: AppGapInput[] = [
 ];
 
 // ── GET /os/gaps/mock ─────────────────────────────────────────────────────────
-router.get('/gaps/mock', requireAuth, (_req: Request, res: Response) => {
+router.get('/gaps/mock', (_req: Request, res: Response) => {
   const results = evaluateApps(MOCK_APPS);
   res.json({
     success: true,
@@ -848,7 +848,7 @@ router.get('/gaps/mock', requireAuth, (_req: Request, res: Response) => {
 // ── POST /os/gaps/evaluate ────────────────────────────────────────────────────
 // Accept a list of app objects and run the gap engine over them.
 // Body: { apps: AppGapInput[] }
-router.post('/gaps/evaluate', requireAuth, (req: Request, res: Response) => {
+router.post('/gaps/evaluate', (req: Request, res: Response) => {
   const { apps } = req.body as { apps?: unknown[] };
 
   if (!Array.isArray(apps) || apps.length === 0) {
@@ -915,7 +915,7 @@ router.post('/gaps/evaluate', requireAuth, (req: Request, res: Response) => {
 //   (1) Approval  — represents email notification to app owner + IAM team
 //   (2) Build job — AI agent configuration task queued until form is submitted
 // Returns: approvalId, buildId, sentTo, nextSteps, missingControls
-router.post('/gaps/:gapId/action', requireAuth, async (req: Request, res: Response) => {
+router.post('/gaps/:gapId/action', async (req: Request, res: Response) => {
   const { gapId } = req.params;
   const { action } = req.body as { action: string };
   const actor = (req as any).user as { userId: string; name: string } | undefined;

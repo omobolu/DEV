@@ -67,11 +67,11 @@ router.get('/config', (_req: Request, res: Response) => {
 });
 
 // POST /integrations/configure — save credentials for one or more platforms
-router.post('/configure', (req: Request, res: Response) => {
+router.post('/configure', async (req: Request, res: Response) => {
   try {
     const actorId   = req.user?.sub  ?? 'anonymous';
     const actorName = req.user?.name ?? 'Anonymous';
-    integrationConfigService.save(req.body, actorId, actorName);
+    await integrationConfigService.save(req.body, actorId, actorName);
     res.json({
       success: true,
       data: { statuses: integrationConfigService.getStatuses() },
