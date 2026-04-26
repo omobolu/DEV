@@ -64,6 +64,62 @@ class AuditRepository {
     return results.slice(offset, offset + limit);
   }
 
+  /**
+   * Query audit events from PostgreSQL. Falls back to in-memory if PG unavailable.
+   */
+  async queryPg(tenantId: string, filter: AuditFilter = {}): Promise<AuditEvent[]> {
+    try {
+      const conditions: string[] = ['tenant_id = $1'];
+      const params: unknown[] = [tenantId];
+      let idx = 2;
+
+      if (filter.eventType) { conditions.push(`event_type = $${idx}`); params.push(filter.eventType); idx++; }
+      if (filter.actorId) { conditions.push(`actor_id = $${idx}`); params.push(filter.actorId); idx++; }
+      if (filter.targetId) { conditions.push(`target_id = $${idx}`); params.push(filter.targetId); idx++; }
+      if (filter.outcome) { conditions.push(`outcome = $${idx}`); params.push(filter.outcome); idx++; }
+      if (filter.dateFrom) { conditions.push(`created_at >= $${idx}`); params.push(filter.dateFrom); idx++; }
+      if (filter.dateTo) { conditions.push(`created_at <= $${idx}`); params.push(filter.dateTo); idx++; }
+
+      const limit = filter.limit ?? 200;
+      const offset = filter.offset ?? 0;
+      const sql = `SELECT * FROM audit_logs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      const result = await pool.query(sql, params);
+      return result.rows.map((row: Record<string, unknown>) => this.rowToEvent(row));
+    } catch {
+      return this.query(tenantId, filter);
+    }
+  }
+
+  async countPg(tenantId: string): Promise<number> {
+    try {
+      const result = await pool.query('SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1', [tenantId]);
+      return parseInt(result.rows[0].count as string, 10);
+    } catch {
+      return this.count(tenantId);
+    }
+  }
+
+  private rowToEvent(row: Record<string, unknown>): AuditEvent {
+    return {
+      eventId:      row.event_id as string,
+      tenantId:     row.tenant_id as string | undefined,
+      eventType:    row.event_type as AuditEventType,
+      actorId:      row.actor_id as string,
+      actorName:    row.actor_name as string,
+      actorIp:      row.actor_ip as string | undefined,
+      targetId:     row.target_id as string | undefined,
+      targetType:   row.target_type as string | undefined,
+      permissionId: row.permission_id as any,
+      resource:     row.resource as string | undefined,
+      outcome:      row.outcome as AuditEvent['outcome'],
+      reason:       row.reason as string | undefined,
+      metadata:     (row.metadata ?? {}) as Record<string, unknown>,
+      sessionId:    row.session_id as string | undefined,
+      requestId:    row.request_id as string | undefined,
+      timestamp:    (row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string),
+    };
+  }
+
   queryAll(filter: AuditFilter = {}): AuditEvent[] {
     let results: AuditEvent[] = [];
     for (const events of this.log.values()) {

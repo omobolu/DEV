@@ -49,12 +49,20 @@ class AuditService {
     return auditRepository.query(tenantId, filter);
   }
 
+  async queryPg(tenantId: string, filter: AuditFilter): Promise<AuditEvent[]> {
+    return auditRepository.queryPg(tenantId, filter);
+  }
+
   findById(eventId: string): AuditEvent | undefined {
     return auditRepository.queryAll({ limit: 10000 }).find(e => e.eventId === eventId);
   }
 
   count(tenantId: string): number {
     return auditRepository.count(tenantId);
+  }
+
+  async countPg(tenantId: string): Promise<number> {
+    return auditRepository.countPg(tenantId);
   }
 
   countAll(): number {

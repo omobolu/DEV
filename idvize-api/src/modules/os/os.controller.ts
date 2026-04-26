@@ -635,8 +635,8 @@ router.get('/modules', requireAuth, (_req: Request, res: Response) => {
 });
 
 // ── GET /os/events ────────────────────────────────────────────────────────────
-router.get('/events', requireAuth, (req: Request, res: Response) => {
-  const raw = auditService.query(req.tenantId!, {} as any).slice(0, 50);
+router.get('/events', requireAuth, async (req: Request, res: Response) => {
+  const raw = await auditService.queryPg(req.tenantId!, { limit: 50 });
 
   const events = raw.map((e: any) => ({
     eventId:   e.eventId,

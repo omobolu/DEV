@@ -18,7 +18,7 @@ class TenantRepository {
   private loadPromise: Promise<void> | null = null;
 
   private async ensureLoaded(): Promise<void> {
-    if (this.loaded) return;
+    if (this.loaded || this.cache.size > 0) return;
     if (!this.loadPromise) {
       this.loadPromise = pool.query('SELECT * FROM tenants').then(result => {
         for (const row of result.rows) {

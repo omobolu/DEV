@@ -19,10 +19,10 @@ router.use(requireAuth, tenantContext);
 router.use(requirePermission('security.view.audit'));
 
 // GET /security/audit
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { eventType, actorId, targetId, outcome, dateFrom, dateTo, limit, offset } = req.query;
-  const events = auditService.query(tenantId, {
+  const filter = {
     eventType: eventType as AuditEventType | undefined,
     actorId: actorId as string | undefined,
     targetId: targetId as string | undefined,
@@ -31,8 +31,12 @@ router.get('/', (req: Request, res: Response) => {
     dateTo: dateTo as string | undefined,
     limit: limit ? parseInt(limit as string) : 100,
     offset: offset ? parseInt(offset as string) : 0,
-  });
-  res.json({ success: true, data: { total: auditService.count(tenantId), returned: events.length, events }, timestamp: new Date().toISOString() });
+  };
+  const [events, total] = await Promise.all([
+    auditService.queryPg(tenantId, filter),
+    auditService.countPg(tenantId),
+  ]);
+  res.json({ success: true, data: { total, returned: events.length, events }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/summary

@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(tenant_id, LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 
 -- Applications
