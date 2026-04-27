@@ -111,6 +111,22 @@ CREATE TABLE IF NOT EXISTS control_assessments (
 );
 CREATE INDEX IF NOT EXISTS idx_ca_tenant ON control_assessments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_ca_app ON control_assessments(tenant_id, app_id);
+
+-- Email Configuration (per-tenant SMTP settings)
+CREATE TABLE IF NOT EXISTS email_config (
+  tenant_id        TEXT PRIMARY KEY REFERENCES tenants(tenant_id),
+  host             TEXT NOT NULL,
+  port             INTEGER NOT NULL DEFAULT 587,
+  username         TEXT NOT NULL,
+  password_enc     TEXT NOT NULL,
+  from_email       TEXT NOT NULL,
+  from_display     TEXT NOT NULL DEFAULT 'IDVIZE',
+  use_tls          BOOLEAN NOT NULL DEFAULT true,
+  allow_self_signed BOOLEAN NOT NULL DEFAULT false,
+  provider         TEXT NOT NULL DEFAULT 'smtp',
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by       TEXT NOT NULL
+);
 `;
 
 async function migrate(): Promise<void> {

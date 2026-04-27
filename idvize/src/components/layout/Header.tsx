@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Bell, Settings, LogOut, Building2, Menu, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/context/ThemeContext'
 
@@ -6,6 +7,7 @@ const API = 'http://localhost:3001'
 const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'demo-key' }
 
 export default function Header({ onLogout, onMenuClick }: { onLogout?: () => void; onMenuClick?: () => void }) {
+  const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const name       = localStorage.getItem('idvize_user')   ?? 'User'
   const tenantName = localStorage.getItem('idvize_tenant') ?? ''
@@ -91,6 +93,7 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
           <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" aria-label="Unread notifications" />
         </button>
         <button
+          onClick={() => navigate('/settings/email')}
           className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-body transition-colors"
           aria-label="Settings"
         >
