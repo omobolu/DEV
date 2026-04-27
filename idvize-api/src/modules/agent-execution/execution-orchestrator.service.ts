@@ -14,6 +14,9 @@
  *
  * The orchestrator enforces the invariant:
  *   EXECUTION MUST NOT BEGIN WITHOUT HUMAN APPROVAL.
+ *
+ * All session state is persisted to PostgreSQL.
+ * Fails closed: PG unavailable → 503.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -24,16 +27,29 @@ import { toolBrokerService } from './tool-broker.service';
 import { evidenceStoreService } from './evidence-store.service';
 import { credentialEscrowService } from './credential-escrow.service';
 import { auditService } from '../security/audit/audit.service';
+import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
   ExecutionSessionStatus,
   AgentType,
   CreatePlanRequest,
   SessionListFilters,
+  SystemType,
 } from './agent-execution.types';
+import type { PermissionId } from '../security/security.types';
+
+/**
+ * Maps system types to the permission required to execute actions against them.
+ */
+const SYSTEM_PERMISSION_MAP: Record<SystemType, PermissionId> = {
+  entra: 'agents.execute.sso',
+  sailpoint: 'agents.execute.iga',
+  servicenow: 'agents.execute.servicenow',
+  app_connector: 'agents.execute.sso',
+  internal: 'agents.execute.request',
+};
 
 class ExecutionOrchestratorService {
-  private sessions = new Map<string, Map<string, ExecutionSession>>(); // tenantId → sessionId → session
 
   // ── Session Lifecycle ──────────────────────────────────────────────────
 
@@ -69,7 +85,7 @@ class ExecutionOrchestratorService {
         .filter(v => v.severity === 'error')
         .map(v => v.message)
         .join('; ')}`;
-      this.saveSession(tenantId, session);
+      await repo.saveSession(session);
 
       await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.plan.rejected', {
         violations: policyResult.violations,
@@ -80,16 +96,16 @@ class ExecutionOrchestratorService {
 
     // 3. Generate required approvals
     const approvals = executionApprovalService.generateRequiredApprovals(plan);
-    executionApprovalService.saveApprovals(tenantId, approvals);
+    await executionApprovalService.saveApprovals(tenantId, approvals);
 
     // 4. Build session
     const session = this.buildSession(sessionId, tenantId, request.agentType, 'pending_approval', actorId);
     session.plan = plan;
     session.approvals = approvals;
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
 
     // 5. Record evidence: plan creation
-    evidenceStoreService.record(
+    await evidenceStoreService.record(
       tenantId, sessionId, 'configuration_snapshot',
       'Execution Plan Generated',
       `Plan ${plan.planId} for ${request.agentType} agent on ${plan.applicationName}`,
@@ -126,32 +142,40 @@ class ExecutionOrchestratorService {
     approvalId: string,
     approverId: string,
     approverName: string,
+    approverRoles: string[],
     decision: 'approved' | 'rejected',
     comment?: string,
   ): Promise<ExecutionSession> {
-    const session = this.getSession(tenantId, sessionId);
+    const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     if (session.status !== 'pending_approval') {
       throw new Error(`Session ${sessionId} is in status "${session.status}" — cannot resolve approvals`);
     }
 
-    await executionApprovalService.resolve(tenantId, approvalId, sessionId, approverId, approverName, decision, comment);
+    await executionApprovalService.resolve(
+      tenantId, approvalId, sessionId, approverId, approverName, approverRoles, decision, comment,
+    );
 
     // Update session approvals
-    session.approvals = executionApprovalService.getSessionApprovals(tenantId, sessionId);
+    session.approvals = await executionApprovalService.getSessionApprovals(tenantId, sessionId);
 
     // Check if fully approved
-    if (executionApprovalService.isFullyApproved(tenantId, sessionId)) {
+    if (await executionApprovalService.isFullyApproved(tenantId, sessionId)) {
       session.status = 'approved';
       session.updatedAt = new Date().toISOString();
 
       await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.approved', {
         approvalId,
       });
-    } else if (executionApprovalService.isRejected(tenantId, sessionId)) {
+    } else if (await executionApprovalService.hasRejection(tenantId, sessionId)) {
       session.status = 'cancelled';
       session.updatedAt = new Date().toISOString();
       session.errorMessage = `Approval rejected by ${approverName}: ${comment ?? 'no reason given'}`;
+
+      // Cleanup credentials on rejection
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
 
       await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.rejected', {
         approvalId,
@@ -159,38 +183,52 @@ class ExecutionOrchestratorService {
       });
     }
 
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
     return session;
   }
 
   /**
    * Phase 3: Execute an approved plan.
    * Steps are executed sequentially through the Tool Broker.
+   * Enforces per-step system permissions.
+   *
+   * v1: Stub adapters produce simulation results (not real execution).
    */
   async executeSession(
     tenantId: string,
     sessionId: string,
     actorId: string,
     actorName: string,
+    actorPermissions: PermissionId[],
   ): Promise<ExecutionSession> {
-    const session = this.getSession(tenantId, sessionId);
+    const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
-    if (session.status !== 'approved') {
-      throw new Error(`Session ${sessionId} is in status "${session.status}" — must be "approved" to execute`);
+    if (session.status !== 'approved' && session.status !== 'paused') {
+      throw new Error(`Session ${sessionId} is in status "${session.status}" — must be "approved" or "paused" to execute`);
     }
     if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
 
+    // Verify actor has per-system execution permissions for all steps
+    const missingPerms = this.checkStepPermissions(session.plan.steps, actorPermissions);
+    if (missingPerms.length > 0) {
+      throw new Error(`Missing execution permissions: ${missingPerms.join(', ')}`);
+    }
+
     session.status = 'executing';
     session.updatedAt = new Date().toISOString();
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.started', {
       stepsCount: session.plan.steps.length,
     });
 
     let allSucceeded = true;
+    let isSimulation = false;
 
     for (const step of session.plan.steps) {
+      // Skip already-succeeded steps when resuming from paused
+      if (step.status === 'succeeded') continue;
+
       step.status = 'in_progress';
       step.startedAt = new Date().toISOString();
 
@@ -210,9 +248,9 @@ class ExecutionOrchestratorService {
         session.status = 'paused';
         session.updatedAt = new Date().toISOString();
         session.errorMessage = `Step ${step.order} requires input resolution before execution`;
-        this.saveSession(tenantId, session);
+        await repo.saveSession(session);
 
-        evidenceStoreService.record(
+        await evidenceStoreService.record(
           tenantId, sessionId, 'error_log',
           `Step ${step.order} Paused — Input Required`,
           step.description,
@@ -236,8 +274,13 @@ class ExecutionOrchestratorService {
       step.completedAt = new Date().toISOString();
       step.status = result.success ? 'succeeded' : 'failed';
 
+      // Detect stub/simulation results
+      if (result.output && (result.output as Record<string, unknown>)._stub === true) {
+        isSimulation = true;
+      }
+
       // Record evidence for this step
-      const evidence = evidenceStoreService.record(
+      const evidence = await evidenceStoreService.record(
         tenantId, sessionId,
         result.success ? 'api_response' : 'error_log',
         `Step ${step.order}: ${step.description}`,
@@ -247,7 +290,6 @@ class ExecutionOrchestratorService {
       );
 
       result.evidenceIds.push(evidence.evidenceId);
-      session.evidence.push(evidence);
 
       if (!result.success) {
         allSucceeded = false;
@@ -258,12 +300,13 @@ class ExecutionOrchestratorService {
     }
 
     if (allSucceeded) {
-      session.status = 'completed';
+      // Stub adapters produce simulation status, not completed
+      session.status = isSimulation ? 'completed_simulation' as ExecutionSessionStatus : 'completed';
       session.completedAt = new Date().toISOString();
     }
 
     session.updatedAt = new Date().toISOString();
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
 
     // Cleanup: destroy any ephemeral credentials
     for (const handleId of session.credentialHandles) {
@@ -274,6 +317,7 @@ class ExecutionOrchestratorService {
       allSucceeded ? 'agent.execution.completed' : 'agent.execution.failed', {
         completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
         totalSteps: session.plan.steps.length,
+        isSimulation,
         errorMessage: session.errorMessage,
       },
     );
@@ -291,7 +335,7 @@ class ExecutionOrchestratorService {
     actorName: string,
     reason?: string,
   ): Promise<ExecutionSession> {
-    const session = this.getSession(tenantId, sessionId);
+    const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     const cancelableStatuses: ExecutionSessionStatus[] = ['planning', 'pending_approval', 'approved', 'paused'];
@@ -302,7 +346,7 @@ class ExecutionOrchestratorService {
     session.status = 'cancelled';
     session.updatedAt = new Date().toISOString();
     session.errorMessage = reason ?? 'Cancelled by user';
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
 
     // Cleanup credentials
     for (const handleId of session.credentialHandles) {
@@ -329,7 +373,7 @@ class ExecutionOrchestratorService {
     actorId: string,
     actorName: string,
   ): Promise<{ handleId: string }> {
-    const session = this.getSession(tenantId, sessionId);
+    const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
 
@@ -348,34 +392,19 @@ class ExecutionOrchestratorService {
 
     step.credentialHandle = handoff.handleId;
     session.credentialHandles.push(handoff.handleId);
-    this.saveSession(tenantId, session);
+    await repo.saveSession(session);
 
     return { handleId: handoff.handleId };
   }
 
   // ── Queries ────────────────────────────────────────────────────────────
 
-  getSession(tenantId: string, sessionId: string): ExecutionSession | undefined {
-    return this.sessions.get(tenantId)?.get(sessionId);
+  async getSession(tenantId: string, sessionId: string): Promise<ExecutionSession | undefined> {
+    return repo.getSession(tenantId, sessionId);
   }
 
-  listSessions(tenantId: string, filters?: SessionListFilters): ExecutionSession[] {
-    const tenantSessions = this.sessions.get(tenantId);
-    if (!tenantSessions) return [];
-
-    let results = Array.from(tenantSessions.values());
-
-    if (filters?.status) {
-      results = results.filter(s => s.status === filters.status);
-    }
-    if (filters?.agentType) {
-      results = results.filter(s => s.agentType === filters.agentType);
-    }
-    if (filters?.applicationId && results.length > 0) {
-      results = results.filter(s => s.plan?.applicationId === filters.applicationId);
-    }
-
-    return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  async listSessions(tenantId: string, filters?: SessionListFilters): Promise<ExecutionSession[]> {
+    return repo.listSessions(tenantId, filters);
   }
 
   /**
@@ -410,6 +439,27 @@ class ExecutionOrchestratorService {
     ];
   }
 
+  // ── Permission Checking ────────────────────────────────────────────────
+
+  private checkStepPermissions(
+    steps: { targetSystem: { systemType: SystemType } }[],
+    actorPermissions: PermissionId[],
+  ): string[] {
+    const required = new Set<PermissionId>();
+    for (const step of steps) {
+      const perm = SYSTEM_PERMISSION_MAP[step.targetSystem.systemType];
+      if (perm) required.add(perm);
+    }
+
+    const missing: string[] = [];
+    for (const perm of required) {
+      if (!actorPermissions.includes(perm)) {
+        missing.push(perm);
+      }
+    }
+    return missing;
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────
 
   private buildSession(
@@ -432,13 +482,6 @@ class ExecutionOrchestratorService {
       createdAt: now,
       updatedAt: now,
     };
-  }
-
-  private saveSession(tenantId: string, session: ExecutionSession): void {
-    if (!this.sessions.has(tenantId)) {
-      this.sessions.set(tenantId, new Map());
-    }
-    this.sessions.get(tenantId)!.set(session.sessionId, session);
   }
 
   private async auditSessionEvent(

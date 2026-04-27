@@ -53,7 +53,8 @@ class ServiceNowAdapter implements ToolAdapter {
       output: {
         ...output,
         _stub: true,
-        _note: 'v1 stub — will use ServiceNow REST API in v2',
+        mode: 'simulation',
+        _note: 'v1 stub — no real changes made. Will use ServiceNow REST API in v2',
         actionType: action.actionType,
       },
       evidenceIds: [],

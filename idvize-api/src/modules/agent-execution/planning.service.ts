@@ -10,7 +10,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { CONTROLS_CATALOG } from '../control/control.catalog';
-import { applicationRepository } from '../application/application.repository';
+import * as execRepo from './agent-execution.repository';
 import type {
   AgentType,
   ExecutionPlan,
@@ -44,7 +44,7 @@ class PlanningService {
     controlId: string,
     context?: Record<string, unknown>,
   ): Promise<ExecutionPlan> {
-    const application = applicationRepository.findById(tenantId, applicationId);
+    const application = await execRepo.getApplication(tenantId, applicationId);
     if (!application) {
       throw new Error(`Application ${applicationId} not found in tenant ${tenantId}`);
     }

@@ -61,7 +61,8 @@ class AppConnectorAdapter implements ToolAdapter {
       output: {
         ...output,
         _stub: true,
-        _note: 'v1 stub — will use per-app connector playbooks in v2',
+        mode: 'simulation',
+        _note: 'v1 stub — no real changes made. Will use per-app connector playbooks in v2',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
       },

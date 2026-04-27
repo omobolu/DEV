@@ -55,7 +55,8 @@ class InternalAdapter implements ToolAdapter {
       output: {
         ...output,
         _stub: true,
-        _note: 'v1 stub — will perform actual verification in v2',
+        mode: 'simulation',
+        _note: 'v1 stub — no real changes made. Will perform actual verification in v2',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
       },

@@ -22,14 +22,33 @@ import type { CredentialHandoff, SystemType } from './agent-execution.types';
 const DEFAULT_TTL_MINUTES = 60;
 const ALGORITHM = 'aes-256-gcm';
 
-// Encryption key — in production, this comes from KMS/Vault, not env vars
+// Encryption key — in production, this MUST come from KMS/Vault or env var.
+// Fail-closed: production hard-fails on missing/malformed key.
 function getEncryptionKey(): Buffer {
   const envKey = process.env.CREDENTIAL_ESCROW_KEY;
-  if (envKey && Buffer.byteLength(envKey, 'hex') === 32) {
+  if (envKey) {
+    if (Buffer.byteLength(envKey, 'hex') !== 32) {
+      throw new Error(
+        '[FATAL] CREDENTIAL_ESCROW_KEY is malformed — must be exactly 32 bytes (64 hex chars). ' +
+        'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+      );
+    }
     return Buffer.from(envKey, 'hex');
   }
-  // Dev fallback — generate ephemeral key (lost on restart, which is fine for dev)
+
+  // Production must not use an ephemeral dev key
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+  if (isProduction) {
+    throw new Error(
+      '[FATAL] CREDENTIAL_ESCROW_KEY is required in production. ' +
+      'Credential escrow cannot operate without a persistent encryption key. ' +
+      'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+  }
+
+  // Dev/test fallback — generate ephemeral key (lost on restart, which is fine for dev)
   if (!devKey) {
+    console.warn('[WARN] CREDENTIAL_ESCROW_KEY not set — using ephemeral dev key (credentials lost on restart)');
     devKey = randomBytes(32);
   }
   return devKey;

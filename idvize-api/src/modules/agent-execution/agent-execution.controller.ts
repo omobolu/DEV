@@ -5,7 +5,7 @@
  *   GET  /agent-execution/capabilities        — List available agent capabilities
  *   GET  /agent-execution/adapters             — List adapter configuration status
  *   POST /agent-execution/sessions             — Create execution session (plan)
- *   GET  /agent-execution/sessions             — List sessions for tenant
+ *   GET  /agent-execution/sessions             — List sessions for tenant (sanitized)
  *   GET  /agent-execution/sessions/:sessionId  — Get session detail
  *   POST /agent-execution/sessions/:sessionId/approve — Approve/reject a plan
  *   POST /agent-execution/sessions/:sessionId/execute — Execute an approved plan
@@ -26,7 +26,7 @@ import { evidenceStoreService } from './evidence-store.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
-import type { CreatePlanRequest, ExecutionSessionStatus, AgentType } from './agent-execution.types';
+import type { CreatePlanRequest, ExecutionSessionStatus, ExecutionSession, AgentType } from './agent-execution.types';
 import type { TokenClaims } from '../security/security.types';
 
 const router = Router();
@@ -73,41 +73,60 @@ router.post('/sessions', requirePermission('agents.plan'), async (req: Request, 
     res.status(status).json({ success: session.status !== 'failed', data: session });
   } catch (err) {
     const message = (err as Error).message;
-    res.status(400).json({ error: message });
+    if (message.includes('not found')) {
+      res.status(404).json({ error: message });
+    } else {
+      res.status(500).json({ error: 'Failed to create session' });
+    }
   }
 });
 
-router.get('/sessions', requirePermission('agents.use'), (req: Request, res: Response) => {
-  const tenantId = (req as any).tenantId;
-  if (!tenantId) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
+/**
+ * GET /sessions — List sessions (sanitized response).
+ * Strips plan internals and credential handles for agents.use users.
+ */
+router.get('/sessions', requirePermission('agents.use'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const filters: { status?: ExecutionSessionStatus; agentType?: AgentType; limit?: number } = {};
+    if (req.query.status) filters.status = req.query.status as ExecutionSessionStatus;
+    if (req.query.agentType) filters.agentType = req.query.agentType as AgentType;
+    if (req.query.limit) filters.limit = parseInt(req.query.limit as string, 10);
+
+    const sessions = await executionOrchestratorService.listSessions(tenantId, filters);
+
+    // Sanitize: strip plan internals, credential handles, and full evidence data
+    const sanitized = sessions.map(sanitizeSessionForList);
+    res.json({ success: true, data: sanitized, total: sanitized.length });
+  } catch (err) {
+    res.status(503).json({ error: 'Session data temporarily unavailable' });
   }
-
-  const filters: { status?: ExecutionSessionStatus; agentType?: AgentType; applicationId?: string } = {};
-  if (req.query.status) filters.status = req.query.status as ExecutionSessionStatus;
-  if (req.query.agentType) filters.agentType = req.query.agentType as AgentType;
-  if (req.query.applicationId) filters.applicationId = req.query.applicationId as string;
-
-  const sessions = executionOrchestratorService.listSessions(tenantId, filters);
-  res.json({ success: true, data: sessions, total: sessions.length });
 });
 
-router.get('/sessions/:sessionId', requirePermission('agents.use'), (req: Request, res: Response) => {
-  const tenantId = (req as any).tenantId;
-  if (!tenantId) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
+router.get('/sessions/:sessionId', requirePermission('agents.use'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
 
-  const sessionId = req.params.sessionId as string;
-  const session = executionOrchestratorService.getSession(tenantId, sessionId);
-  if (!session) {
-    res.status(404).json({ error: 'Session not found' });
-    return;
-  }
+    const sessionId = req.params.sessionId as string;
+    const session = await executionOrchestratorService.getSession(tenantId, sessionId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
 
-  res.json({ success: true, data: session });
+    res.json({ success: true, data: session });
+  } catch (err) {
+    res.status(503).json({ error: 'Session data temporarily unavailable' });
+  }
 });
 
 // ── Approval ─────────────────────────────────────────────────────────────────
@@ -134,13 +153,18 @@ router.post('/sessions/:sessionId/approve', requirePermission('agents.execute.ap
 
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.resolveApproval(
-      tenantId, sessionId, approvalId, user.sub, user.name, decision, comment,
+      tenantId, sessionId, approvalId, user.sub, user.name,
+      user.roles as string[], decision, comment,
     );
 
     res.json({ success: true, data: session });
   } catch (err) {
     const message = (err as Error).message;
-    res.status(400).json({ error: message });
+    if (message.includes('eligible')) {
+      res.status(403).json({ error: message });
+    } else {
+      res.status(400).json({ error: message });
+    }
   }
 });
 
@@ -157,13 +181,13 @@ router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.re
 
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.executeSession(
-      tenantId, sessionId, user.sub, user.name,
+      tenantId, sessionId, user.sub, user.name, user.permissions,
     );
 
     res.json({ success: true, data: session });
   } catch (err) {
     const message = (err as Error).message;
-    if (message.includes('must be "approved"')) {
+    if (message.includes('must be "approved"') || message.includes('Missing execution permissions')) {
       res.status(403).json({ error: message });
     } else {
       res.status(400).json({ error: message });
@@ -257,16 +281,53 @@ router.post('/credentials/:handleId/submit', requirePermission('agents.execute.r
 
 // ── Evidence ─────────────────────────────────────────────────────────────────
 
-router.get('/sessions/:sessionId/evidence', requirePermission('agents.use'), (req: Request, res: Response) => {
-  const tenantId = (req as any).tenantId;
-  if (!tenantId) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
+router.get('/sessions/:sessionId/evidence', requirePermission('agents.use'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
 
-  const sessionId = req.params.sessionId as string;
-  const evidence = evidenceStoreService.getBySession(tenantId, sessionId);
-  res.json({ success: true, data: evidence, total: evidence.length });
+    const sessionId = req.params.sessionId as string;
+    const evidence = await evidenceStoreService.getBySession(tenantId, sessionId);
+    res.json({ success: true, data: evidence, total: evidence.length });
+  } catch (err) {
+    res.status(503).json({ error: 'Evidence data temporarily unavailable' });
+  }
 });
+
+// ── Response Sanitization ────────────────────────────────────────────────────
+
+/**
+ * Sanitize session for list endpoint — strip plan internals, credential handles,
+ * and full evidence data. Only expose safe summary fields.
+ */
+function sanitizeSessionForList(session: ExecutionSession) {
+  return {
+    sessionId: session.sessionId,
+    tenantId: session.tenantId,
+    agentType: session.agentType,
+    status: session.status,
+    planSummary: session.plan ? {
+      planId: session.plan.planId,
+      applicationId: session.plan.applicationId,
+      applicationName: session.plan.applicationName,
+      controlId: session.plan.controlId,
+      controlName: session.plan.controlName,
+      summary: session.plan.summary,
+      stepsCount: session.plan.steps.length,
+      blastRadius: session.plan.blastRadius,
+    } : null,
+    approvalsCount: session.approvals.length,
+    approvalsPending: session.approvals.filter(a => a.status === 'pending').length,
+    evidenceCount: session.evidence.length,
+    createdBy: session.createdBy,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    completedAt: session.completedAt,
+    errorMessage: session.errorMessage,
+  };
+}
 
 export default router;

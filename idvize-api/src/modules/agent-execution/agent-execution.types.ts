@@ -18,15 +18,16 @@
 // ── Execution Session ────────────────────────────────────────────────────────
 
 export type ExecutionSessionStatus =
-  | 'planning'         // Agent is generating the plan
-  | 'pending_approval' // Plan complete, awaiting human approval
-  | 'approved'         // Plan approved, ready for execution
-  | 'executing'        // Tool broker is running actions
-  | 'paused'           // Execution paused (manual intervention needed)
-  | 'completed'        // All actions succeeded
-  | 'failed'           // One or more actions failed
-  | 'cancelled'        // User cancelled the session
-  | 'expired';         // Approval window expired
+  | 'planning'              // Agent is generating the plan
+  | 'pending_approval'      // Plan complete, awaiting human approval
+  | 'approved'              // Plan approved, ready for execution
+  | 'executing'             // Tool broker is running actions
+  | 'paused'                // Execution paused (manual intervention needed)
+  | 'completed'             // All actions succeeded (live execution)
+  | 'completed_simulation'  // All actions succeeded (stub adapters — no real changes made)
+  | 'failed'                // One or more actions failed
+  | 'cancelled'             // User cancelled the session
+  | 'expired';              // Approval window expired
 
 export interface ExecutionSession {
   sessionId: string;
@@ -293,4 +294,5 @@ export interface SessionListFilters {
   status?: ExecutionSessionStatus;
   agentType?: AgentType;
   applicationId?: string;
+  limit?: number;
 }

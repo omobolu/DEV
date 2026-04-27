@@ -8,21 +8,32 @@
  *   - platform_admin: approves high blast-radius plans
  *
  * All approval decisions are audit-logged.
+ * Backed by PostgreSQL — fails closed when PG is unavailable.
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { auditService } from '../security/audit/audit.service';
+import * as repo from './agent-execution.repository';
 import type {
   ExecutionApproval,
   ExecutionPlan,
   ApprovalRole,
-  BlastRadiusLevel,
 } from './agent-execution.types';
 
 const APPROVAL_EXPIRY_HOURS = 24;
 
+/**
+ * Maps approval roles to the RBAC roles that can fulfill them.
+ * Only users with matching RBAC roles can resolve the corresponding approval.
+ */
+const ROLE_ELIGIBILITY: Record<ApprovalRole, string[]> = {
+  app_owner: ['Manager', 'Architect', 'PlatformAdmin'],
+  iam_admin: ['Manager', 'Architect', 'PlatformAdmin'],
+  platform_admin: ['PlatformAdmin'],
+  security_admin: ['Manager', 'PlatformAdmin'],
+};
+
 class ExecutionApprovalService {
-  private approvals = new Map<string, Map<string, ExecutionApproval>>(); // tenantId → approvalId → approval
 
   /**
    * Determine which approvals are required for a given plan.
@@ -47,39 +58,35 @@ class ExecutionApprovalService {
     );
     const isHighBlastRadius = plan.blastRadius.level === 'high' || plan.blastRadius.level === 'critical';
 
-    // App owner must approve app-side configuration changes
     if (hasAppSideChanges) {
       approvals.push(this.createApproval(plan.sessionId, 'app_owner', requiredBy));
     }
 
-    // IAM admin must approve identity platform changes
     if (hasEntraChanges || hasSailPointChanges || hasServiceNowChanges) {
       approvals.push(this.createApproval(plan.sessionId, 'iam_admin', requiredBy));
     }
 
-    // Platform admin approval required for high/critical blast radius
     if (isHighBlastRadius) {
       approvals.push(this.createApproval(plan.sessionId, 'platform_admin', requiredBy));
+    }
+
+    if (approvals.length === 0) {
+      approvals.push(this.createApproval(plan.sessionId, 'iam_admin', requiredBy));
     }
 
     return approvals;
   }
 
   /**
-   * Store approvals for a session.
+   * Save approvals to PostgreSQL.
    */
-  saveApprovals(tenantId: string, approvals: ExecutionApproval[]): void {
-    if (!this.approvals.has(tenantId)) {
-      this.approvals.set(tenantId, new Map());
-    }
-    const tenantApprovals = this.approvals.get(tenantId)!;
-    for (const approval of approvals) {
-      tenantApprovals.set(approval.approvalId, approval);
-    }
+  async saveApprovals(tenantId: string, approvals: ExecutionApproval[]): Promise<void> {
+    await repo.saveApprovals(tenantId, approvals);
   }
 
   /**
    * Resolve (approve or reject) an approval.
+   * Validates: session ownership, role eligibility, expiry.
    */
   async resolve(
     tenantId: string,
@@ -87,13 +94,11 @@ class ExecutionApprovalService {
     sessionId: string,
     approverId: string,
     approverName: string,
+    approverRoles: string[],
     decision: 'approved' | 'rejected',
     comment?: string,
   ): Promise<ExecutionApproval> {
-    const tenantApprovals = this.approvals.get(tenantId);
-    if (!tenantApprovals) throw new Error('No approvals found for tenant');
-
-    const approval = tenantApprovals.get(approvalId);
+    const approval = await repo.getApproval(tenantId, approvalId);
     if (!approval) throw new Error(`Approval ${approvalId} not found`);
 
     if (approval.sessionId !== sessionId) {
@@ -104,10 +109,20 @@ class ExecutionApprovalService {
       throw new Error(`Approval ${approvalId} is already ${approval.status}`);
     }
 
+    // Enforce role eligibility
+    const eligible = ROLE_ELIGIBILITY[approval.role] ?? [];
+    const hasEligibleRole = approverRoles.some(r => eligible.includes(r));
+    if (!hasEligibleRole) {
+      throw new Error(
+        `User does not have a role eligible to resolve ${approval.role} approvals. ` +
+        `Required one of: ${eligible.join(', ')}`,
+      );
+    }
+
     // Check expiry
     if (new Date() > new Date(approval.requiredBy)) {
       approval.status = 'expired';
-      tenantApprovals.set(approvalId, approval);
+      await repo.saveApproval(tenantId, approval);
       throw new Error(`Approval ${approvalId} has expired`);
     }
 
@@ -116,7 +131,7 @@ class ExecutionApprovalService {
     approval.status = decision;
     approval.comment = comment;
     approval.resolvedAt = new Date().toISOString();
-    tenantApprovals.set(approvalId, approval);
+    await repo.saveApproval(tenantId, approval);
 
     await auditService.log({
       tenantId,
@@ -124,12 +139,12 @@ class ExecutionApprovalService {
       actorId: approverId,
       actorName: approverName,
       targetType: 'execution_plan',
-      targetId: approval.sessionId,
+      targetId: sessionId,
       resource: 'agent_execution',
       outcome: 'success',
       metadata: {
         approvalId,
-        sessionId: approval.sessionId,
+        sessionId,
         role: approval.role,
         decision,
         comment,
@@ -140,69 +155,32 @@ class ExecutionApprovalService {
   }
 
   /**
-   * Check if all required approvals for a session have been granted.
-   */
-  isFullyApproved(tenantId: string, sessionId: string): boolean {
-    const tenantApprovals = this.approvals.get(tenantId);
-    if (!tenantApprovals) return false;
-
-    const sessionApprovals = Array.from(tenantApprovals.values())
-      .filter(a => a.sessionId === sessionId);
-
-    if (sessionApprovals.length === 0) return false;
-
-    return sessionApprovals.every(a => a.status === 'approved');
-  }
-
-  /**
-   * Check if any approval for a session was rejected.
-   */
-  isRejected(tenantId: string, sessionId: string): boolean {
-    const tenantApprovals = this.approvals.get(tenantId);
-    if (!tenantApprovals) return false;
-
-    return Array.from(tenantApprovals.values())
-      .filter(a => a.sessionId === sessionId)
-      .some(a => a.status === 'rejected');
-  }
-
-  /**
    * Get all approvals for a session.
    */
-  getSessionApprovals(tenantId: string, sessionId: string): ExecutionApproval[] {
-    const tenantApprovals = this.approvals.get(tenantId);
-    if (!tenantApprovals) return [];
-
-    return Array.from(tenantApprovals.values())
-      .filter(a => a.sessionId === sessionId);
+  async getSessionApprovals(tenantId: string, sessionId: string): Promise<ExecutionApproval[]> {
+    return repo.getSessionApprovals(tenantId, sessionId);
   }
 
   /**
-   * Expire stale approvals.
+   * Check if all required approvals for a session have been granted.
    */
-  async expireStale(tenantId: string): Promise<number> {
-    const tenantApprovals = this.approvals.get(tenantId);
-    if (!tenantApprovals) return 0;
-
-    const now = new Date();
-    let expired = 0;
-
-    for (const approval of tenantApprovals.values()) {
-      if (approval.status === 'pending' && new Date(approval.requiredBy) < now) {
-        approval.status = 'expired';
-        tenantApprovals.set(approval.approvalId, approval);
-        expired++;
-      }
-    }
-
-    return expired;
+  async isFullyApproved(tenantId: string, sessionId: string): Promise<boolean> {
+    return repo.isFullyApproved(tenantId, sessionId);
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  /**
+   * Check if any approval has been rejected.
+   */
+  async hasRejection(tenantId: string, sessionId: string): Promise<boolean> {
+    const approvals = await repo.getSessionApprovals(tenantId, sessionId);
+    return approvals.some(a => a.status === 'rejected');
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────
 
   private createApproval(sessionId: string, role: ApprovalRole, requiredBy: string): ExecutionApproval {
     return {
-      approvalId: `eappr-${uuidv4().split('-')[0]}`,
+      approvalId: `apv-${uuidv4().split('-')[0]}`,
       sessionId,
       role,
       status: 'pending',
