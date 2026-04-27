@@ -232,15 +232,22 @@ export default function EmailSettings() {
         )}
       </div>
 
-      {/* Status message */}
+      {/* Status message — uses theme-aware accent tokens so the text stays readable
+          on both light (light surface + saturated 600-shade text) and dark themes */}
       {message && (
-        <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${
-          message.type === 'success'
-            ? 'bg-green-900/20 border-green-700/50 text-green-300'
-            : 'bg-red-900/20 border-red-700/50 text-red-300'
-        }`}>
-          {message.type === 'success' ? <CheckCircle size={16} /> : <XCircle size={16} />}
-          <span className="text-sm">{message.text}</span>
+        <div
+          role={message.type === 'success' ? 'status' : 'alert'}
+          aria-live="polite"
+          className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${
+            message.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-200'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700/60 text-red-700 dark:text-red-200'
+          }`}
+        >
+          {message.type === 'success'
+            ? <CheckCircle size={16} className="flex-shrink-0" />
+            : <XCircle size={16} className="flex-shrink-0" />}
+          <span className="text-sm font-medium">{message.text}</span>
         </div>
       )}
 
@@ -258,7 +265,7 @@ export default function EmailSettings() {
               onClick={() => handleProviderChange(p.value)}
               className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                 form.provider === p.value
-                  ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-900/30'
                   : 'bg-surface-900 border-surface-600 text-secondary hover:border-surface-500'
               }`}
             >
@@ -268,9 +275,11 @@ export default function EmailSettings() {
         </div>
 
         {form.provider === 'mailtrap' && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-700/40">
-            <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
-            <span className="text-xs text-amber-300">Mailtrap is for development/testing only. Emails are captured and not delivered to real inboxes.</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50">
+            <AlertTriangle size={14} className="text-amber-700 dark:text-amber-300 flex-shrink-0" />
+            <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+              Mailtrap is for development/testing only. Emails are captured and not delivered to real inboxes.
+            </span>
           </div>
         )}
       </div>
