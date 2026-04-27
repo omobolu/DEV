@@ -430,9 +430,9 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
   // ── Helpers ────────────────────────────────────────────────────────────
 
   private async getToken(tenantId: string): Promise<string> {
-    const entraTenanId = process.env.ENTRA_TENANT_ID!;
+    const entraTenantId = process.env.ENTRA_TENANT_ID!;
     return this.getOAuthToken(tenantId, {
-      tokenUrl: GRAPH_TOKEN_URL_TEMPLATE.replace('{tenantId}', entraTenanId),
+      tokenUrl: GRAPH_TOKEN_URL_TEMPLATE.replace('{tenantId}', entraTenantId),
       clientId: process.env.ENTRA_CLIENT_ID!,
       clientSecret: process.env.ENTRA_CLIENT_SECRET!,
       scope: GRAPH_SCOPE,

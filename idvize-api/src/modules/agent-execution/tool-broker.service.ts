@@ -303,9 +303,9 @@ class ToolBrokerService {
       return this.failResult(`No adapter registered for system type "${action.target.systemType}"`);
     }
 
-    if (!adapter.isConfigured()) {
-      return this.failResult(`Adapter "${adapter.systemName}" is not configured — check environment variables`);
-    }
+    // Note: adapter.isConfigured() is NOT checked here — adapters gracefully
+    // fall back to stub/simulation mode when credentials are absent (dev/demo).
+    // The adapter itself decides whether to return stub results or fail.
 
     // ── 11. Execute through adapter ──────────────────────────────────────
     const context: ExecutionContext = {
@@ -404,9 +404,7 @@ class ToolBrokerService {
       return this.failResult(`No adapter registered for system type "${action.target.systemType}"`);
     }
 
-    if (!adapter.isConfigured()) {
-      return this.failResult(`Adapter "${adapter.systemName}" is not configured for this tenant`);
-    }
+    // Adapters gracefully degrade to stub mode when not configured
 
     // 5. Execute through adapter
     try {

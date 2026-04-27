@@ -299,7 +299,7 @@ class SailPointAdapter extends BaseApiAdapter implements ToolAdapter {
     try {
       const result = await this.apiCall(tenantId, {
         method: 'GET',
-        url: `${this.baseUrl}/v3/sources?filters=name eq "[idvize] ${name}"`,
+        url: `${this.baseUrl}/v3/sources?filters=name eq "[idvize] ${name.replace(/"/g, '\\"')}"`,
         headers: { Authorization: `Bearer ${token}` },
       });
       const sources = (result.body as unknown as Array<{ id: string; name: string; description?: string }>) ?? [];
