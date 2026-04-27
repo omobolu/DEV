@@ -567,6 +567,20 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
         } catch (transErr) {
           console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
         }
+        // Cancel any remaining pending approvals for this build
+        const rejResourceKey = `${app.name}::${controlId}::${awaitingBuild.buildId}`;
+        const siblingApprovals = await approvalService.listByResource(tenantId, rejResourceKey);
+        for (const sib of siblingApprovals) {
+          if (sib.status === 'pending' && sib.requestId !== approvalId) {
+            try {
+              await approvalService.resolveApproval(tenantId, sib.requestId, {
+                decision: 'rejected',
+                decidedBy: 'system',
+                reason: `Auto-cancelled: sibling approval ${approvalId} was rejected`,
+              });
+            } catch (_) { /* best-effort */ }
+          }
+        }
       }
       res.json({
         success: true,
@@ -579,12 +593,29 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
     // Find the AWAITING_APPROVAL build to scope approval lookup to the current remediation attempt
     const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
     const awaitingBuild = builds.find(b => b.state === 'AWAITING_APPROVAL');
-    const currentBuildId = awaitingBuild?.buildId;
+
+    // If no AWAITING_APPROVAL build found, the build was already terminated (e.g. prior rejection)
+    if (!awaitingBuild) {
+      const latestBuild = builds[builds.length - 1];
+      res.json({
+        success: true,
+        data: {
+          approvalId,
+          decision,
+          allApprovalsSatisfied: false,
+          buildId: latestBuild?.buildId,
+          buildState: latestBuild?.state ?? 'UNKNOWN',
+          message: `Approval ${approvalId} granted, but the associated build is already in ${latestBuild?.state ?? 'UNKNOWN'} state. No further action needed.`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const currentBuildId = awaitingBuild.buildId;
 
     // Check approvals scoped to this specific build (prevents stale approvals from prior attempts)
-    const resourceKey = currentBuildId
-      ? `${app.name}::${controlId}::${currentBuildId}`
-      : `${app.name}::${controlId}`;
+    const resourceKey = `${app.name}::${controlId}::${currentBuildId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
     const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
