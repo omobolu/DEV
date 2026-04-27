@@ -123,7 +123,7 @@ router.patch('/:id', requirePermission('applications.manage'), async (req: Reque
         res.status(400).json({ success: false, error: `"${field}" must be a string (max 500 chars)`, timestamp: new Date().toISOString() });
         return;
       }
-      if (field.endsWith('Email') && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      if ((field.endsWith('Email') || field === 'supportContact') && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
         res.status(400).json({ success: false, error: `"${field}" must be a valid email address`, timestamp: new Date().toISOString() });
         return;
       }
