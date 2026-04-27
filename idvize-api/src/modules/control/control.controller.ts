@@ -558,8 +558,9 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
     const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
+    const approvedApprovals = allApprovals.filter(a => a.status === 'approved');
 
-    if (pendingApprovals.length === 0 && rejectedApprovals.length === 0 && allApprovals.length > 0) {
+    if (approvedApprovals.length === allApprovals.length && allApprovals.length > 0) {
       // All approvals satisfied — fire emails + transition build
       const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
       const actorId = actor?.sub ?? actor?.userId ?? 'system';
@@ -618,7 +619,9 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           rejectedCount: rejectedApprovals.length,
           message: rejectedApprovals.length > 0
             ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build cannot proceed.`
-            : `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`,
+            : pendingApprovals.length > 0
+              ? `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`
+              : `Approval ${approvalId} granted but some approvals are expired/cancelled. Build cannot proceed.`,
         },
         timestamp: new Date().toISOString(),
       });
@@ -657,7 +660,7 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
         pending: pending.length,
         approved: approved.length,
         rejected: rejected.length,
-        allSatisfied: pending.length === 0 && rejected.length === 0 && allApprovals.length > 0,
+        allSatisfied: approved.length === allApprovals.length && allApprovals.length > 0,
         approvals: allApprovals.map(a => ({
           requestId: a.requestId,
           action: a.action,
