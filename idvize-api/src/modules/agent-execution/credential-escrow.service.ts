@@ -27,7 +27,7 @@ const ALGORITHM = 'aes-256-gcm';
 function getEncryptionKey(): Buffer {
   const envKey = process.env.CREDENTIAL_ESCROW_KEY;
   if (envKey) {
-    if (Buffer.byteLength(envKey, 'hex') !== 32) {
+    if (!/^[0-9a-fA-F]{64}$/.test(envKey)) {
       throw new Error(
         '[FATAL] CREDENTIAL_ESCROW_KEY is malformed — must be exactly 32 bytes (64 hex chars). ' +
         'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',

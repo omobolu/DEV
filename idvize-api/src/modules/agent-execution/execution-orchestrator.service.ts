@@ -159,12 +159,20 @@ class ExecutionOrchestratorService {
     // Update session approvals
     session.approvals = await executionApprovalService.getSessionApprovals(tenantId, sessionId);
 
-    // Check if fully approved
-    if (await executionApprovalService.isFullyApproved(tenantId, sessionId)) {
-      session.status = 'approved';
+    // Expired approvals checked FIRST — if any required approval has expired,
+    // execution must not proceed regardless of other approvals' status.
+    // This prevents bypass where: approval A expires, approval B approved →
+    // isFullyApproved would return true (1/1) if expired was excluded from denominator.
+    if (await executionApprovalService.hasExpiredApprovals(tenantId, sessionId)) {
+      session.status = 'expired';
       session.updatedAt = new Date().toISOString();
+      session.errorMessage = 'One or more required approvals expired before resolution';
 
-      await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.approved', {
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+
+      await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.approval.expired', {
         approvalId,
       });
     } else if (await executionApprovalService.hasRejection(tenantId, sessionId)) {
@@ -180,6 +188,13 @@ class ExecutionOrchestratorService {
       await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.rejected', {
         approvalId,
         comment,
+      });
+    } else if (await executionApprovalService.isFullyApproved(tenantId, sessionId)) {
+      session.status = 'approved';
+      session.updatedAt = new Date().toISOString();
+
+      await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.approved', {
+        approvalId,
       });
     }
 

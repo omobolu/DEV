@@ -176,6 +176,13 @@ class ExecutionApprovalService {
     return approvals.some(a => a.status === 'rejected');
   }
 
+  /**
+   * Check if any approval has expired — prevents sessions stuck in pending_approval.
+   */
+  async hasExpiredApprovals(tenantId: string, sessionId: string): Promise<boolean> {
+    return repo.hasExpiredApprovals(tenantId, sessionId);
+  }
+
   // ── Private ────────────────────────────────────────────────────────────
 
   private createApproval(sessionId: string, role: ApprovalRole, requiredBy: string): ExecutionApproval {
