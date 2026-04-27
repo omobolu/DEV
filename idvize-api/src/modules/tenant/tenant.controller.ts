@@ -81,7 +81,7 @@ router.post('/', requireAuth, requirePermission('tenants.manage'), async (req: R
 });
 
 // ── PATCH /tenants/me/settings — update tenant settings (Manager+) ────────────
-router.patch('/me/settings', requireAuth, requirePermission('tenants.manage'), async (req: Request, res: Response) => {
+router.patch('/me/settings', requireAuth, requirePermission('tenants.settings.update'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const tenant = await tenantService.getTenant(tenantId);
   if (!tenant) {

@@ -85,8 +85,9 @@ export type PermissionId =
   | 'secrets.rotate'
   | 'secrets.approve'
   | 'secrets.manage.provider'
-  // Tenant management (PlatformAdmin only)
+  // Tenant management
   | 'tenants.manage'
+  | 'tenants.settings.update'
   // Risk Engine
   | 'risks.view'
   // Agents

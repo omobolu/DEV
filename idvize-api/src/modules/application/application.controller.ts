@@ -87,6 +87,10 @@ router.patch('/:id', (req: Request, res: Response) => {
   }
 
   const updated = applicationService.updateFields(tenantId, appId, updates as any);
+  if (!updated) {
+    res.status(404).json({ success: false, error: 'Application not found', timestamp: new Date().toISOString() });
+    return;
+  }
   res.json({ success: true, data: updated, timestamp: new Date().toISOString() });
 });
 

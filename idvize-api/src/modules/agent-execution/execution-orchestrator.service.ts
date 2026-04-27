@@ -133,7 +133,7 @@ class ExecutionOrchestratorService {
     });
 
     // Fire email notification for plan created (best-effort — failure does not block session)
-    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail).catch(err => {
+    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
       console.warn(`[ExecutionOrchestrator] notifyPlanCreated failed for session ${sessionId}:`, (err as Error).message);
     });
 
@@ -346,7 +346,7 @@ class ExecutionOrchestratorService {
     );
 
     // Fire email notification for execution completed/failed (best-effort)
-    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail).catch(err => {
+    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
       console.warn(`[ExecutionOrchestrator] notifyExecutionCompleted failed for session ${session.sessionId}:`, (err as Error).message);
     });
 
@@ -474,10 +474,10 @@ class ExecutionOrchestratorService {
     session: ExecutionSession,
     actorId: string,
     actorName: string,
-    actorEmail?: string,
+    actorEmail: string,
   ): Promise<void> {
     if (!session.plan) return;
-    const recipientEmail = actorEmail ?? actorId;
+    const recipientEmail = actorEmail;
     const appName = session.plan.applicationName;
     const controlId = session.plan.controlId;
     const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
@@ -510,10 +510,10 @@ class ExecutionOrchestratorService {
     session: ExecutionSession,
     actorId: string,
     actorName: string,
-    actorEmail?: string,
+    actorEmail: string,
   ): Promise<void> {
     if (!session.plan) return;
-    const recipientEmail = actorEmail ?? actorId;
+    const recipientEmail = actorEmail;
     const appName = session.plan.applicationName;
     const controlId = session.plan.controlId;
 
