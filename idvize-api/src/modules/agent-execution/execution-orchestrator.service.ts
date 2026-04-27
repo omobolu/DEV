@@ -477,6 +477,7 @@ class ExecutionOrchestratorService {
     actorEmail: string,
   ): Promise<void> {
     if (!session.plan) return;
+    if (!actorEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)) return;
     const recipientEmail = actorEmail;
     const appName = session.plan.applicationName;
     const controlId = session.plan.controlId;
@@ -513,6 +514,7 @@ class ExecutionOrchestratorService {
     actorEmail: string,
   ): Promise<void> {
     if (!session.plan) return;
+    if (!actorEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)) return;
     const recipientEmail = actorEmail;
     const appName = session.plan.applicationName;
     const controlId = session.plan.controlId;
