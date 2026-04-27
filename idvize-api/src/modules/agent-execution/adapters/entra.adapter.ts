@@ -422,8 +422,9 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     );
 
     return this.successResult({
-      allowedMethods: allowedMethods ?? ['microsoftAuthenticator', 'fido2'],
-      configured: true,
+      registrationCampaignEnabled: true,
+      requestedMethods: allowedMethods ?? [],
+      note: 'Registration enforcement campaign enabled. Individual method configuration requires per-method PATCH to /authenticationMethodConfigurations/{methodId} — not yet implemented in v1.',
     }, [evidenceId]);
   }
 

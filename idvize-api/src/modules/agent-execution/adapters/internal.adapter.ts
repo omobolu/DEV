@@ -162,7 +162,7 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
       try {
         const assignmentsResult = await this.apiCall(ctx.tenantId, {
           method: 'GET',
-          url: this.buildODataUrl(`${GRAPH_BASE}/servicePrincipals/${this.encodePath(servicePrincipalId)}/appRoleAssignedTo`, `principalId eq '${groupId}'`),
+          url: this.buildODataUrl(`${GRAPH_BASE}/servicePrincipals/${this.encodePath(servicePrincipalId)}/appRoleAssignedTo`, `principalId eq '${groupId.replace(/'/g, "''")}'`),
           headers: { Authorization: `Bearer ${token}` },
         });
         const assignments = (assignmentsResult.body.value as unknown[]) ?? [];
