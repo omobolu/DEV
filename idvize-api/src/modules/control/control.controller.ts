@@ -8,7 +8,7 @@ import { buildService } from '../build/build.service';
 import { approvalService } from '../security/approval/approval.service';
 import { tenantService } from '../tenant/tenant.service';
 import { emailService } from '../email/email.service';
-import { authRepository } from '../security/auth/auth.repository';
+import { authService } from '../security/auth/auth.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
@@ -595,7 +595,7 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
     const actorUserId = actor?.sub ?? actor?.userId ?? 'system';
     const isAppOwnerApproval = (pendingApproval.action ?? '').startsWith('App Owner Approval');
     if (isAppOwnerApproval) {
-      const approverUser = authRepository.findById(tenantId, actorUserId);
+      const approverUser = authService.getUser(tenantId, actorUserId);
       const approverEmail = approverUser?.email?.toLowerCase();
       const ownerEmail = app.ownerEmail?.toLowerCase();
       const isPlatformAdmin = approverUser?.roles?.includes('PlatformAdmin') ?? false;
