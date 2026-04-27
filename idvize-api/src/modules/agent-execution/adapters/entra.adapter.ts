@@ -114,6 +114,10 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     const objectId = result.body.id as string;
     const appId = result.body.appId as string;
 
+    // Track application for rollback immediately — before SP creation
+    rollbackTracker.track(ctx.tenantId, ctx.sessionId, ctx.stepId, 'entra', objectId,
+      'application', displayName, `DELETE ${GRAPH_BASE}/applications/${objectId}`);
+
     // Create service principal for the app
     const spResult = await this.apiCall(ctx.tenantId, {
       method: 'POST',
@@ -125,9 +129,6 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
 
     const servicePrincipalId = spResult.body.id as string;
 
-    // Track for rollback
-    rollbackTracker.track(ctx.tenantId, ctx.sessionId, ctx.stepId, 'entra', objectId,
-      'application', displayName, `DELETE ${GRAPH_BASE}/applications/${objectId}`);
     rollbackTracker.track(ctx.tenantId, ctx.sessionId, ctx.stepId, 'entra', servicePrincipalId,
       'service_principal', displayName, `DELETE ${GRAPH_BASE}/servicePrincipals/${servicePrincipalId}`);
 
