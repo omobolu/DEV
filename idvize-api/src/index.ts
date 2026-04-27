@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { apiKeyAuth } from './middleware/apiKey';
 import { errorHandler } from './middleware/errorHandler';
 import { controlService } from './modules/control/control.service';
-import { seedTenants, getSeedMode } from './modules/tenant/tenant.seed';
+import { seedTenants } from './modules/tenant/tenant.seed';
 
 // ── Module Controllers ──────────────────────────────────────────────────────
 import applicationController from './modules/application/application.controller';
@@ -22,7 +22,6 @@ import osController       from './modules/os/os.controller';
 import valueController    from './modules/value/value.controller';
 import igaController      from './modules/iga/iga.controller';
 import tenantController   from './modules/tenant/tenant.controller';
-import { emailController }  from './modules/email/email.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
 import gapsRouter from './routes/gaps';
@@ -91,7 +90,6 @@ app.use('/os',        osController);
 app.use('/value',     valueController);
 app.use('/iga',       igaController);
 app.use('/tenants',   tenantController);
-app.use('/email',     emailController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
 app.use('/api/gaps', gapsRouter);
@@ -107,22 +105,17 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-async function bootstrap(): Promise<void> {
-  // Initialize data based on SEED_MODE (production=empty, demo/development=seed)
-  await seedTenants();
-
-  app.listen(PORT, () => {
-    console.log(`\n========================================================`);
-    console.log(`  IDVIZE IAM Operating System`);
-    console.log(`  Kernel: iam-coverage-intelligence-engine  v2.0.0`);
-    console.log(`========================================================`);
-    console.log(`  URL         : http://localhost:${PORT}`);
-    console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
-    console.log(`  Seed Mode   : ${getSeedMode()}`);
-    console.log(`  Entra ID    : ${process.env.ENTRA_TENANT_ID ? '[live]' : '[mock]'}`);
-    console.log(`  SailPoint   : ${process.env.SAILPOINT_BASE_URL ? '[live]' : '[mock]'}`);
-    console.log(`  CyberArk    : ${process.env.CYBERARK_BASE_URL ? '[live]' : '[mock]'}`);
-    console.log(`  Okta        : ${process.env.OKTA_DOMAIN ? '[live]' : '[mock]'}`);
+app.listen(PORT, () => {
+  console.log(`\n========================================================`);
+  console.log(`  IDVIZE IAM Operating System`);
+  console.log(`  Kernel: iam-coverage-intelligence-engine  v2.0.0`);
+  console.log(`========================================================`);
+  console.log(`  URL         : http://localhost:${PORT}`);
+  console.log(`  Environment : ${process.env.NODE_ENV ?? 'development'}`);
+  console.log(`  Entra ID    : ${process.env.ENTRA_TENANT_ID ? '[live]' : '[mock]'}`);
+  console.log(`  SailPoint   : ${process.env.SAILPOINT_BASE_URL ? '[live]' : '[mock]'}`);
+  console.log(`  CyberArk    : ${process.env.CYBERARK_BASE_URL ? '[live]' : '[mock]'}`);
+  console.log(`  Okta        : ${process.env.OKTA_DOMAIN ? '[live]' : '[mock]'}`);
   console.log(`\n  Module 1 — Application Governance`);
   console.log(`    POST /applications/import`);
   console.log(`    POST /applications`);
@@ -202,12 +195,8 @@ async function bootstrap(): Promise<void> {
   console.log(`    GET  /os/alerts`);
   console.log(`========================================================\n`);
 
-  });
-}
-
-bootstrap().catch(err => {
-  console.error('[BOOTSTRAP] Fatal error during startup:', err.message);
-  process.exit(1);
+  // Seed demo tenants, users, and application portfolios
+  seedTenants();
 });
 
 export default app;

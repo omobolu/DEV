@@ -21,7 +21,7 @@ interface Summary {
 }
 
 function levelColor(score: number): string {
-  if (score >= 81) return '#2563eb'
+  if (score >= 81) return '#6366f1'
   if (score >= 61) return '#22c55e'
   if (score >= 41) return '#eab308'
   if (score >= 21) return '#f97316'
@@ -33,7 +33,7 @@ function levelNumber(level: string): number {
 function levelShort(level: string): string {
   return level.replace('Level ', 'L').replace(' - ', ' · ')
 }
-const PRIORITY_COLOR = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#2563eb' }
+const PRIORITY_COLOR = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#6366f1' }
 const EFFORT_LABEL = { quick_win: 'Quick Win', medium_term: 'Medium Term', strategic: 'Strategic' }
 
 function ConfidencePill({ value }: { value: number }) {

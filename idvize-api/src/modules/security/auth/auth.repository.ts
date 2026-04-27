@@ -1,89 +1,58 @@
 /**
- * Auth / User Repository — PostgreSQL-backed, Multi-Tenant
+ * Auth / User Repository — Multi-Tenant
  *
- * Stores users in PostgreSQL. Provides both tenant-scoped and global lookups.
- * Also maintains an in-memory cache populated on first access per tenant
- * so the existing in-memory seed path still works for non-persisted modules.
+ * In-memory store partitioned by tenantId.
+ * Users are seeded by tenant.seed.ts at startup (not here).
+ * Phase 2: replace with PostgreSQL (users table with tenant_id FK).
  */
 
 import { User, UserRole } from '../security.types';
-import pool from '../../../db/pool';
 
 class AuthRepository {
-  // In-memory fallback for modules that still seed via this repo directly
-  private memStore = new Map<string, Map<string, User>>();
-  private memByUsername = new Map<string, Map<string, string>>();
+  // tenantId → userId → User
+  private store     = new Map<string, Map<string, User>>();
+  // tenantId → username(lowercase) → userId
+  private byUsername = new Map<string, Map<string, string>>();
 
-  private memBucket(tenantId: string): Map<string, User> {
-    if (!this.memStore.has(tenantId)) this.memStore.set(tenantId, new Map());
-    return this.memStore.get(tenantId)!;
-  }
-  private memNameBucket(tenantId: string): Map<string, string> {
-    if (!this.memByUsername.has(tenantId)) this.memByUsername.set(tenantId, new Map());
-    return this.memByUsername.get(tenantId)!;
+  private userBucket(tenantId: string): Map<string, User> {
+    if (!this.store.has(tenantId)) this.store.set(tenantId, new Map());
+    return this.store.get(tenantId)!;
   }
 
-  private rowToUser(row: Record<string, unknown>): User {
-    return {
-      userId:       row.user_id as string,
-      tenantId:     row.tenant_id as string,
-      username:     row.username as string,
-      displayName:  row.display_name as string,
-      firstName:    row.first_name as string,
-      lastName:     row.last_name as string,
-      email:        row.email as string,
-      department:   row.department as string | undefined,
-      title:        row.title as string | undefined,
-      roles:        (typeof row.roles === 'string' ? JSON.parse(row.roles as string) : row.roles) as UserRole[],
-      groups:       (typeof row.groups === 'string' ? JSON.parse(row.groups as string) : row.groups) as string[],
-      status:       row.status as User['status'],
-      authProvider: row.auth_provider as User['authProvider'],
-      mfaEnrolled:  row.mfa_enrolled as boolean,
-      passwordHash: row.password_hash as string | undefined,
-      attributes:   (typeof row.attributes === 'string' ? JSON.parse(row.attributes as string) : row.attributes) as Record<string, unknown>,
-      lastLoginAt:  row.last_login_at ? (row.last_login_at as Date).toISOString() : undefined,
-      createdAt:    (row.created_at as Date).toISOString(),
-      updatedAt:    (row.updated_at as Date).toISOString(),
-    };
+  private nameBucket(tenantId: string): Map<string, string> {
+    if (!this.byUsername.has(tenantId)) this.byUsername.set(tenantId, new Map());
+    return this.byUsername.get(tenantId)!;
   }
 
   // ── Write ─────────────────────────────────────────────────────────────────
 
   save(tenantId: string, user: User): User {
-    // Write to in-memory store (used by seed path at startup)
-    this.memBucket(tenantId).set(user.userId, user);
-    this.memNameBucket(tenantId).set(user.username.toLowerCase(), user.userId);
+    this.userBucket(tenantId).set(user.userId, user);
+    this.nameBucket(tenantId).set(user.username.toLowerCase(), user.userId);
     return user;
   }
 
   updateLastLogin(tenantId: string, userId: string): void {
-    const now = new Date().toISOString();
-    // Update in-memory
-    const user = this.memBucket(tenantId).get(userId);
+    const user = this.userBucket(tenantId).get(userId);
     if (user) {
-      user.lastLoginAt = now;
-      user.updatedAt = now;
+      user.lastLoginAt = new Date().toISOString();
+      user.updatedAt   = new Date().toISOString();
     }
-    // Update PostgreSQL (fire-and-forget)
-    pool.query(
-      'UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
-    ).catch(() => { /* non-critical */ });
   }
 
   // ── Read (tenant-scoped) ───────────────────────────────────────────────────
 
   findById(tenantId: string, userId: string): User | undefined {
-    return this.memBucket(tenantId).get(userId);
+    return this.userBucket(tenantId).get(userId);
   }
 
   findByUsername(tenantId: string, username: string): User | undefined {
-    const uid = this.memNameBucket(tenantId).get(username.toLowerCase());
-    return uid ? this.memBucket(tenantId).get(uid) : undefined;
+    const uid = this.nameBucket(tenantId).get(username.toLowerCase());
+    return uid ? this.userBucket(tenantId).get(uid) : undefined;
   }
 
   findAll(tenantId: string): User[] {
-    return Array.from(this.memBucket(tenantId).values());
+    return Array.from(this.userBucket(tenantId).values());
   }
 
   findByRole(tenantId: string, role: UserRole): User[] {
@@ -91,17 +60,22 @@ class AuthRepository {
   }
 
   count(tenantId: string): number {
-    return this.memBucket(tenantId).size;
+    return this.userBucket(tenantId).size;
   }
 
-  // ── Cross-tenant lookup (used by auth service for global login) ───────────
+  // ── Cross-tenant lookup (used only by authz service + global login) ────────
 
+  /**
+   * Scan ALL tenant buckets for a username. Returns the first match.
+   * Acceptable for Phase 1 (10 total users). Phase 2: require tenantId at login.
+   */
   findByUsernameGlobal(username: string): User | undefined {
     const lower = username.toLowerCase();
-    for (const [, nameMap] of this.memByUsername) {
+    for (const [, nameMap] of this.byUsername) {
       const uid = nameMap.get(lower);
       if (uid) {
-        for (const [, userMap] of this.memStore) {
+        // find which tenant bucket holds this uid
+        for (const [, userMap] of this.store) {
           const u = userMap.get(uid);
           if (u) return u;
         }
@@ -111,53 +85,11 @@ class AuthRepository {
   }
 
   /**
-   * PostgreSQL-backed global username lookup with bcrypt password hash.
-   * Used by the auth service for login when PostgreSQL is available.
-   *
-   * Enforces uniqueness: if the same username exists in multiple tenants,
-   * returns an error rather than silently picking one (ambiguity = security risk).
+   * Scan ALL tenant buckets for a userId. Returns the first match.
+   * Used by authz service for role lookups.
    */
-  async findByUsernameGlobalPg(username: string): Promise<User | undefined> {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE LOWER(username) = LOWER($1) LIMIT 2',
-      [username]
-    );
-    if (result.rows.length === 0) return undefined;
-    if (result.rows.length > 1) {
-      throw Object.assign(
-        new Error(`Ambiguous login: username "${username}" exists in multiple tenants. Contact your administrator.`),
-        { statusCode: 409 },
-      );
-    }
-    return this.rowToUser(result.rows[0]);
-  }
-
-  async saveUserPg(tenantId: string, user: User): Promise<void> {
-    await pool.query(
-      `INSERT INTO users (user_id, tenant_id, username, display_name, first_name, last_name, email, department, title, roles, groups, status, auth_provider, mfa_enrolled, password_hash, attributes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [user.userId, tenantId, user.username, user.displayName, user.firstName, user.lastName, user.email, user.department ?? 'IT', user.title ?? 'Administrator', JSON.stringify(user.roles), JSON.stringify(user.groups), user.status, user.authProvider, user.mfaEnrolled, user.passwordHash, JSON.stringify(user.attributes), user.createdAt]
-    );
-    this.save(tenantId, user);
-  }
-
-  /**
-   * Load all users from PostgreSQL into the in-memory store.
-   * Called during startup so authzService, SCIM, and other modules
-   * can find users without individual PG lookups.
-   */
-  async loadAllUsersFromPg(): Promise<number> {
-    const result = await pool.query('SELECT * FROM users');
-    for (const row of result.rows) {
-      const user = this.rowToUser(row);
-      this.save(user.tenantId, user);
-    }
-    return result.rows.length;
-  }
-
   findByIdGlobal(userId: string): User | undefined {
-    for (const [, userMap] of this.memStore) {
+    for (const [, userMap] of this.store) {
       const u = userMap.get(userId);
       if (u) return u;
     }

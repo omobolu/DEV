@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 import Badge from '@/components/common/Badge'
-import EmptyState from '@/components/common/EmptyState'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -639,11 +638,13 @@ export default function SNOWTicketsTab() {
 
       {/* Empty state */}
       {tickets.length === 0 && !loading && (
-        <EmptyState
-          icon={Ticket}
-          title="No ServiceNow tickets yet"
-          description="Tickets created from access reviews, certifications, or remediation actions will appear here."
-        />
+        <div className="flex flex-col items-center justify-center h-48 text-center">
+          <div className="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mb-3">
+            <Ticket size={20} className="text-faint" aria-hidden="true" />
+          </div>
+          <p className="text-sm text-muted">No tickets found</p>
+          <p className="text-xs text-faint mt-1">SNOW tickets will appear here when created.</p>
+        </div>
       )}
 
       {/* Ticket cards */}

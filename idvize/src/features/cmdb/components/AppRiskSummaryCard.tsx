@@ -1,39 +1,46 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ShieldAlert, ChevronRight } from 'lucide-react'
-import { apiFetch } from '@/lib/apiClient'
+import { AlertTriangle, TrendingUp, DollarSign, Target, ChevronRight } from 'lucide-react'
 
-interface ControlDriver {
-  controlId: string
-  controlName: string
-  pillar: string
-  outcome: 'GAP' | 'ATTN'
-}
-
-interface ApplicationRisk {
-  applicationId: string
-  applicationName: string
-  tenantId: string
+interface AppRiskSummary {
+  appId: string
+  appName: string
+  riskTier: string
+  dataClassification: string
+  department: string
+  userPopulation: number
+  riskScore: number
   riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-  gapCount: number
-  attentionCount: number
-  drivers: ControlDriver[]
+  riskDrivers: string[]
+  estimatedExposure: number
+  gapExposure: number
+  priorityRank: number
+  gaps: string[]
 }
 
 const RISK_CFG = {
-  CRITICAL: { bar: 'bg-red-500',     text: 'text-a-red',       badge: 'bg-red-500/20 text-red-300 border-red-500/40' },
-  HIGH:     { bar: 'bg-orange-500',  text: 'text-a-orange',    badge: 'bg-orange-500/20 text-orange-300 border-orange-500/40' },
-  MEDIUM:   { bar: 'bg-yellow-500',  text: 'text-yellow-400',  badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' },
-  LOW:      { bar: 'bg-emerald-500', text: 'text-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
+  CRITICAL: { bar: 'bg-red-500',    text: 'text-a-red',    badge: 'bg-red-500/20 text-red-300 border-red-500/40' },
+  HIGH:     { bar: 'bg-orange-500', text: 'text-a-orange', badge: 'bg-orange-500/20 text-orange-300 border-orange-500/40' },
+  MEDIUM:   { bar: 'bg-yellow-500', text: 'text-yellow-400', badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' },
+  LOW:      { bar: 'bg-emerald-500',text: 'text-emerald-400',badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
+}
+
+function fmt$(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n}`
 }
 
 export default function AppRiskSummaryCard({ appId }: { appId: string }) {
   const navigate = useNavigate()
-  const [data, setData]       = useState<ApplicationRisk | null>(null)
+  const [data, setData]       = useState<AppRiskSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiFetch(`/os/risks/${appId}`)
+    const token = localStorage.getItem('idvize_token')
+    fetch(`/api/os/risks/${appId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(r => r.ok ? r.json() : null)
       .then(j => { setData(j?.data ?? null); setLoading(false) })
       .catch(() => setLoading(false))
@@ -48,10 +55,6 @@ export default function AppRiskSummaryCard({ appId }: { appId: string }) {
   if (!data) return null
 
   const cfg = RISK_CFG[data.riskLevel]
-  const gapDrivers = data.drivers.filter(d => d.outcome === 'GAP')
-  const attnDrivers = data.drivers.filter(d => d.outcome === 'ATTN')
-  const totalIssues = data.gapCount + data.attentionCount
-  const gapPct = totalIssues > 0 ? Math.round((data.gapCount / 49) * 100) : 0
 
   return (
     <div className="rounded-xl border border-surface-700 bg-surface-800 overflow-hidden">
@@ -70,75 +73,64 @@ export default function AppRiskSummaryCard({ appId }: { appId: string }) {
       </div>
 
       <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Risk Level */}
+        {/* Risk Score */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted uppercase tracking-wider">Risk Level</span>
+            <span className="text-[11px] text-muted uppercase tracking-wider">IAM Risk Score</span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cfg.badge}`}>
               {data.riskLevel}
             </span>
           </div>
+          <div className="flex items-end gap-2">
+            <span className={`text-2xl font-bold ${cfg.text}`}>{data.riskScore}</span>
+            <span className="text-xs text-muted mb-0.5">/ 100</span>
+          </div>
           <div className="h-1.5 rounded-full bg-surface-700">
-            <div className={`h-1.5 rounded-full ${cfg.bar} transition-all`} style={{ width: `${gapPct}%` }} />
+            <div className={`h-1.5 rounded-full ${cfg.bar} transition-all`} style={{ width: `${data.riskScore}%` }} />
           </div>
-          <p className="text-[11px] text-muted">{data.gapCount} GAP / {data.attentionCount} ATTN of 49 controls</p>
         </div>
 
-        {/* GAP Controls */}
+        {/* Priority Rank */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <ShieldAlert size={13} className="text-a-red" />
-            <span className="text-[11px] text-muted uppercase tracking-wider">GAP Controls</span>
+            <Target size={13} className="text-muted" />
+            <span className="text-[11px] text-muted uppercase tracking-wider">Priority Rank</span>
           </div>
-          <span className={`text-2xl font-bold ${data.gapCount > 0 ? 'text-a-red' : 'text-emerald-400'}`}>{data.gapCount}</span>
-          <p className="text-[11px] text-muted">confirmed missing</p>
+          <div className="flex items-end gap-1">
+            <span className="text-2xl font-bold text-body">#{data.priorityRank}</span>
+          </div>
+          <p className="text-[11px] text-muted">of {data.riskTier} tier apps</p>
         </div>
 
-        {/* ATTN Controls */}
+        {/* Estimated Exposure */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <AlertTriangle size={13} className="text-yellow-400" />
-            <span className="text-[11px] text-muted uppercase tracking-wider">ATTN Controls</span>
+            <DollarSign size={13} className="text-muted" />
+            <span className="text-[11px] text-muted uppercase tracking-wider">Est. Exposure</span>
           </div>
-          <span className={`text-2xl font-bold ${data.attentionCount > 0 ? 'text-yellow-400' : 'text-emerald-400'}`}>{data.attentionCount}</span>
-          <p className="text-[11px] text-muted">needs attention</p>
+          <span className="text-2xl font-bold text-body">{fmt$(data.estimatedExposure)}</span>
+          <p className="text-[11px] text-muted">annual at current posture</p>
         </div>
 
-        {/* OK Controls */}
+        {/* Gap Exposure */}
         <div className="space-y-2">
-          <span className="text-[11px] text-muted uppercase tracking-wider">OK Controls</span>
-          <span className="text-2xl font-bold text-emerald-400">{49 - data.gapCount - data.attentionCount}</span>
-          <p className="text-[11px] text-muted">detected / implemented</p>
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={13} className="text-muted" />
+            <span className="text-[11px] text-muted uppercase tracking-wider">Gap Exposure</span>
+          </div>
+          <span className="text-2xl font-bold text-a-amber">{fmt$(data.gapExposure)}</span>
+          <p className="text-[11px] text-muted">additional risk from open gaps</p>
         </div>
       </div>
 
-      {/* GAP drivers */}
-      {gapDrivers.length > 0 && (
+      {/* Risk drivers */}
+      {data.riskDrivers.length > 0 && (
         <div className="px-4 pb-4">
-          <p className="text-[11px] text-muted uppercase tracking-wider mb-2">GAP Controls</p>
+          <p className="text-[11px] text-muted uppercase tracking-wider mb-2">Key Risk Drivers</p>
           <div className="flex flex-wrap gap-1.5">
-            {gapDrivers.map(d => (
-              <span key={d.controlId} className="text-[11px] px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/40">
-                {d.controlName}
-              </span>
+            {data.riskDrivers.map(d => (
+              <span key={d} className={`text-[11px] px-2 py-0.5 rounded-full border ${cfg.badge}`}>{d}</span>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ATTN drivers (only show if no GAPs, to avoid clutter) */}
-      {gapDrivers.length === 0 && attnDrivers.length > 0 && (
-        <div className="px-4 pb-4">
-          <p className="text-[11px] text-muted uppercase tracking-wider mb-2">Controls Needing Attention</p>
-          <div className="flex flex-wrap gap-1.5">
-            {attnDrivers.slice(0, 8).map(d => (
-              <span key={d.controlId} className="text-[11px] px-2 py-0.5 rounded-full border bg-yellow-500/20 text-yellow-300 border-yellow-500/40">
-                {d.controlName}
-              </span>
-            ))}
-            {attnDrivers.length > 8 && (
-              <span className="text-[11px] text-muted">+{attnDrivers.length - 8} more</span>
-            )}
           </div>
         </div>
       )}

@@ -27,19 +27,13 @@ router.post('/token', async (req: Request, res: Response) => {
     return;
   }
   const actorIp = req.ip;
-  try {
-    const result = await authService.login(username, password, actorIp);
-    res.json({ success: true, data: result, timestamp: new Date().toISOString() });
-  } catch (err) {
-    const status = (err as { statusCode?: number }).statusCode ?? 500;
-    const message = (err as Error).message ?? 'Authentication failed';
-    res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
-  }
+  const result = await authService.login(username, password, actorIp);
+  res.json({ success: true, data: result, timestamp: new Date().toISOString() });
 });
 
 // POST /security/auth/logout
-router.post('/logout', requireAuth, async (req: Request, res: Response) => {
-  await authService.recordLogout(req.user!.sub, req.user!.tenantId, req.user!.sessionId, req.ip);
+router.post('/logout', requireAuth, (req: Request, res: Response) => {
+  authService.recordLogout(req.user!.sub, req.user!.tenantId, req.user!.sessionId, req.ip);
   res.json({ success: true, data: { message: 'Logged out successfully' }, timestamp: new Date().toISOString() });
 });
 
@@ -47,7 +41,7 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
 router.get('/me', requireAuth, (req: Request, res: Response) => {
   const claims = req.user!;
   const user = authService.getUser(claims.tenantId, claims.sub);
-  const permissions = authzService.getUserPermissions(claims.sub, claims.tenantId);
+  const permissions = authzService.getUserPermissions(claims.sub);
   res.json({ success: true, data: { user, permissions, roles: claims.roles }, timestamp: new Date().toISOString() });
 });
 

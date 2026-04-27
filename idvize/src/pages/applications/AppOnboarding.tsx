@@ -40,7 +40,7 @@ export default function AppOnboarding() {
             xKey="quarter"
             series={[
               { key: 'completed',  name: 'Completed',   color: '#22c55e', stackId: 'a' },
-              { key: 'inProgress', name: 'In Progress',  color: '#2563eb', stackId: 'a' },
+              { key: 'inProgress', name: 'In Progress',  color: '#6366f1', stackId: 'a' },
               { key: 'planning',   name: 'Planning',     color: '#06b6d4', stackId: 'a' },
               { key: 'onHold',     name: 'On Hold',      color: '#f97316', stackId: 'a' },
             ]}

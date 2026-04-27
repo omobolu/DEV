@@ -11,23 +11,13 @@ import {
   APP_INTEGRATION_DATA, LOGIN_TIME_DATA
 } from '@/data/accessManagement'
 
-interface AccessManagementProps {
-  audience?: 'partners'
-}
-
-export default function AccessManagement({ audience }: AccessManagementProps) {
+export default function AccessManagement() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 300)
     return () => clearTimeout(timer)
   }, [])
-
-  const isPartners = audience === 'partners'
-  const title = isPartners ? 'Partner Access' : 'Access Management'
-  const subtitle = isPartners
-    ? 'Vendor & contractor access analytics (B2B)'
-    : 'Authentication, SSO & MFA analytics'
 
   const loginPerfForChart = LOGIN_PERF_DATA.map(d => ({ name: d.app, value: d.successRate }))
   const loginTimeForChart = LOGIN_TIME_DATA as unknown as Record<string, unknown>[]
@@ -38,9 +28,9 @@ export default function AccessManagement({ audience }: AccessManagementProps) {
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck size={20} className="text-a-cyan" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-heading">{title}</h1>
+            <h1 className="text-2xl font-bold text-heading">Access Management</h1>
           </div>
-          <p className="text-muted mt-1 text-sm">{subtitle}</p>
+          <p className="text-muted mt-1 text-sm">Authentication, SSO & MFA analytics</p>
         </div>
       </div>
 

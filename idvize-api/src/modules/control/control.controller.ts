@@ -393,7 +393,7 @@ const PILLAR_FORM_FIELDS: Record<string, Array<{ label: string; hint: string; re
 // Creates:  (1) approval request — represents email sent to app owner + technical admin
 //           (2) build job — the AI agent configuration task (pending until info gathered)
 // Returns:  both IDs, who was notified, and the form fields the agent will need filled.
-router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Response) => {
+router.post('/app/:appId/:controlId/remediate', (req: Request, res: Response) => {
   const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
@@ -413,7 +413,7 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
 
   try {
     // Step 1 — Create approval (simulates email to Business Owner + Technical Admin)
-    const approval = await approvalService.requestApproval(tenantId, {
+    const approval = approvalService.requestApproval(tenantId, {
       requesterId:   actor?.userId ?? 'system',
       action:        `IAM Configuration Request — ${ctrl.name} on ${app.name}`,
       resource:      app.name,

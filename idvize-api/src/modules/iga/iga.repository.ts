@@ -1,5 +1,4 @@
 import { SNOWTicket, CertificationCampaign } from './iga.types';
-import { getSeedMode } from '../../config/seed-mode';
 
 // ── Seed Data ────────────────────────────────────────────────────────────────
 
@@ -185,10 +184,7 @@ class IgaRepository {
 
   private ensureTickets(tenantId: string): SNOWTicket[] {
     if (!this.ticketStore.has(tenantId)) {
-      if (getSeedMode() === 'production') {
-        this.ticketStore.set(tenantId, []);
-        return this.ticketStore.get(tenantId)!;
-      }
+      // Deep-clone seed data so each tenant gets independent copies
       const cloned = JSON.parse(JSON.stringify(SEED_TICKETS)) as SNOWTicket[];
       this.ticketStore.set(tenantId, cloned);
       console.log(`[IgaRepository] Seeded ${cloned.length} SNOW tickets for tenant ${tenantId}`);
@@ -198,10 +194,6 @@ class IgaRepository {
 
   private ensureCampaigns(tenantId: string): CertificationCampaign[] {
     if (!this.campaignStore.has(tenantId)) {
-      if (getSeedMode() === 'production') {
-        this.campaignStore.set(tenantId, []);
-        return this.campaignStore.get(tenantId)!;
-      }
       const cloned = JSON.parse(JSON.stringify(SEED_CAMPAIGNS)) as CertificationCampaign[];
       this.campaignStore.set(tenantId, cloned);
       console.log(`[IgaRepository] Seeded ${cloned.length} certification campaigns for tenant ${tenantId}`);

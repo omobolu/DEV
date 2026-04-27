@@ -11,9 +11,9 @@ export const PROGRAM_MATURITY_DATA: ProgramMaturityItem[] = [
     id: 'iga',
     title: 'Identity Governance & Administration',
     totalCount: 1247,
-    color: '#2563eb',
+    color: '#6366f1',
     segments: [
-      { name: 'Access Request', value: 38, fill: '#2563eb' },
+      { name: 'Access Request', value: 38, fill: '#6366f1' },
       { name: 'Account Mgmt',   value: 27, fill: '#818cf8' },
       { name: 'Role Mgmt',      value: 20, fill: '#a5b4fc' },
       { name: 'Compliance',     value: 15, fill: '#c7d2fe' },

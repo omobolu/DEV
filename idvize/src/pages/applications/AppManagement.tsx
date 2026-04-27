@@ -61,7 +61,7 @@ export default function AppManagement() {
           <VerticalBarChart
             data={COMPLETION_RATE_DATA as unknown as Record<string, unknown>[]}
             xKey="month"
-            series={[{ key: 'rate', name: 'Completion Rate %', color: '#2563eb' }]}
+            series={[{ key: 'rate', name: 'Completion Rate %', color: '#6366f1' }]}
             colorByValue
             showLegend={false}
           />

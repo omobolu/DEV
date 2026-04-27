@@ -28,7 +28,7 @@ interface LogInput {
 }
 
 class AuditService {
-  async log(input: LogInput): Promise<AuditEvent> {
+  log(input: LogInput): AuditEvent {
     const event: AuditEvent = {
       eventId: uuidv4(),
       ...input,
@@ -36,7 +36,7 @@ class AuditService {
       timestamp: new Date().toISOString(),
     };
 
-    await auditRepository.append(input.tenantId ?? 'system', event);
+    auditRepository.append(input.tenantId ?? 'system', event);
 
     // Console output for observability — Phase 2: ship to SIEM
     const icon = input.outcome === 'failure' ? '✗' : input.outcome === 'masked' ? '⊘' : '✓';
@@ -49,24 +49,12 @@ class AuditService {
     return auditRepository.query(tenantId, filter);
   }
 
-  async queryPg(tenantId: string, filter: AuditFilter): Promise<AuditEvent[]> {
-    return auditRepository.queryPg(tenantId, filter);
-  }
-
   findById(eventId: string): AuditEvent | undefined {
     return auditRepository.queryAll({ limit: 10000 }).find(e => e.eventId === eventId);
   }
 
-  async findByIdPg(eventId: string, tenantId: string): Promise<AuditEvent | undefined> {
-    return auditRepository.findByIdPg(eventId, tenantId);
-  }
-
   count(tenantId: string): number {
     return auditRepository.count(tenantId);
-  }
-
-  async countPg(tenantId: string): Promise<number> {
-    return auditRepository.countPg(tenantId);
   }
 
   countAll(): number {

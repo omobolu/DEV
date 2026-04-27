@@ -1,13 +1,11 @@
 /**
- * Audit Repository — PostgreSQL-backed
+ * Audit Repository
  *
- * Append-only event store. Events are written to PostgreSQL and cached in memory
- * for fast query access. Never deleted.
+ * Append-only in-memory event store. Events are never deleted.
+ * Phase 2: replace with PostgreSQL, SIEM, or immutable object store.
  */
 
 import { AuditEvent, AuditEventType } from '../security.types';
-import pool from '../../../db/pool';
-import { getSeedMode } from '../../../config/seed-mode';
 
 export interface AuditFilter {
   eventType?: AuditEventType;
@@ -28,33 +26,8 @@ class AuditRepository {
     return this.log.get(tenantId)!;
   }
 
-  async append(tenantId: string, event: AuditEvent): Promise<AuditEvent> {
-    // Only accumulate in-memory in dev/demo (production reads from PG exclusively)
-    if (getSeedMode() !== 'production') this.bucket(tenantId).push(event);
-
-    const pgParams = [event.eventId, tenantId, event.eventType, event.actorId, event.actorName, event.actorIp, event.targetId, event.targetType, event.permissionId, event.resource, event.outcome, event.reason, JSON.stringify(event.metadata), event.sessionId, event.requestId, event.timestamp];
-
-    if (getSeedMode() === 'production') {
-      try {
-        await pool.query(
-          `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-          pgParams
-        );
-      } catch (err) {
-        console.error('[Audit] CRITICAL: PostgreSQL audit write failed in production:', (err as Error).message);
-        throw err;
-      }
-    } else {
-      pool.query(
-        `INSERT INTO audit_logs (event_id, tenant_id, event_type, actor_id, actor_name, actor_ip, target_id, target_type, permission_id, resource, outcome, reason, metadata, session_id, request_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-        pgParams
-      ).catch((err) => {
-        console.error('[Audit] PostgreSQL write failed:', err.message);
-      });
-    }
-
+  append(tenantId: string, event: AuditEvent): AuditEvent {
+    this.bucket(tenantId).push(event);
     return event;
   }
 
@@ -72,6 +45,7 @@ class AuditRepository {
     if (filter.dateFrom) results = results.filter(e => e.timestamp >= filter.dateFrom!);
     if (filter.dateTo) results = results.filter(e => e.timestamp <= filter.dateTo!);
 
+    // Most recent first
     results.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     const offset = filter.offset ?? 0;
@@ -80,75 +54,8 @@ class AuditRepository {
   }
 
   /**
-   * Query audit events from PostgreSQL. Falls back to in-memory if PG unavailable.
+   * Query across ALL tenant buckets — for cross-tenant admin views.
    */
-  async queryPg(tenantId: string, filter: AuditFilter = {}): Promise<AuditEvent[]> {
-    try {
-      const conditions: string[] = ['tenant_id = $1'];
-      const params: unknown[] = [tenantId];
-      let idx = 2;
-
-      if (filter.eventType) { conditions.push(`event_type = $${idx}`); params.push(filter.eventType); idx++; }
-      if (filter.actorId) { conditions.push(`actor_id = $${idx}`); params.push(filter.actorId); idx++; }
-      if (filter.targetId) { conditions.push(`target_id = $${idx}`); params.push(filter.targetId); idx++; }
-      if (filter.outcome) { conditions.push(`outcome = $${idx}`); params.push(filter.outcome); idx++; }
-      if (filter.dateFrom) { conditions.push(`created_at >= $${idx}`); params.push(filter.dateFrom); idx++; }
-      if (filter.dateTo) { conditions.push(`created_at <= $${idx}`); params.push(filter.dateTo); idx++; }
-
-      const limit = Math.max(1, Math.min(filter.limit ?? 200, 10000));
-      const offset = Math.max(0, filter.offset ?? 0);
-      const sql = `SELECT * FROM audit_logs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
-      params.push(limit, offset);
-      const result = await pool.query(sql, params);
-      return result.rows.map((row: Record<string, unknown>) => this.rowToEvent(row));
-    } catch (err) {
-      if (getSeedMode() === 'production') throw err;
-      return this.query(tenantId, filter);
-    }
-  }
-
-  async findByIdPg(eventId: string, tenantId: string): Promise<AuditEvent | undefined> {
-    try {
-      const result = await pool.query('SELECT * FROM audit_logs WHERE event_id = $1 AND tenant_id = $2', [eventId, tenantId]);
-      if (result.rows.length === 0) return this.findById(tenantId, eventId);
-      return this.rowToEvent(result.rows[0]);
-    } catch (err) {
-      if (getSeedMode() === 'production') throw err;
-      return this.findById(tenantId, eventId);
-    }
-  }
-
-  async countPg(tenantId: string): Promise<number> {
-    try {
-      const result = await pool.query('SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1', [tenantId]);
-      return parseInt(result.rows[0].count as string, 10);
-    } catch (err) {
-      if (getSeedMode() === 'production') throw err;
-      return this.count(tenantId);
-    }
-  }
-
-  private rowToEvent(row: Record<string, unknown>): AuditEvent {
-    return {
-      eventId:      row.event_id as string,
-      tenantId:     row.tenant_id as string | undefined,
-      eventType:    row.event_type as AuditEventType,
-      actorId:      row.actor_id as string,
-      actorName:    row.actor_name as string,
-      actorIp:      row.actor_ip as string | undefined,
-      targetId:     row.target_id as string | undefined,
-      targetType:   row.target_type as string | undefined,
-      permissionId: row.permission_id as any,
-      resource:     row.resource as string | undefined,
-      outcome:      row.outcome as AuditEvent['outcome'],
-      reason:       row.reason as string | undefined,
-      metadata:     (row.metadata ?? {}) as Record<string, unknown>,
-      sessionId:    row.session_id as string | undefined,
-      requestId:    row.request_id as string | undefined,
-      timestamp:    (row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at as string),
-    };
-  }
-
   queryAll(filter: AuditFilter = {}): AuditEvent[] {
     let results: AuditEvent[] = [];
     for (const events of this.log.values()) {
@@ -173,6 +80,9 @@ class AuditRepository {
     return this.bucket(tenantId).length;
   }
 
+  /**
+   * Count across ALL tenant buckets — for cross-tenant admin views.
+   */
   countAll(): number {
     let total = 0;
     for (const events of this.log.values()) {

@@ -53,6 +53,12 @@ interface OsModule {
   category: string; status: string
 }
 
+interface OsEvent {
+  eventId: string; type: string; severity: string
+  actor: string; resource: string; outcome: string
+  timestamp: string; driver: string
+}
+
 interface Alert {
   alertId: string; severity: string; category: string
   title: string; detail: string; action: string; gapId?: string
@@ -82,7 +88,7 @@ function fmtTime(iso: string): string {
 }
 
 function tierColor(tier: string): string {
-  return tier === 'critical' ? '#ef4444' : tier === 'high' ? '#f97316' : tier === 'medium' ? '#eab308' : '#2563eb'
+  return tier === 'critical' ? '#ef4444' : tier === 'high' ? '#f97316' : tier === 'medium' ? '#eab308' : '#6366f1'
 }
 
 function severityColor(sev: string): string {
@@ -91,6 +97,10 @@ function severityColor(sev: string): string {
 
 function driverStatusColor(status: string): string {
   return status === 'healthy' ? '#22c55e' : status === 'degraded' ? '#f97316' : '#64748b'
+}
+
+function outcomeColor(outcome: string): string {
+  return outcome === 'success' ? '#22c55e' : outcome === 'failure' ? '#ef4444' : '#64748b'
 }
 
 // ── KPI Tile ─────────────────────────────────────────────────────────────────
@@ -436,8 +446,8 @@ function GapActionModal({ gap, onClose, onConfirmed }: {
                     {[Mail, ClipboardList, Bot, UserCog].map((Icon, i) => (
                       <div key={i} className="flex flex-col items-center">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                             style={{ backgroundColor: [sc, '#1e3a8a', '#0891b2', '#d97706'].map(c => c + '30')[i],
-                                      borderWidth: 1, borderStyle: 'solid', borderColor: [sc, '#1e3a8a', '#0891b2', '#d97706'].map(c => c + '50')[i] }}>
+                             style={{ backgroundColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '30')[i],
+                                      borderWidth: 1, borderStyle: 'solid', borderColor: [sc, '#7c3aed', '#0891b2', '#d97706'].map(c => c + '50')[i] }}>
                           <Icon size={11} style={{ color: [sc, '#a78bfa', '#22d3ee', '#fbbf24'][i] }} />
                         </div>
                         {i < 3 && <div className="w-px h-4 bg-surface-600" />}
@@ -572,7 +582,25 @@ function GapRow({ gap, onConfigure }: { gap: Gap; onConfigure: (gap: Gap) => voi
   )
 }
 
+// ── Event Row ─────────────────────────────────────────────────────────────────
 
+function EventRow({ event }: { event: OsEvent }) {
+  const sc = severityColor(event.severity)
+  const oc = outcomeColor(event.outcome)
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-surface-700/50 last:border-0 text-xs">
+      <span className="text-muted font-mono shrink-0 w-18">{fmtTime(event.timestamp)}</span>
+      <span className="px-1.5 py-0.5 rounded text-xs shrink-0 font-medium"
+        style={{ backgroundColor: sc + '20', color: sc }}>{event.severity}</span>
+      <span className="text-muted shrink-0 w-16 truncate">[{event.driver}]</span>
+      <span className="text-muted font-mono shrink-0">{event.type}</span>
+      <span className="text-secondary flex-1 truncate">{event.actor} → {event.resource}</span>
+      <span className="shrink-0 font-mono" style={{ color: oc }}>
+        {event.outcome === 'success' ? '✓' : event.outcome === 'failure' ? '✗' : '—'}
+      </span>
+    </div>
+  )
+}
 
 // ── Alert Card ────────────────────────────────────────────────────────────────
 
@@ -633,12 +661,12 @@ function ModuleCard({ mod, onClick }: { mod: OsModule; onClick: () => void }) {
 // ── Process Row ───────────────────────────────────────────────────────────────
 
 const STATE_COLOR: Record<string, string> = {
-  running: '#22c55e', pending: '#2563eb', queued: '#eab308',
+  running: '#22c55e', pending: '#6366f1', queued: '#eab308',
   overdue: '#ef4444', failed: '#ef4444', completed: '#64748b',
   build_in_progress: '#22c55e', classified: '#eab308', cancelled: '#64748b',
 }
 const TYPE_COLOR: Record<string, string> = {
-  build: '#2563eb', approval: '#06b6d4', rotation: '#f59e0b', certification: '#22c55e',
+  build: '#6366f1', approval: '#06b6d4', rotation: '#f59e0b', certification: '#22c55e',
 }
 
 function ProcessRow({ proc }: { proc: Process }) {
@@ -673,6 +701,7 @@ export default function OSControlPanel() {
   const [gaps,      setGaps]      = useState<Gap[]>([])
   const [processes, setProcesses] = useState<Process[]>([])
   const [modules,   setModules]   = useState<OsModule[]>([])
+  const [events,    setEvents]    = useState<OsEvent[]>([])
   const [alerts,    setAlerts]    = useState<Alert[]>([])
   const [coverage,  setCoverage]  = useState<{ byRiskTier: CoverageTier[]; byControlType: ControlTypeCoverage[] } | null>(null)
 
@@ -684,12 +713,13 @@ export default function OSControlPanel() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [statusR, driversR, gapsR, processesR, modulesR, alertsR, coverageR] = await Promise.all([
+      const [statusR, driversR, gapsR, processesR, modulesR, eventsR, alertsR, coverageR] = await Promise.all([
         apiFetch('/os/status').then(r => r.json()),
         apiFetch('/os/drivers').then(r => r.json()),
         apiFetch('/os/gaps').then(r => r.json()),
         apiFetch('/os/processes').then(r => r.json()),
         apiFetch('/os/modules').then(r => r.json()),
+        apiFetch('/os/events').then(r => r.json()),
         apiFetch('/os/alerts').then(r => r.json()),
         apiFetch('/os/coverage').then(r => r.json()),
       ])
@@ -698,6 +728,7 @@ export default function OSControlPanel() {
       if (gapsR.success)     setGaps(gapsR.data.gaps ?? [])
       if (processesR.success)setProcesses(processesR.data)
       if (modulesR.success)  setModules(modulesR.data)
+      if (eventsR.success)   setEvents(eventsR.data)
       if (alertsR.success)   setAlerts(alertsR.data)
       if (coverageR.success) setCoverage(coverageR.data)
     } catch { /* errors are silent — partial data is fine */ }
@@ -815,7 +846,7 @@ export default function OSControlPanel() {
               label="Identity Protection"
               value={`${cov?.protectionPct ?? 0}%`}
               sub={`${cov?.protectedIdentities?.toLocaleString()}/${cov?.totalIdentities?.toLocaleString()}`}
-              color="#2563eb"
+              color="#6366f1"
               icon={Users}
             />
             <KpiTile
@@ -980,7 +1011,26 @@ export default function OSControlPanel() {
             </div>
           </div>
 
-
+          {/* Live Event Stream */}
+          <div className="rounded-xl border border-surface-600 bg-surface-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Activity size={15} className="text-a-indigo" />
+                <span className="text-sm font-semibold text-body">Live IAM Event Stream</span>
+                <span className="text-xs text-muted">— last {events.length} events across all drivers</span>
+              </div>
+              <span className="flex items-center gap-1 text-xs text-a-green">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                live
+              </span>
+            </div>
+            <div className="max-h-64 overflow-y-auto font-mono">
+              {events.length === 0
+                ? <p className="text-xs text-muted">No events recorded yet. Events appear as IAM activity occurs.</p>
+                : events.map(e => <EventRow key={e.eventId} event={e} />)
+              }
+            </div>
+          </div>
         </div>
       )}
 
@@ -1143,7 +1193,7 @@ export default function OSControlPanel() {
                 { tier: 'Critical', controls: ['SSO', 'MFA', 'PAM', 'Access Review'], color: '#ef4444' },
                 { tier: 'High',     controls: ['SSO', 'MFA'],                          color: '#f97316' },
                 { tier: 'Medium',   controls: ['SSO'],                                 color: '#eab308' },
-                { tier: 'Low',      controls: ['No mandatory controls'],               color: '#2563eb' },
+                { tier: 'Low',      controls: ['No mandatory controls'],               color: '#6366f1' },
               ].map(p => (
                 <div key={p.tier} className="flex items-center gap-4 p-3 rounded-lg bg-surface-900/50">
                   <span className="text-sm font-medium w-16" style={{ color: p.color }}>{p.tier}</span>
