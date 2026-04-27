@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { applicationService } from './application.service';
-import { applicationRepository } from './application.repository';
 import { ApplicationQuery } from './application.types';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
@@ -72,22 +71,23 @@ router.get('/:id', (req: Request, res: Response) => {
 // PATCH /applications/:id — update application fields (e.g. technicalSme)
 router.patch('/:id', (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const app = applicationService.getApplication(tenantId, req.params.id as string);
-  if (!app) {
+  const appId = req.params.id as string;
+  const existing = applicationService.getApplication(tenantId, appId);
+  if (!existing) {
     res.status(404).json({ success: false, error: 'Application not found', timestamp: new Date().toISOString() });
     return;
   }
 
   const allowedFields = ['technicalSme', 'technicalSmeEmail', 'owner', 'ownerEmail', 'supportContact', 'department'] as const;
+  const updates: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
-      (app as unknown as Record<string, unknown>)[field] = req.body[field];
+      updates[field] = req.body[field];
     }
   }
-  app.updatedAt = new Date().toISOString();
-  applicationRepository.save(tenantId, app);
 
-  res.json({ success: true, data: app, timestamp: new Date().toISOString() });
+  const updated = applicationService.updateFields(tenantId, appId, updates as any);
+  res.json({ success: true, data: updated, timestamp: new Date().toISOString() });
 });
 
 export default router;

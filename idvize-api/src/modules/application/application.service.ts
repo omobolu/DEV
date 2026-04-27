@@ -101,6 +101,15 @@ export class ApplicationService {
     return enriched;
   }
 
+  updateFields(tenantId: string, appId: string, fields: Partial<Pick<Application,
+    'technicalSme' | 'technicalSmeEmail' | 'owner' | 'ownerEmail' | 'supportContact' | 'department'
+  >>): Application | null {
+    return applicationRepository.update(tenantId, appId, {
+      ...fields,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   getApplication(tenantId: string, appId: string): Application | undefined {
     return applicationRepository.findById(tenantId, appId);
   }

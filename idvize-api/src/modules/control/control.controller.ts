@@ -427,7 +427,7 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       const approval = await approvalService.requestApproval(tenantId, {
         requesterId:   actor?.sub ?? actor?.userId ?? 'system',
         action:        `IAM Manager Approval — ${ctrl.name} on ${app.name}`,
-        resource:      app.name,
+        resource:      `${app.name}::${controlId}`,
         riskLevel:     (app.riskTier === 'critical' || app.riskTier === 'high') ? 'high_risk' : 'standard',
         justification: `Remediation requires IAM Manager approval per tenant policy. ` +
                        `Control gap: ${ctrl.name} (${controlId}) on ${app.name}.`,
@@ -439,7 +439,7 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       const approval = await approvalService.requestApproval(tenantId, {
         requesterId:   actor?.sub ?? actor?.userId ?? 'system',
         action:        `App Owner Approval — ${ctrl.name} on ${app.name}`,
-        resource:      app.name,
+        resource:      `${app.name}::${controlId}`,
         riskLevel:     'standard',
         justification: `Remediation requires App Owner approval per tenant policy. ` +
                        `Control gap: ${ctrl.name} (${controlId}) on ${app.name}. Owner: ${app.owner}.`,
@@ -462,10 +462,15 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       assignedTo: actor?.name ?? 'IAM Team',
     });
 
-    // Transition to AWAITING_APPROVAL if approvals needed
+    // Transition to AWAITING_APPROVAL if approvals needed (must go through ASSIGNED first per state machine)
     if (approvals.length > 0) {
+      buildService.transition(tenantId, (job as any).buildId, 'ASSIGNED', 'system',
+        `Assigned for remediation — ${approvals.length} approval(s) required`);
       buildService.transition(tenantId, (job as any).buildId, 'AWAITING_APPROVAL', 'system',
         `Waiting for ${approvals.length} approval(s): ${approvals.map(a => a.role).join(', ')}`);
+    } else {
+      buildService.transition(tenantId, (job as any).buildId, 'ASSIGNED', 'system',
+        `Assigned for remediation — no approvals required`);
     }
 
     // Who gets notified
@@ -548,8 +553,9 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       return;
     }
 
-    // Check if all approvals for this app+control are satisfied
-    const allApprovals = await approvalService.listByResource(tenantId, app.name);
+    // Check if all approvals for this app+control are satisfied (scoped to app::control)
+    const resourceKey = `${app.name}::${controlId}`;
+    const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
 
     if (pendingApprovals.length === 0) {
@@ -557,6 +563,18 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
       const actorId = actor?.sub ?? actor?.userId ?? 'system';
       const actorName = actor?.name ?? 'System';
+
+      // Transition build: find build by appId+controlId and transition AWAITING_APPROVAL → AWAITING_FORM
+      const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
+      const awaitingBuild = builds.find(b => b.state === 'AWAITING_APPROVAL');
+      if (awaitingBuild) {
+        try {
+          buildService.transition(tenantId, awaitingBuild.buildId, 'AWAITING_FORM', actorId,
+            `All approvals granted — transitioning to AWAITING_FORM`);
+        } catch (transErr) {
+          console.warn(`[remediate/approve] Build transition failed: ${(transErr as Error).message}`);
+        }
+      }
 
       // Fire email notification (best-effort)
       emailService.sendAgentNotification(tenantId, {
@@ -583,6 +601,7 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           decision,
           allApprovalsSatisfied: true,
           buildTransition: 'AWAITING_FORM',
+          buildId: awaitingBuild?.buildId,
           message: `All approvals granted — build transitioning to AWAITING_FORM. Emails sent to ${app.owner}${app.technicalSme ? ` and ${app.technicalSme}` : ''}.`,
         },
         timestamp: new Date().toISOString(),
@@ -618,7 +637,8 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
   }
 
   try {
-    const allApprovals = await approvalService.listByResource(tenantId, app.name);
+    const resourceKey = `${app.name}::${controlId}`;
+    const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pending  = allApprovals.filter(a => a.status === 'pending');
     const approved = allApprovals.filter(a => a.status === 'approved');
     const rejected = allApprovals.filter(a => a.status === 'rejected');

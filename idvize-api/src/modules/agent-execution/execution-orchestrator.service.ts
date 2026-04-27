@@ -63,6 +63,7 @@ class ExecutionOrchestratorService {
     request: CreatePlanRequest,
     actorId: string,
     actorName: string,
+    actorEmail?: string,
   ): Promise<ExecutionSession> {
     const sessionId = `exs-${uuidv4()}`;
 
@@ -132,7 +133,7 @@ class ExecutionOrchestratorService {
     });
 
     // Fire email notification for plan created (best-effort — failure does not block session)
-    this.notifyPlanCreated(tenantId, session, actorId, actorName).catch(() => {});
+    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail).catch(() => {});
 
     return session;
   }
@@ -219,6 +220,7 @@ class ExecutionOrchestratorService {
     actorId: string,
     actorName: string,
     actorPermissions: PermissionId[],
+    actorEmail?: string,
   ): Promise<ExecutionSession> {
     const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -342,7 +344,7 @@ class ExecutionOrchestratorService {
     );
 
     // Fire email notification for execution completed/failed (best-effort)
-    this.notifyExecutionCompleted(tenantId, session, actorId, actorName).catch(() => {});
+    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail).catch(() => {});
 
     return session;
   }
@@ -468,8 +470,10 @@ class ExecutionOrchestratorService {
     session: ExecutionSession,
     actorId: string,
     actorName: string,
+    actorEmail?: string,
   ): Promise<void> {
     if (!session.plan) return;
+    const recipientEmail = actorEmail ?? actorId;
     const appName = session.plan.applicationName;
     const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
     const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
@@ -480,7 +484,7 @@ class ExecutionOrchestratorService {
       applicationId: session.plan.applicationId,
       applicationName: appName,
       notificationType: 'sso-remediation-plan',
-      recipients: [{ email: actorId, name: actorName }],
+      recipients: [{ email: recipientEmail, name: actorName }],
       additionalData: {
         sessionId: session.sessionId,
         agentName: `${agentLabel} Agent`,
@@ -498,8 +502,10 @@ class ExecutionOrchestratorService {
     session: ExecutionSession,
     actorId: string,
     actorName: string,
+    actorEmail?: string,
   ): Promise<void> {
     if (!session.plan) return;
+    const recipientEmail = actorEmail ?? actorId;
     const appName = session.plan.applicationName;
     const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
 
@@ -512,7 +518,7 @@ class ExecutionOrchestratorService {
       applicationId: session.plan.applicationId,
       applicationName: appName,
       notificationType,
-      recipients: [{ email: actorId, name: actorName }],
+      recipients: [{ email: recipientEmail, name: actorName }],
       additionalData: {
         sessionId: session.sessionId,
         agentName: `${session.agentType.toUpperCase()} Agent`,
