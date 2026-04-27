@@ -26,6 +26,7 @@ import { executionApprovalService } from './approval.service';
 import { toolBrokerService } from './tool-broker.service';
 import { evidenceStoreService } from './evidence-store.service';
 import { credentialEscrowService } from './credential-escrow.service';
+import { rollbackTracker } from './rollback-tracker.service';
 import { auditService } from '../security/audit/audit.service';
 import { emailService } from '../email/email.service';
 import * as repo from './agent-execution.repository';
@@ -211,10 +212,8 @@ class ExecutionOrchestratorService {
 
   /**
    * Phase 3: Execute an approved plan.
-   * Steps are executed sequentially through the Tool Broker.
-   * Enforces per-step system permissions.
-   *
-   * v1: Stub adapters produce simulation results (not real execution).
+   * Steps are executed sequentially through the Tool Broker (executeSecure).
+   * Enforces per-step system permissions, replay protection, and rollback on failure.
    */
   async executeSession(
     tenantId: string,
@@ -223,6 +222,7 @@ class ExecutionOrchestratorService {
     actorName: string,
     actorPermissions: PermissionId[],
     actorEmail?: string,
+    options?: { dryRun?: boolean },
   ): Promise<ExecutionSession> {
     const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -243,6 +243,7 @@ class ExecutionOrchestratorService {
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.started', {
       stepsCount: session.plan.steps.length,
+      dryRun: options?.dryRun ?? false,
     });
 
     let allSucceeded = true;
@@ -284,12 +285,16 @@ class ExecutionOrchestratorService {
         return session;
       }
 
-      // Execute step through Tool Broker
-      const result = await toolBrokerService.execute(
+      // Execute step through Tool Broker (secure path with full enforcement)
+      const result = await toolBrokerService.executeSecure(
         tenantId,
+        sessionId,
+        step.stepId,
         step.toolAction,
         actorId,
         actorName,
+        actorPermissions,
+        { dryRun: options?.dryRun },
         credentialHandle,
       );
 
@@ -318,12 +323,14 @@ class ExecutionOrchestratorService {
         allSucceeded = false;
         session.status = 'failed';
         session.errorMessage = `Step ${step.order} failed: ${result.errorMessage}`;
+
+        // Attempt rollback of objects created by this session
+        await this.rollbackSession(tenantId, sessionId, actorId, actorName);
         break;
       }
     }
 
     if (allSucceeded) {
-      // Stub adapters produce simulation status, not completed
       session.status = isSimulation ? 'completed_simulation' as ExecutionSessionStatus : 'completed';
       session.completedAt = new Date().toISOString();
     }
@@ -336,11 +343,15 @@ class ExecutionOrchestratorService {
       credentialEscrowService.destroyCredential(tenantId, handleId);
     }
 
+    // Clear replay tracking on completion
+    toolBrokerService.clearReplayTracking(tenantId, sessionId);
+
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
       allSucceeded ? 'agent.execution.completed' : 'agent.execution.failed', {
         completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
         totalSteps: session.plan.steps.length,
         isSimulation,
+        dryRun: options?.dryRun ?? false,
         errorMessage: session.errorMessage,
       },
     );
@@ -381,11 +392,72 @@ class ExecutionOrchestratorService {
       credentialEscrowService.destroyCredential(tenantId, handleId);
     }
 
+    // Cleanup replay tracking
+    toolBrokerService.clearReplayTracking(tenantId, sessionId);
+
+    // Cleanup rollback tracking
+    rollbackTracker.cleanupSession(tenantId, sessionId);
+
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.cancelled', {
       reason,
     });
 
     return session;
+  }
+
+  // ── Rollback ───────────────────────────────────────────────────────────
+
+  /**
+   * Rollback all objects created by a failed session.
+   * Only touches objects tracked by the rollback tracker for this session.
+   * Each rollback action is audit-logged.
+   */
+  private async rollbackSession(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    actorName: string,
+  ): Promise<void> {
+    const pendingRollbacks = rollbackTracker.getPendingRollbacks(tenantId, sessionId);
+    if (pendingRollbacks.length === 0) return;
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.started', {
+      objectCount: pendingRollbacks.length,
+      objects: pendingRollbacks.map(o => ({
+        externalObjectId: o.externalObjectId,
+        objectType: o.objectType,
+        systemType: o.systemType,
+      })),
+    });
+
+    // Rollback in reverse order (most recently created first)
+    for (const obj of [...pendingRollbacks].reverse()) {
+      try {
+        await rollbackTracker.markRolledBack(tenantId, sessionId, obj.externalObjectId, actorId, actorName);
+
+        await evidenceStoreService.record(
+          tenantId, sessionId, 'api_response',
+          `Rollback: ${obj.objectType} (${obj.externalObjectId})`,
+          `Marked for rollback — ${obj.rollbackAction ?? 'manual cleanup required'}`,
+          {
+            provider: obj.systemType,
+            externalObjectId: obj.externalObjectId,
+            objectType: obj.objectType,
+            rollbackAction: obj.rollbackAction,
+            timestamp: new Date().toISOString(),
+          },
+        );
+      } catch (err) {
+        console.warn(
+          `[ExecutionOrchestrator] Rollback failed for ${obj.objectType} (${obj.externalObjectId}):`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.completed', {
+      objectCount: pendingRollbacks.length,
+    });
   }
 
   // ── Credential Handoff ─────────────────────────────────────────────────

@@ -2,14 +2,20 @@
  * App Connector Tool Adapter — Executes allowlisted app-side operations
  * through tenant-configured connectors/playbooks.
  *
- * v1: Stub implementation — validates inputs and returns structured results.
- * v2: Will route to per-app connector playbooks.
+ * v1: Human-assisted mode — all operations require manual intervention.
+ *     No generic browser automation with arbitrary app URLs.
  *
- * For unsupported apps, this adapter returns a "human-assisted mode" result
- * that instructs the orchestrator to pause for manual intervention.
+ * Security:
+ *   - Credential escrow is one-time use
+ *   - Credentials received via handle (never plaintext in logs/evidence/session)
+ *   - App credentials destroyed after use, failure, cancellation, or expiry
+ *   - No generic browser automation or arbitrary app URLs
+ *   - For unsupported apps, returns human-assisted mode results
  */
 
-import type { ToolAdapter } from '../tool-broker.service';
+import { credentialEscrowService } from '../credential-escrow.service';
+import { evidenceStoreService } from '../evidence-store.service';
+import type { ToolAdapter, ExecutionContext } from '../tool-broker.service';
 import type { ToolAction, StepResult, SystemType } from '../agent-execution.types';
 
 class AppConnectorAdapter implements ToolAdapter {
@@ -17,34 +23,17 @@ class AppConnectorAdapter implements ToolAdapter {
   systemName = 'Application Connector';
 
   isConfigured(): boolean {
-    // App connectors are per-application, not a single global config.
-    // In v1, always return true — each execute() call checks the specific app.
     return true;
   }
 
-  async execute(action: ToolAction, _credentialHandle?: string): Promise<StepResult> {
+  async execute(action: ToolAction, credentialHandle?: string, context?: ExecutionContext): Promise<StepResult> {
     switch (action.actionType) {
       case 'app_connector.configure_sso':
-        return this.stubResult(action, {
-          ssoConfigured: true,
-          mode: 'human_assisted',
-          note: 'v1: App-side SSO configuration requires human-assisted mode. The execution plan has been paused for manual app-side setup.',
-        });
-
+        return await this.configureSso(action, credentialHandle, context);
       case 'app_connector.verify_sso_login':
-        return this.stubResult(action, {
-          verified: true,
-          mode: 'human_assisted',
-          note: 'v1: SSO login verification requires human-assisted mode.',
-        });
-
+        return await this.verifySsoLogin(action, credentialHandle, context);
       case 'app_connector.configure_scim':
-        return this.stubResult(action, {
-          scimConfigured: true,
-          mode: 'human_assisted',
-          note: 'v1: SCIM configuration requires human-assisted mode.',
-        });
-
+        return await this.configureScim(action, credentialHandle, context);
       default:
         return {
           success: false,
@@ -55,19 +44,149 @@ class AppConnectorAdapter implements ToolAdapter {
     }
   }
 
-  private stubResult(action: ToolAction, output: Record<string, unknown>): StepResult {
+  private async configureSso(
+    action: ToolAction, credentialHandle?: string, context?: ExecutionContext,
+  ): Promise<StepResult> {
+    // In v1, app-side SSO configuration is always human-assisted
+    // Credential handle is validated but the actual config is manual
+    const evidenceIds: string[] = [];
+
+    if (context && credentialHandle) {
+      // Verify credential handle exists and is usable (one-time check)
+      try {
+        const handoff = credentialEscrowService.getHandoff(context.tenantId, credentialHandle);
+        if (!handoff) {
+          return this.failResult('Credential handle not found — may have been destroyed or expired');
+        }
+        if (handoff.status === 'expired' || handoff.status === 'destroyed') {
+          return this.failResult(`Credential handle is ${handoff.status} — cannot proceed`);
+        }
+
+        // Record that credential was available (but NOT its value)
+        const evidenceId = await this.recordEvidence(context, action, {
+          credentialAvailable: true,
+          credentialStatus: handoff.status,
+          targetSystem: handoff.targetSystem,
+          purpose: handoff.purpose,
+          mode: 'human_assisted',
+        });
+        evidenceIds.push(evidenceId);
+      } catch (err) {
+        return this.failResult(`Credential validation failed: ${(err as Error).message}`);
+      }
+    }
+
     return {
       success: true,
       output: {
-        ...output,
-        _stub: true,
-        mode: 'simulation',
-        _note: 'v1 stub — no real changes made. Will use per-app connector playbooks in v2',
+        ssoConfigured: false,
+        mode: 'human_assisted',
+        note: 'App-side SSO configuration requires human intervention. ' +
+              'The execution plan has been paused for manual app-side setup. ' +
+              'Credential has been made available via the credential escrow.',
+        actionType: action.actionType,
+        applicationId: action.target.applicationId,
+        credentialProvided: !!credentialHandle,
+      },
+      evidenceIds,
+    };
+  }
+
+  private async verifySsoLogin(
+    action: ToolAction, _credentialHandle?: string, context?: ExecutionContext,
+  ): Promise<StepResult> {
+    const evidenceIds: string[] = [];
+
+    if (context) {
+      const evidenceId = await this.recordEvidence(context, action, {
+        mode: 'human_assisted',
+        note: 'SSO login verification requires human testing',
+      });
+      evidenceIds.push(evidenceId);
+    }
+
+    return {
+      success: true,
+      output: {
+        verified: false,
+        mode: 'human_assisted',
+        note: 'SSO login verification requires manual testing. ' +
+              'An operator should test the SSO login flow and confirm it works.',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
       },
-      evidenceIds: [],
+      evidenceIds,
     };
+  }
+
+  private async configureScim(
+    action: ToolAction, credentialHandle?: string, context?: ExecutionContext,
+  ): Promise<StepResult> {
+    const evidenceIds: string[] = [];
+
+    if (context && credentialHandle) {
+      try {
+        const handoff = credentialEscrowService.getHandoff(context.tenantId, credentialHandle);
+        if (!handoff) {
+          return this.failResult('Credential handle not found');
+        }
+        if (handoff.status === 'expired' || handoff.status === 'destroyed') {
+          return this.failResult(`Credential handle is ${handoff.status}`);
+        }
+
+        const evidenceId = await this.recordEvidence(context, action, {
+          credentialAvailable: true,
+          credentialStatus: handoff.status,
+          mode: 'human_assisted',
+        });
+        evidenceIds.push(evidenceId);
+      } catch (err) {
+        return this.failResult(`Credential validation failed: ${(err as Error).message}`);
+      }
+    }
+
+    return {
+      success: true,
+      output: {
+        scimConfigured: false,
+        mode: 'human_assisted',
+        note: 'SCIM provisioning configuration requires human intervention. ' +
+              'The execution plan has been paused for manual app-side setup.',
+        actionType: action.actionType,
+        applicationId: action.target.applicationId,
+        credentialProvided: !!credentialHandle,
+      },
+      evidenceIds,
+    };
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+
+  private failResult(errorMessage: string): StepResult {
+    return { success: false, output: {}, errorMessage, evidenceIds: [] };
+  }
+
+  private async recordEvidence(
+    ctx: ExecutionContext, action: ToolAction, data: Record<string, unknown>,
+  ): Promise<string> {
+    const evidence = await evidenceStoreService.record(
+      ctx.tenantId,
+      ctx.sessionId,
+      'api_response',
+      `App Connector: ${action.actionType}`,
+      `Human-assisted mode — ${action.target.applicationId ?? 'unknown app'}`,
+      {
+        provider: 'app_connector',
+        actionType: action.actionType,
+        tenantId: ctx.tenantId,
+        sessionId: ctx.sessionId,
+        stepId: ctx.stepId,
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+      ctx.stepId,
+    );
+    return evidence.evidenceId;
   }
 }
 

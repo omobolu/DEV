@@ -242,6 +242,11 @@ export type AuditEventType =
   | 'agent.execution.completed'
   | 'agent.execution.failed'
   | 'agent.execution.cancelled'
+  | 'agent.execution.denied'
+  | 'agent.execution.dryrun'
+  | 'agent.approval.expired'
+  | 'agent.rollback.started'
+  | 'agent.rollback.completed'
   // Email
   | 'email.config.updated'
   | 'email.sent'
