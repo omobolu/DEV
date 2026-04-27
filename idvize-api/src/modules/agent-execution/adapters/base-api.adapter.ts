@@ -376,9 +376,10 @@ export abstract class BaseApiAdapter {
     const maxAttempts = options.noRetry ? 1 : MAX_RETRIES;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        timeout = setTimeout(() => controller.abort(), timeoutMs);
 
         const fetchOptions: RequestInit = {
           method: options.method,
@@ -447,6 +448,7 @@ export abstract class BaseApiAdapter {
           headers: responseHeaders,
         };
       } catch (err) {
+        if (timeout) clearTimeout(timeout);
         if (err instanceof ApiError) throw err;
         lastError = err as Error;
         if (attempt < maxAttempts) {

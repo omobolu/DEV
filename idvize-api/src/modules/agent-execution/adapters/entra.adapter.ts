@@ -188,18 +188,22 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     });
 
     const apps = appSearch.body.value as Array<{ id: string }>;
-    if (apps.length > 0) {
-      await this.apiCall(ctx.tenantId, {
-        method: 'PATCH',
-        url: `${GRAPH_BASE}/applications/${this.encodePath(apps[0].id)}`,
-        body: {
-          identifierUris: [entityId],
-          web: { redirectUris: [acsUrl] },
-        },
-        headers: { Authorization: `Bearer ${token}` },
-        noRetry: true,
-      });
+    if (apps.length === 0) {
+      return this.failResult(
+        `Application object not found for appId ${appId} — cannot set SAML identifier URI and ACS URL`,
+      );
     }
+
+    await this.apiCall(ctx.tenantId, {
+      method: 'PATCH',
+      url: `${GRAPH_BASE}/applications/${this.encodePath(apps[0].id)}`,
+      body: {
+        identifierUris: [entityId],
+        web: { redirectUris: [acsUrl] },
+      },
+      headers: { Authorization: `Bearer ${token}` },
+      noRetry: true,
+    });
 
     const evidenceId = await this.recordApiEvidence(
       ctx.tenantId, ctx.sessionId, ctx.stepId, action.actionType,
