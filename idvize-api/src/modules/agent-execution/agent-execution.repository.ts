@@ -25,7 +25,7 @@ export async function saveSession(session: ExecutionSession): Promise<void> {
     `INSERT INTO execution_sessions
        (session_id, tenant_id, agent_type, status, plan, credential_handles, created_by, error_message, created_at, updated_at, completed_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-     ON CONFLICT (session_id) DO UPDATE SET
+     ON CONFLICT (tenant_id, session_id) DO UPDATE SET
        status = EXCLUDED.status,
        plan = EXCLUDED.plan,
        credential_handles = EXCLUDED.credential_handles,
@@ -142,7 +142,7 @@ export async function saveApproval(tenantId: string, approval: ExecutionApproval
     `INSERT INTO execution_approvals
        (approval_id, session_id, tenant_id, role, approver_id, approver_name, status, required_by, comment, created_at, resolved_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-     ON CONFLICT (approval_id) DO UPDATE SET
+     ON CONFLICT (tenant_id, approval_id) DO UPDATE SET
        approver_id = EXCLUDED.approver_id,
        approver_name = EXCLUDED.approver_name,
        status = EXCLUDED.status,

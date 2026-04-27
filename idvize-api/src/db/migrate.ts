@@ -114,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_ca_app ON control_assessments(tenant_id, app_id);
 
 -- Agent Execution Sessions
 CREATE TABLE IF NOT EXISTS execution_sessions (
-  session_id      TEXT PRIMARY KEY,
+  session_id      TEXT NOT NULL,
   tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
   agent_type      TEXT NOT NULL,
   status          TEXT NOT NULL DEFAULT 'planning',
@@ -124,14 +124,14 @@ CREATE TABLE IF NOT EXISTS execution_sessions (
   error_message   TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  completed_at    TIMESTAMPTZ
+  completed_at    TIMESTAMPTZ,
+  PRIMARY KEY (tenant_id, session_id)
 );
-CREATE INDEX IF NOT EXISTS idx_exs_tenant ON execution_sessions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_exs_tenant_status ON execution_sessions(tenant_id, status);
 
 -- Agent Execution Approvals
 CREATE TABLE IF NOT EXISTS execution_approvals (
-  approval_id     TEXT PRIMARY KEY,
+  approval_id     TEXT NOT NULL,
   session_id      TEXT NOT NULL,
   tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
   role            TEXT NOT NULL,
@@ -141,14 +141,14 @@ CREATE TABLE IF NOT EXISTS execution_approvals (
   required_by     TIMESTAMPTZ NOT NULL,
   comment         TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  resolved_at     TIMESTAMPTZ
+  resolved_at     TIMESTAMPTZ,
+  PRIMARY KEY (tenant_id, approval_id)
 );
-CREATE INDEX IF NOT EXISTS idx_exa_tenant ON execution_approvals(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_exa_session ON execution_approvals(tenant_id, session_id);
 
 -- Agent Execution Evidence (append-only)
 CREATE TABLE IF NOT EXISTS execution_evidence (
-  evidence_id     TEXT PRIMARY KEY,
+  evidence_id     TEXT NOT NULL,
   session_id      TEXT NOT NULL,
   tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
   step_id         TEXT,
@@ -156,9 +156,9 @@ CREATE TABLE IF NOT EXISTS execution_evidence (
   title           TEXT NOT NULL,
   description     TEXT NOT NULL DEFAULT '',
   data            JSONB NOT NULL DEFAULT '{}',
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (tenant_id, evidence_id)
 );
-CREATE INDEX IF NOT EXISTS idx_eve_tenant ON execution_evidence(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_eve_session ON execution_evidence(tenant_id, session_id);
 
 -- Email Configuration (per-tenant SMTP settings)
