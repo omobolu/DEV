@@ -662,7 +662,7 @@ function LaunchAgentModal({
 }
 
 function ConfirmStep({
-  ctrl, pairedCtrl, agent, appName, initiatorName, includePaired, onTogglePaired,
+  ctrl: _ctrl, pairedCtrl, agent, appName, initiatorName, includePaired, onTogglePaired,
 }: {
   ctrl: EnrichedControl
   pairedCtrl: EnrichedControl | null

@@ -43,12 +43,6 @@ export interface AgentRecommendedAction {
   platform?: string;
 }
 
-export interface AgentNotificationOption {
-  notificationType: string;
-  label: string;
-  description: string;
-}
-
 export interface AgentInvokeResponse {
   agentId: string;
   agentName: string;
@@ -62,7 +56,6 @@ export interface AgentInvokeResponse {
   questions: AgentQuestion[];
   guidance: AgentGuidance;
   recommendedActions: AgentRecommendedAction[];
-  availableNotifications: AgentNotificationOption[];
   generatedAt: string;
 }
 
@@ -94,5 +87,4 @@ export interface AgentOutput {
   questions: AgentQuestion[];
   guidance: AgentGuidance;
   recommendedActions: AgentRecommendedAction[];
-  notificationOptions?: AgentNotificationOption[];
 }

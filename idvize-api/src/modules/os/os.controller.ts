@@ -804,6 +804,9 @@ router.get('/risks/:appId', requirePermission('risks.view'), async (req: Request
 });
 
 // ── Agent Framework v1 ────────────────────────────────────────────────────────
+// POST /os/agents/invoke — Invoke an IAM control agent for guidance and remediation.
+// Accepts controlId and applicationId in the body; tenantId from JWT only.
+// No external system integrations — agents return locally-computed guidance.
 router.get('/agents', requirePermission('agents.invoke'), (_req: Request, res: Response) => {
   res.json({
     success: true,
@@ -847,7 +850,6 @@ router.post('/agents/invoke', requirePermission('agents.invoke'), async (req: Re
     res.status(503).json({ success: false, error: 'Agent service temporarily unavailable' });
   }
 });
-
 // ── Gap Engine — mock data ────────────────────────────────────────────────────
 const MOCK_APPS: AppGapInput[] = [
   {

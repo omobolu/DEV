@@ -62,13 +62,13 @@ class AgentService {
     const agent = AGENT_REGISTRY.get(controlId);
     if (!agent) return undefined;
 
-    // 2. Fetch tenant-scoped control data from PG
+    // 2. Verify app belongs to tenant + fetch control assessment (PG-backed)
     const controls = await riskRepository.getApplicationControls(tenantId, applicationId);
-
-    // 3. Find the specific control assessment for this app
-    //    Returns undefined if app doesn't exist in tenant or has no assessment for this control
     const assessment = controls.find(c => c.controlId === controlId);
-    if (!assessment) return undefined;
+    if (!assessment) {
+      // App doesn't exist in tenant, has no assessments, or this control wasn't assessed
+      return undefined;
+    }
 
     // 4. Enrich with catalog metadata
     const catalog = CONTROLS_CATALOG.find(c => c.controlId === controlId);
@@ -104,7 +104,6 @@ class AgentService {
       questions: output.questions,
       guidance: output.guidance,
       recommendedActions: output.recommendedActions,
-      availableNotifications: output.notificationOptions ?? [],
       generatedAt: new Date().toISOString(),
     };
   }

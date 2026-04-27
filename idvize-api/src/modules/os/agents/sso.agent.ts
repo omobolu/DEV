@@ -5,7 +5,7 @@
  * for remediating SSO control gaps across applications.
  */
 
-import type { AgentDefinition, AgentContext, AgentOutput, AgentNotificationOption } from './agent.types';
+import type { AgentDefinition, AgentContext, AgentOutput } from './agent.types';
 
 function generateGap(ctx: AgentContext): AgentOutput {
   return {
@@ -118,7 +118,6 @@ function generateGap(ctx: AgentContext): AgentOutput {
         estimatedEffort: '1 hour',
       },
     ],
-    notificationOptions: getSsoNotificationOptions(ctx),
   };
 }
 
@@ -196,7 +195,6 @@ function generateAttn(ctx: AgentContext): AgentOutput {
         estimatedEffort: '30 minutes',
       },
     ],
-    notificationOptions: getSsoNotificationOptions(ctx),
   };
 }
 
@@ -220,55 +218,6 @@ function generateOk(ctx: AgentContext): AgentOutput {
     },
     recommendedActions: [],
   };
-}
-
-function getSsoNotificationOptions(ctx: AgentContext): AgentNotificationOption[] {
-  const options: AgentNotificationOption[] = [];
-
-  if (ctx.outcome === 'GAP') {
-    options.push(
-      {
-        notificationType: 'sso-onboarding-request',
-        label: 'Request Onboarding Information',
-        description: `Send an email to collect SSO onboarding information for ${ctx.applicationName}.`,
-      },
-      {
-        notificationType: 'sso-mfa-conditional-access',
-        label: 'Request MFA / Conditional Access Setup',
-        description: `Notify the team to configure MFA via Conditional Access for ${ctx.applicationName}.`,
-      },
-      {
-        notificationType: 'sso-group-targeting',
-        label: 'Request Group Assignment',
-        description: `Notify admins to target an existing app group for ${ctx.applicationName} SSO.`,
-      },
-      {
-        notificationType: 'sso-group-creation',
-        label: 'Request New App Group Creation',
-        description: `Request creation of a new security group for ${ctx.applicationName} SSO assignment.`,
-      },
-      {
-        notificationType: 'sso-remediation-plan',
-        label: 'Send Remediation Plan for Review',
-        description: `Send the full SSO remediation plan for ${ctx.applicationName} for human review before execution.`,
-      },
-    );
-  } else if (ctx.outcome === 'ATTN') {
-    options.push(
-      {
-        notificationType: 'sso-group-targeting',
-        label: 'Request Group Assignment Review',
-        description: `Notify admins to review group assignments for ${ctx.applicationName}.`,
-      },
-      {
-        notificationType: 'sso-remediation-plan',
-        label: 'Send Improvement Plan for Review',
-        description: `Send the SSO improvement plan for ${ctx.applicationName} for review.`,
-      },
-    );
-  }
-
-  return options;
 }
 
 export const ssoAgent: AgentDefinition = {
