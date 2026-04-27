@@ -27,6 +27,7 @@ import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
 import type { CreatePlanRequest, ExecutionSessionStatus, AgentType } from './agent-execution.types';
+import type { TokenClaims } from '../security/security.types';
 
 const router = Router();
 
@@ -49,8 +50,8 @@ router.get('/adapters', requirePermission('agents.use'), (_req: Request, res: Re
 
 router.post('/sessions', requirePermission('agents.plan'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -65,7 +66,7 @@ router.post('/sessions', requirePermission('agents.plan'), async (req: Request, 
 
     const request: CreatePlanRequest = { agentType, applicationId, controlId, context };
     const session = await executionOrchestratorService.createSession(
-      tenantId, request, user.userId, user.displayName,
+      tenantId, request, user.sub, user.name,
     );
 
     const status = session.status === 'failed' ? 422 : 201;
@@ -113,8 +114,8 @@ router.get('/sessions/:sessionId', requirePermission('agents.use'), (req: Reques
 
 router.post('/sessions/:sessionId/approve', requirePermission('agents.execute.approve'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -133,7 +134,7 @@ router.post('/sessions/:sessionId/approve', requirePermission('agents.execute.ap
 
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.resolveApproval(
-      tenantId, sessionId, approvalId, user.userId, user.displayName, decision, comment,
+      tenantId, sessionId, approvalId, user.sub, user.name, decision, comment,
     );
 
     res.json({ success: true, data: session });
@@ -147,8 +148,8 @@ router.post('/sessions/:sessionId/approve', requirePermission('agents.execute.ap
 
 router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.request'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -156,7 +157,7 @@ router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.re
 
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.executeSession(
-      tenantId, sessionId, user.userId, user.displayName,
+      tenantId, sessionId, user.sub, user.name,
     );
 
     res.json({ success: true, data: session });
@@ -174,8 +175,8 @@ router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.re
 
 router.post('/sessions/:sessionId/cancel', requirePermission('agents.plan'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -184,7 +185,7 @@ router.post('/sessions/:sessionId/cancel', requirePermission('agents.plan'), asy
     const { reason } = req.body;
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.cancelSession(
-      tenantId, sessionId, user.userId, user.displayName, reason,
+      tenantId, sessionId, user.sub, user.name, reason,
     );
 
     res.json({ success: true, data: session });
@@ -198,8 +199,8 @@ router.post('/sessions/:sessionId/cancel', requirePermission('agents.plan'), asy
 
 router.post('/sessions/:sessionId/credentials', requirePermission('agents.execute.request'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -213,7 +214,7 @@ router.post('/sessions/:sessionId/credentials', requirePermission('agents.execut
 
     const sessionId = req.params.sessionId as string;
     const result = await executionOrchestratorService.requestCredential(
-      tenantId, sessionId, stepId, purpose, user.userId, user.displayName,
+      tenantId, sessionId, stepId, purpose, user.sub, user.name,
     );
 
     res.status(201).json({ success: true, data: result });
@@ -225,8 +226,8 @@ router.post('/sessions/:sessionId/credentials', requirePermission('agents.execut
 
 router.post('/credentials/:handleId/submit', requirePermission('agents.execute.request'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const user = (req as any).user;
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
     if (!tenantId || !user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -240,7 +241,7 @@ router.post('/credentials/:handleId/submit', requirePermission('agents.execute.r
 
     const handleId = req.params.handleId as string;
     await credentialEscrowService.submitCredential(
-      tenantId, handleId, credential, user.userId, user.displayName,
+      tenantId, handleId, credential, user.sub, user.name,
     );
 
     // Return only handle confirmation — NEVER return the credential value

@@ -13,7 +13,7 @@ class SailPointAdapter implements ToolAdapter {
   systemName = 'SailPoint IdentityNow';
 
   isConfigured(): boolean {
-    return !!(process.env.SAILPOINT_TENANT_URL && process.env.SAILPOINT_CLIENT_ID && process.env.SAILPOINT_CLIENT_SECRET);
+    return !!(process.env.SAILPOINT_BASE_URL && process.env.SAILPOINT_CLIENT_ID && process.env.SAILPOINT_CLIENT_SECRET);
   }
 
   async execute(action: ToolAction, _credentialHandle?: string): Promise<StepResult> {
