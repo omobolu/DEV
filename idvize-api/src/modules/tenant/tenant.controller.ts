@@ -12,6 +12,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../middleware/requireAuth';
 import { requirePermission } from '../../middleware/requirePermission';
 import { tenantService, CreateTenantInput } from './tenant.service';
+import { auditService } from '../security/audit/audit.service';
 
 const router = Router();
 
@@ -142,6 +143,19 @@ router.patch('/me/settings', requireAuth, requirePermission('tenants.settings.up
   };
 
   await tenantService.updateTenant(updatedTenant);
+
+  await auditService.log({
+    tenantId,
+    eventType: 'tenant.updated',
+    actorId: req.user?.sub ?? 'unknown',
+    actorName: req.user?.name ?? 'unknown',
+    targetId: tenantId,
+    targetType: 'tenant',
+    resource: '/tenants/me/settings',
+    outcome: 'success',
+    metadata: { updatedSettings: body },
+  });
+
   res.json({ success: true, data: updatedTenant.settings, timestamp: new Date().toISOString() });
 });
 
