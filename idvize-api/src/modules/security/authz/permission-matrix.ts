@@ -73,6 +73,15 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   // Email
   { permissionId: 'email.configure',         module: 'email',        action: 'configure',           description: 'View and update email SMTP configuration',                         riskLevel: 'high', requiresApproval: false },
   { permissionId: 'email.send',              module: 'email',        action: 'send',                description: 'Send test emails and agent notification emails',                   riskLevel: 'medium', requiresApproval: false },
+  // Agent Execution
+  { permissionId: 'agents.use',              module: 'agents',       action: 'use',                 description: 'View agent capabilities, sessions, and evidence',                  riskLevel: 'low',    requiresApproval: false },
+  { permissionId: 'agents.plan',             module: 'agents',       action: 'plan',                description: 'Request agent to generate an execution plan',                      riskLevel: 'medium', requiresApproval: false },
+  { permissionId: 'agents.execute.request',  module: 'agents',       action: 'execute.request',     description: 'Request execution of an approved plan',                            riskLevel: 'high',   requiresApproval: false },
+  { permissionId: 'agents.execute.approve',  module: 'agents',       action: 'execute.approve',     description: 'Approve or reject execution plans',                                riskLevel: 'high',   requiresApproval: false },
+  { permissionId: 'agents.execute.sso',      module: 'agents',       action: 'execute.sso',         description: 'Execute SSO-related tool actions (Entra, SAML, OIDC)',             riskLevel: 'high',   requiresApproval: true },
+  { permissionId: 'agents.execute.iga',      module: 'agents',       action: 'execute.iga',         description: 'Execute IGA-related tool actions (SailPoint)',                      riskLevel: 'high',   requiresApproval: true },
+  { permissionId: 'agents.execute.servicenow', module: 'agents',     action: 'execute.servicenow',  description: 'Execute ServiceNow tool actions',                                  riskLevel: 'high',   requiresApproval: true },
+  { permissionId: 'agents.admin',            module: 'agents',       action: 'admin',               description: 'Full agent administration including adapter configuration',         riskLevel: 'high',   requiresApproval: true },
 ];
 
 // ── Role → Permission Matrix ───────────────────────────────────────────────────
@@ -96,6 +105,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'risks.view',
     'agents.invoke',
     'email.configure', 'email.send',
+    'agents.use', 'agents.plan', 'agents.execute.request', 'agents.execute.approve', 'agents.execute.sso', 'agents.execute.iga', 'agents.execute.servicenow', 'agents.admin',
   ],
   Manager: [
     'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
@@ -112,6 +122,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'risks.view',
     'agents.invoke',
     'email.configure', 'email.send',
+    'agents.use', 'agents.plan', 'agents.execute.request', 'agents.execute.approve', 'agents.execute.sso', 'agents.execute.iga', 'agents.execute.servicenow', 'agents.admin',
   ],
   Architect: [
     // NO: cost.view.salary_detail, approval.grant.high_risk, security.manage.access/scim, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -129,6 +140,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'risks.view',
     'agents.invoke',
     'email.configure', 'email.send',
+    'agents.use', 'agents.plan', 'agents.execute.request',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -145,6 +157,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'risks.view',
     'agents.invoke',
     'email.send',
+    'agents.use',
   ],
   Engineer: [
     // NO: cost module, salary data, tasks.view.all, document.publish, approval.grant.*, security.manage.*, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -159,6 +172,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'risks.view',
     'agents.invoke',
     'email.send',
+    'agents.use', 'agents.plan',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage
@@ -171,6 +185,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request',
     'risks.view',
     'agents.invoke',
+    'agents.use',
   ],
 };
 

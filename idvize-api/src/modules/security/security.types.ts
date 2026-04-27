@@ -91,6 +91,15 @@ export type PermissionId =
   | 'risks.view'
   // Agents
   | 'agents.invoke'
+  // Agent Execution
+  | 'agents.use'
+  | 'agents.plan'
+  | 'agents.execute.request'
+  | 'agents.execute.approve'
+  | 'agents.execute.sso'
+  | 'agents.execute.iga'
+  | 'agents.execute.servicenow'
+  | 'agents.admin'
   // Email
   | 'email.configure'
   | 'email.send';
@@ -220,6 +229,15 @@ export type AuditEventType =
   | 'tenant.created'
   | 'tenant.updated'
   | 'tenant.suspended'
+  // Agent Execution
+  | 'agent.plan.created'
+  | 'agent.plan.approved'
+  | 'agent.plan.rejected'
+  | 'agent.execution.started'
+  | 'agent.execution.completed'
+  | 'agent.execution.failed'
+  | 'agent.execution.cancelled'
+  // Email
   | 'email.config.updated'
   | 'email.sent'
   | 'email.delivery.failed'

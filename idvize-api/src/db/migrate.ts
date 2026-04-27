@@ -112,6 +112,55 @@ CREATE TABLE IF NOT EXISTS control_assessments (
 CREATE INDEX IF NOT EXISTS idx_ca_tenant ON control_assessments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_ca_app ON control_assessments(tenant_id, app_id);
 
+-- Agent Execution Sessions
+CREATE TABLE IF NOT EXISTS execution_sessions (
+  session_id      TEXT NOT NULL,
+  tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
+  agent_type      TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'planning',
+  plan            JSONB,
+  credential_handles JSONB NOT NULL DEFAULT '[]',
+  created_by      TEXT NOT NULL,
+  error_message   TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at    TIMESTAMPTZ,
+  PRIMARY KEY (tenant_id, session_id)
+);
+CREATE INDEX IF NOT EXISTS idx_exs_tenant_status ON execution_sessions(tenant_id, status);
+
+-- Agent Execution Approvals
+CREATE TABLE IF NOT EXISTS execution_approvals (
+  approval_id     TEXT NOT NULL,
+  session_id      TEXT NOT NULL,
+  tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
+  role            TEXT NOT NULL,
+  approver_id     TEXT,
+  approver_name   TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',
+  required_by     TIMESTAMPTZ NOT NULL,
+  comment         TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at     TIMESTAMPTZ,
+  PRIMARY KEY (tenant_id, approval_id)
+);
+CREATE INDEX IF NOT EXISTS idx_exa_session ON execution_approvals(tenant_id, session_id);
+
+-- Agent Execution Evidence (append-only)
+CREATE TABLE IF NOT EXISTS execution_evidence (
+  evidence_id     TEXT NOT NULL,
+  session_id      TEXT NOT NULL,
+  tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id),
+  step_id         TEXT,
+  type            TEXT NOT NULL,
+  title           TEXT NOT NULL,
+  description     TEXT NOT NULL DEFAULT '',
+  data            JSONB NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (tenant_id, evidence_id)
+);
+CREATE INDEX IF NOT EXISTS idx_eve_session ON execution_evidence(tenant_id, session_id);
+
 -- Email Configuration (per-tenant SMTP settings)
 CREATE TABLE IF NOT EXISTS email_config (
   tenant_id        TEXT PRIMARY KEY REFERENCES tenants(tenant_id),

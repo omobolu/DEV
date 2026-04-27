@@ -22,6 +22,7 @@ import osController       from './modules/os/os.controller';
 import valueController    from './modules/value/value.controller';
 import igaController      from './modules/iga/iga.controller';
 import tenantController   from './modules/tenant/tenant.controller';
+import { agentExecutionController } from './modules/agent-execution';
 import { emailController }  from './modules/email/email.controller';
 
 // ── Legacy Phase-1 Routes (kept for backward compatibility) ─────────────────
@@ -91,6 +92,7 @@ app.use('/os',        osController);
 app.use('/value',     valueController);
 app.use('/iga',       igaController);
 app.use('/tenants',   tenantController);
+app.use('/agent-execution', agentExecutionController);
 app.use('/email',     emailController);
 
 // ─── Legacy API Routes (Phase 1 — kept for compatibility) ────────────────────
