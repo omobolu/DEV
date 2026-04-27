@@ -128,6 +128,18 @@ class ApprovalService {
     return approvalRepository.findById(tenantId, requestId);
   }
 
+  listByResource(tenantId: string, resource: string): ApprovalRequest[] {
+    return approvalRepository.findAll(tenantId).filter(r => r.resource === resource);
+  }
+
+  async resolveApproval(tenantId: string, requestId: string, opts: {
+    decision: 'approved' | 'rejected';
+    decidedBy: string;
+    reason?: string;
+  }): Promise<ApprovalRequest> {
+    return this.resolve(tenantId, requestId, opts.decidedBy, opts.decision, opts.reason);
+  }
+
   /**
    * Expire all pending requests past their expiresAt timestamp.
    * Call periodically (e.g. via a cron job or on-request).

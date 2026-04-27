@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Settings, LogOut, Building2, Menu, Sun, Moon } from 'lucide-react'
+import { Bell, Settings, LogOut, Building2, Menu, Sun, Moon, Mail, Shield } from 'lucide-react'
 import { useTheme } from '@/context/ThemeContext'
 
 const API = 'http://localhost:3001'
@@ -90,13 +90,22 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
           <Bell size={16} />
           <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" aria-label="Unread notifications" />
         </button>
-        <button
-          onClick={() => navigate('/settings/email')}
-          className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          aria-label="Settings"
-        >
-          <Settings size={16} />
-        </button>
+        <div className="relative group hidden sm:block">
+          <button
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            aria-label="Settings"
+          >
+            <Settings size={16} />
+          </button>
+          <div className="absolute right-0 mt-1 w-48 bg-surface-800 border border-surface-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <button onClick={() => navigate('/settings/email')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted hover:text-body hover:bg-surface-700 rounded-t-lg">
+              <Mail size={14} /> Email Configuration
+            </button>
+            <button onClick={() => navigate('/settings/remediation')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted hover:text-body hover:bg-surface-700 rounded-b-lg">
+              <Shield size={14} /> Remediation Workflow
+            </button>
+          </div>
+        </div>
 
         {/* Avatar + name */}
         <div className="flex items-center gap-2 ml-1 pl-2 border-l border-slate-700">

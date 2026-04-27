@@ -14,6 +14,8 @@ export interface CMDBApp {
   dataClassification: DataClassification
   businessOwner: string
   itOwner: string
+  technicalSme?: string
+  technicalSmeEmail?: string
   // IAM Controls
   ssoEnabled: boolean
   mfaRequired: boolean
@@ -51,6 +53,8 @@ export const CMDB_FIELD_DEFINITIONS: CMDBFieldDefinition[] = [
   { key: 'dataClassification',   label: 'Data Classification',          type: 'enum'    },
   { key: 'businessOwner',        label: 'Business Owner',               type: 'string'  },
   { key: 'itOwner',              label: 'IT Owner',                     type: 'string'  },
+  { key: 'technicalSme',        label: 'Technical SME',                type: 'string'  },
+  { key: 'technicalSmeEmail',   label: 'Technical SME Email',          type: 'string'  },
   { key: 'ssoEnabled',           label: 'SSO Enabled',                  type: 'boolean' },
   { key: 'mfaRequired',          label: 'MFA Required',                 type: 'boolean' },
   { key: 'provisioningType',     label: 'Provisioning Type',            type: 'enum'    },
@@ -79,6 +83,8 @@ export const CMDB_HEADER_ALIASES: Record<string, CMDBFieldKey> = {
   'dataclassification': 'dataClassification', 'classification': 'dataClassification', 'datalevel': 'dataClassification',
   'businessowner': 'businessOwner', 'owner': 'businessOwner', 'appowner': 'businessOwner',
   'itowner': 'itOwner', 'technicalowner': 'itOwner', 'sysadmin': 'itOwner',
+  'technicalsme': 'technicalSme', 'sme': 'technicalSme', 'subjectmatterexpert': 'technicalSme',
+  'technicalsmeemail': 'technicalSmeEmail', 'smeemail': 'technicalSmeEmail',
   'ssoenabled': 'ssoEnabled', 'sso': 'ssoEnabled', 'singlesignon': 'ssoEnabled',
   'mfarequired': 'mfaRequired', 'mfa': 'mfaRequired', 'multifactor': 'mfaRequired',
   'provisioningtype': 'provisioningType', 'provisioning': 'provisioningType',

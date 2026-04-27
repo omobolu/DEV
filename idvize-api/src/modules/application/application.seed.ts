@@ -52,6 +52,30 @@ function posture(
   };
 }
 
+// ── SME lookup by department ─────────────────────────────────────────────
+const DEPT_SME: Record<string, { name: string; email: string }> = {
+  Finance:      { name: 'David Kim',      email: 'david.kim@acme.com' },
+  HR:           { name: 'Maria Gonzalez', email: 'maria.gonzalez@acme.com' },
+  Sales:        { name: 'Tom Chen',       email: 'tom.chen@acme.com' },
+  IT:           { name: 'Sarah Chen',     email: 'sarah.chen@acme.com' },
+  'Cloud Ops':  { name: 'Raj Patel',      email: 'raj.patel@acme.com' },
+  Engineering:  { name: 'Lisa Park',      email: 'lisa.park@acme.com' },
+  Digital:      { name: 'Tom Chen',       email: 'tom.chen@acme.com' },
+  Risk:         { name: 'James Okafor',   email: 'james.okafor@acme.com' },
+  Analytics:    { name: 'Lisa Park',      email: 'lisa.park@acme.com' },
+  Legal:        { name: 'James Okafor',   email: 'james.okafor@acme.com' },
+  Marketing:    { name: 'Maria Gonzalez', email: 'maria.gonzalez@acme.com' },
+  Security:     { name: 'Sarah Chen',     email: 'sarah.chen@acme.com' },
+  Compliance:   { name: 'James Okafor',   email: 'james.okafor@acme.com' },
+  Operations:   { name: 'Raj Patel',      email: 'raj.patel@acme.com' },
+  Support:      { name: 'David Kim',      email: 'david.kim@acme.com' },
+  'Real Estate':{ name: 'Tom Chen',       email: 'tom.chen@acme.com' },
+  Facilities:   { name: 'Raj Patel',      email: 'raj.patel@acme.com' },
+  Research:     { name: 'Lisa Park',      email: 'lisa.park@acme.com' },
+  Procurement:  { name: 'David Kim',      email: 'david.kim@acme.com' },
+  Default:      { name: 'Sarah Chen',     email: 'sarah.chen@acme.com' },
+};
+
 // ── Helper to build an Application ───────────────────────────────────────
 function app(
   appId: string, name: string, dept: string,
@@ -59,9 +83,12 @@ function app(
   appType: Application['appType'], tags: string[],
   p: ReturnType<typeof posture>
 ): Application {
+  const sme = DEPT_SME[dept] ?? DEPT_SME['Default'];
   return {
     appId, name, rawName: name,
     owner: 'IAM Team', ownerEmail: 'iam@corp.com',
+    technicalSme: sme.name,
+    technicalSmeEmail: sme.email,
     vendor, department: dept, riskTier,
     dataClassification: riskTier === 'critical' ? 'restricted' : riskTier === 'high' ? 'confidential' : 'internal',
     userPopulation: users,

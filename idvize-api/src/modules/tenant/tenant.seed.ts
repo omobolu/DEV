@@ -51,6 +51,10 @@ const TENANT_ACME: Tenant = {
     allowedAuthProviders:  ['oidc', 'saml'],
     maxUsers:              500,
     maxApps:               200,
+    remediation: {
+      requireIamManagerApproval: true,
+      requireAppOwnerApproval:   true,
+    },
   },
   createdAt: NOW,
   updatedAt: NOW,
@@ -70,6 +74,10 @@ const TENANT_GLOBEX: Tenant = {
     allowedAuthProviders:  ['oidc'],
     maxUsers:              200,
     maxApps:               100,
+    remediation: {
+      requireIamManagerApproval: true,
+      requireAppOwnerApproval:   false,
+    },
   },
   createdAt: NOW,
   updatedAt: NOW,

@@ -80,4 +80,32 @@ router.post('/', requireAuth, requirePermission('tenants.manage'), async (req: R
   }
 });
 
+// ── PATCH /tenants/me/settings — update tenant settings (Manager+) ────────────
+router.patch('/me/settings', requireAuth, requirePermission('tenants.manage'), async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const tenant = await tenantService.getTenant(tenantId);
+  if (!tenant) {
+    res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const updates = req.body as Partial<typeof tenant.settings>;
+  tenant.settings = { ...tenant.settings, ...updates };
+  tenant.updatedAt = new Date().toISOString();
+
+  await tenantService.updateTenant(tenant);
+  res.json({ success: true, data: tenant.settings, timestamp: new Date().toISOString() });
+});
+
+// ── GET /tenants/me/settings — get tenant settings (Manager+) ─────────────────
+router.get('/me/settings', requireAuth, async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const tenant = await tenantService.getTenant(tenantId);
+  if (!tenant) {
+    res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
+    return;
+  }
+  res.json({ success: true, data: tenant.settings, timestamp: new Date().toISOString() });
+});
+
 export default router;

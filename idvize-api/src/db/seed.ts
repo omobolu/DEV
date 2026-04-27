@@ -182,7 +182,7 @@ async function seed(): Promise<void> {
   // Applications + Control Assessments (imported from seed data)
   const { SEED_ACME_APPS, SEED_GLOBEX_APPS } = await import('../modules/application/application.seed');
 
-  const appSets: Array<{ tenantId: string; apps: Array<{ appId: string; name: string; rawName: string; owner: string; ownerEmail: string; vendor: string; supportContact?: string; department: string; riskTier: string; dataClassification: string; userPopulation: number; appType: string; tags: string[]; source: string; status: string; iamPosture?: IamPosture }> }> = [
+  const appSets: Array<{ tenantId: string; apps: Array<{ appId: string; name: string; rawName: string; owner: string; ownerEmail: string; technicalSme?: string; technicalSmeEmail?: string; vendor: string; supportContact?: string; department: string; riskTier: string; dataClassification: string; userPopulation: number; appType: string; tags: string[]; source: string; status: string; iamPosture?: IamPosture }> }> = [
     { tenantId: 'ten-acme',  apps: SEED_ACME_APPS },
     { tenantId: 'ten-globex', apps: SEED_GLOBEX_APPS },
   ];
@@ -193,10 +193,10 @@ async function seed(): Promise<void> {
   for (const { tenantId, apps } of appSets) {
     for (const a of apps) {
       await pool.query(
-        `INSERT INTO applications (app_id, tenant_id, name, raw_name, owner, owner_email, vendor, support_contact, department, risk_tier, data_classification, user_population, app_type, tags, source, status, iam_posture, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18)
+        `INSERT INTO applications (app_id, tenant_id, name, raw_name, owner, owner_email, technical_sme, technical_sme_email, vendor, support_contact, department, risk_tier, data_classification, user_population, app_type, tags, source, status, iam_posture, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20)
          ON CONFLICT (app_id) DO NOTHING`,
-        [a.appId, tenantId, a.name, a.rawName, a.owner, a.ownerEmail, a.vendor, a.supportContact ?? null, a.department, a.riskTier, a.dataClassification, a.userPopulation, a.appType, JSON.stringify(a.tags), a.source, a.status, a.iamPosture ? JSON.stringify(a.iamPosture) : null, NOW]
+        [a.appId, tenantId, a.name, a.rawName, a.owner, a.ownerEmail, a.technicalSme ?? null, a.technicalSmeEmail ?? null, a.vendor, a.supportContact ?? null, a.department, a.riskTier, a.dataClassification, a.userPopulation, a.appType, JSON.stringify(a.tags), a.source, a.status, a.iamPosture ? JSON.stringify(a.iamPosture) : null, NOW]
       );
       totalApps++;
 

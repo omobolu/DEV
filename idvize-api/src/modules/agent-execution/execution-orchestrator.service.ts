@@ -27,6 +27,7 @@ import { toolBrokerService } from './tool-broker.service';
 import { evidenceStoreService } from './evidence-store.service';
 import { credentialEscrowService } from './credential-escrow.service';
 import { auditService } from '../security/audit/audit.service';
+import { emailService } from '../email/email.service';
 import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
@@ -129,6 +130,9 @@ class ExecutionOrchestratorService {
       blastRadius: plan.blastRadius.level,
       approvalsRequired: approvals.length,
     });
+
+    // Fire email notification for plan created (best-effort — failure does not block session)
+    this.notifyPlanCreated(tenantId, session, actorId, actorName).catch(() => {});
 
     return session;
   }
@@ -337,6 +341,9 @@ class ExecutionOrchestratorService {
       },
     );
 
+    // Fire email notification for execution completed/failed (best-effort)
+    this.notifyExecutionCompleted(tenantId, session, actorId, actorName).catch(() => {});
+
     return session;
   }
 
@@ -452,6 +459,70 @@ class ExecutionOrchestratorService {
         requiredPermissions: ['agents.plan' as const, 'agents.execute.sso' as const],
       },
     ];
+  }
+
+  // ── Email Notifications ─────────────────────────────────────────────────
+
+  private async notifyPlanCreated(
+    tenantId: string,
+    session: ExecutionSession,
+    actorId: string,
+    actorName: string,
+  ): Promise<void> {
+    if (!session.plan) return;
+    const appName = session.plan.applicationName;
+    const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
+    const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
+
+    await emailService.sendAgentNotification(tenantId, {
+      agentId: `agent-${session.agentType}`,
+      controlId,
+      applicationId: session.plan.applicationId,
+      applicationName: appName,
+      notificationType: 'sso-remediation-plan',
+      recipients: [{ email: actorId, name: actorName }],
+      additionalData: {
+        sessionId: session.sessionId,
+        agentName: `${agentLabel} Agent`,
+        blastRadius: session.plan.blastRadius.level,
+        stepsCount: session.plan.steps.length,
+        systemsTouched: session.plan.systemsTouched.map(s => s.systemName).join(', '),
+        approvalsRequired: session.approvals.length,
+        status: session.status,
+      },
+    }, actorId, actorName);
+  }
+
+  private async notifyExecutionCompleted(
+    tenantId: string,
+    session: ExecutionSession,
+    actorId: string,
+    actorName: string,
+  ): Promise<void> {
+    if (!session.plan) return;
+    const appName = session.plan.applicationName;
+    const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
+
+    const succeeded = session.status === 'completed' || session.status === 'completed_simulation';
+    const notificationType = succeeded ? 'sso-remediation-plan' : 'sso-onboarding-request';
+
+    await emailService.sendAgentNotification(tenantId, {
+      agentId: `agent-${session.agentType}`,
+      controlId,
+      applicationId: session.plan.applicationId,
+      applicationName: appName,
+      notificationType,
+      recipients: [{ email: actorId, name: actorName }],
+      additionalData: {
+        sessionId: session.sessionId,
+        agentName: `${session.agentType.toUpperCase()} Agent`,
+        status: session.status,
+        completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
+        totalSteps: session.plan.steps.length,
+        outcome: succeeded ? 'OK' : 'FAILED',
+        riskLevel: session.plan.blastRadius.level,
+      },
+    }, actorId, actorName);
   }
 
   // ── Permission Checking ────────────────────────────────────────────────
