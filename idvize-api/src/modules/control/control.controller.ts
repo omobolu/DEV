@@ -8,8 +8,10 @@ import { buildService } from '../build/build.service';
 import { approvalService } from '../security/approval/approval.service';
 import { tenantService } from '../tenant/tenant.service';
 import { emailService } from '../email/email.service';
+import { authRepository } from '../security/auth/auth.repository';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
@@ -394,7 +396,7 @@ const PILLAR_FORM_FIELDS: Record<string, Array<{ label: string; hint: string; re
 // ── POST /controls/app/:appId/:controlId/remediate — sequential approval orchestration ──
 // Reads tenant settings → creates approvals for required roles → creates build in AWAITING_APPROVAL
 // On all approvals satisfied → fires emails + transitions build to AWAITING_FORM
-router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Response) => {
+router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute.guided'), async (req: Request, res: Response) => {
   const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
@@ -527,7 +529,7 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
 
 // ── POST /controls/app/:appId/:controlId/remediate/approve — approve a remediation ──
 // Resolves an approval; when all approvals for a build are satisfied, fires emails + transitions to AWAITING_FORM
-router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res: Response) => {
+router.post('/app/:appId/:controlId/remediate/approve', requirePermission('approval.grant.standard'), async (req: Request, res: Response) => {
   const tenantId   = req.tenantId!;
   const appId      = req.params.appId     as string;
   const controlId  = req.params.controlId as string;
@@ -550,26 +552,76 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
   }
 
   try {
+    // Step 1 — Load approval BEFORE resolving to validate it belongs to this app/control/build
+    const pendingApproval = approvalService.getRequest(tenantId, approvalId);
+    if (!pendingApproval) {
+      res.status(404).json({ success: false, error: `Approval ${approvalId} not found`, timestamp: new Date().toISOString() });
+      return;
+    }
+    if (pendingApproval.status !== 'pending') {
+      res.status(409).json({ success: false, error: `Approval ${approvalId} is already ${pendingApproval.status}`, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Step 2 — Derive and validate buildId from approval's resource key (format: appName::controlId::buildId)
+    const resourceParts = (pendingApproval.resource ?? '').split('::');
+    if (resourceParts.length !== 3) {
+      res.status(400).json({ success: false, error: `Approval ${approvalId} has malformed resource key`, timestamp: new Date().toISOString() });
+      return;
+    }
+    const [resourceAppName, resourceControlId, resourceBuildId] = resourceParts;
+    if (resourceAppName !== app.name || resourceControlId !== controlId) {
+      res.status(403).json({
+        success: false,
+        error: `Approval ${approvalId} does not belong to ${app.name}/${controlId} — it targets ${resourceAppName}/${resourceControlId}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 3 — Validate the build exists and is still in AWAITING_APPROVAL
+    const targetBuild = buildService.getBuild(tenantId, resourceBuildId);
+    if (!targetBuild) {
+      res.status(404).json({ success: false, error: `Build ${resourceBuildId} not found`, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Step 4 — Enforce role-specific approval eligibility
+    const actorUserId = actor?.sub ?? actor?.userId ?? 'system';
+    const isAppOwnerApproval = (pendingApproval.action ?? '').startsWith('App Owner Approval');
+    if (isAppOwnerApproval) {
+      const approverUser = authRepository.findById(tenantId, actorUserId);
+      const approverEmail = approverUser?.email?.toLowerCase();
+      const ownerEmail = app.ownerEmail?.toLowerCase();
+      const isPlatformAdmin = approverUser?.roles?.includes('PlatformAdmin') ?? false;
+      if (!isPlatformAdmin && approverEmail !== ownerEmail) {
+        res.status(403).json({
+          success: false,
+          error: `App Owner approval can only be granted by the application owner (${app.owner}) or a PlatformAdmin`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    }
+
+    // Step 5 — Resolve the approval now that binding + eligibility are validated
     const approval = await approvalService.resolveApproval(tenantId, approvalId, {
       decision,
-      decidedBy: actor?.sub ?? actor?.userId ?? 'system',
-      reason: `${decision} by ${actor?.name ?? 'system'} for ${controlId} on ${app.name}`,
+      decidedBy: actorUserId,
+      reason: `${decision} by ${actor?.name ?? 'system'} for ${controlId} on ${app.name} (build ${resourceBuildId})`,
     });
 
     if (decision === 'rejected') {
-      // Transition the associated build to FAILED so it doesn't block future remediation attempts
-      const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
-      const awaitingBuild = builds.find(b => b.state === 'AWAITING_APPROVAL');
-      if (awaitingBuild) {
+      if (targetBuild.state === 'AWAITING_APPROVAL') {
         try {
-          buildService.transition(tenantId, awaitingBuild.buildId, 'FAILED', actor?.sub ?? 'system',
+          buildService.transition(tenantId, resourceBuildId, 'FAILED', actor?.sub ?? 'system',
             `Approval ${approvalId} rejected by ${actor?.name ?? 'system'} — remediation cancelled`);
         } catch (transErr) {
           console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
         }
         // Cancel any remaining pending approvals for this build (uses cancelBySystem to bypass authz)
-        const rejResourceKey = `${app.name}::${controlId}::${awaitingBuild.buildId}`;
-        const siblingApprovals = await approvalService.listByResource(tenantId, rejResourceKey);
+        const resourceKey = `${app.name}::${controlId}::${resourceBuildId}`;
+        const siblingApprovals = await approvalService.listByResource(tenantId, resourceKey);
         for (const sib of siblingApprovals) {
           if (sib.status === 'pending' && sib.requestId !== approvalId) {
             await approvalService.cancelBySystem(tenantId, sib.requestId,
@@ -579,38 +631,31 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       }
       res.json({
         success: true,
-        data: { approvalId, decision, status: 'rejected', buildId: awaitingBuild?.buildId, message: `Approval ${approvalId} rejected — build cancelled` },
+        data: { approvalId, decision, status: 'rejected', buildId: resourceBuildId, message: `Approval ${approvalId} rejected — build cancelled` },
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    // Find the AWAITING_APPROVAL build to scope approval lookup to the current remediation attempt
-    const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
-    const awaitingBuild = builds.find(b => b.state === 'AWAITING_APPROVAL');
-
-    // If no AWAITING_APPROVAL build found, the build was already terminated (e.g. prior rejection)
-    if (!awaitingBuild) {
-      const latestBuild = builds[builds.length - 1];
+    // Build already terminated (e.g. prior rejection) — approval granted but no further action
+    if (targetBuild.state !== 'AWAITING_APPROVAL') {
       res.json({
         success: true,
         data: {
           approvalId,
           decision,
           allApprovalsSatisfied: false,
-          buildId: latestBuild?.buildId,
-          buildState: latestBuild?.state ?? 'UNKNOWN',
-          message: `Approval ${approvalId} granted, but the associated build is already in ${latestBuild?.state ?? 'UNKNOWN'} state. No further action needed.`,
+          buildId: resourceBuildId,
+          buildState: targetBuild.state,
+          message: `Approval ${approvalId} granted, but build ${resourceBuildId} is already in ${targetBuild.state} state. No further action needed.`,
         },
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    const currentBuildId = awaitingBuild.buildId;
-
     // Check approvals scoped to this specific build (prevents stale approvals from prior attempts)
-    const resourceKey = `${app.name}::${controlId}::${currentBuildId}`;
+    const resourceKey = `${app.name}::${controlId}::${resourceBuildId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
     const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
@@ -622,14 +667,12 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       const actorId = actor?.sub ?? actor?.userId ?? 'system';
       const actorName = actor?.name ?? 'System';
       let transitioned = false;
-      if (awaitingBuild) {
-        try {
-          buildService.transition(tenantId, awaitingBuild.buildId, 'AWAITING_FORM', actorId,
-            `All approvals granted — transitioning to AWAITING_FORM`);
-          transitioned = true;
-        } catch (transErr) {
-          console.warn(`[remediate/approve] Build transition failed: ${(transErr as Error).message}`);
-        }
+      try {
+        buildService.transition(tenantId, resourceBuildId, 'AWAITING_FORM', actorId,
+          `All approvals granted — transitioning to AWAITING_FORM`);
+        transitioned = true;
+      } catch (transErr) {
+        console.warn(`[remediate/approve] Build transition failed: ${(transErr as Error).message}`);
       }
 
       if (transitioned) {
@@ -663,7 +706,7 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           decision,
           allApprovalsSatisfied: true,
           buildTransition: transitioned ? 'AWAITING_FORM' : null,
-          buildId: awaitingBuild?.buildId,
+          buildId: resourceBuildId,
           message: transitioned
             ? `All approvals granted — build transitioning to AWAITING_FORM. Emails sent to ${app.owner}${app.technicalSme ? ` and ${app.technicalSme}` : ''}.`
             : `All approvals granted, but build transition failed (possibly already handled by a concurrent request).`,
@@ -674,7 +717,7 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       // If rejected/cancelled approvals exist, the build can never complete — fail it and clean up
       if (rejectedApprovals.length > 0 || (pendingApprovals.length === 0 && approvedApprovals.length < allApprovals.length)) {
         try {
-          buildService.transition(tenantId, awaitingBuild.buildId, 'FAILED', actor?.sub ?? 'system',
+          buildService.transition(tenantId, resourceBuildId, 'FAILED', actor?.sub ?? 'system',
             `Build cannot proceed — ${rejectedApprovals.length} approval(s) rejected/cancelled`);
         } catch (_) { /* already transitioned */ }
         // Cancel remaining pending approvals
@@ -692,7 +735,7 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           allApprovalsSatisfied: false,
           pendingCount: pendingApprovals.length,
           rejectedCount: rejectedApprovals.length,
-          buildId: awaitingBuild.buildId,
+          buildId: resourceBuildId,
           message: rejectedApprovals.length > 0
             ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build failed.`
             : pendingApprovals.length > 0
@@ -708,10 +751,12 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
 });
 
 // ── GET /controls/app/:appId/:controlId/remediate/status — poll approval state ──
+// Accepts optional ?buildId= query param to target a specific build; otherwise uses latest
 router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const appId    = req.params.appId     as string;
   const controlId = req.params.controlId as string;
+  const queryBuildId = req.query.buildId as string | undefined;
 
   const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
@@ -720,11 +765,19 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
   }
 
   try {
-    // Scope approval lookup to the latest AWAITING_APPROVAL build for this app+control
     const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
-    const latestBuild = builds.find(b => b.state === 'AWAITING_APPROVAL') ?? builds[builds.length - 1];
-    const resourceKey = latestBuild
-      ? `${app.name}::${controlId}::${latestBuild.buildId}`
+    let targetBuild;
+    if (queryBuildId) {
+      targetBuild = builds.find(b => b.buildId === queryBuildId);
+      if (!targetBuild) {
+        res.status(404).json({ success: false, error: `Build ${queryBuildId} not found for ${appId}/${controlId}`, timestamp: new Date().toISOString() });
+        return;
+      }
+    } else {
+      targetBuild = builds.find(b => b.state === 'AWAITING_APPROVAL') ?? builds[builds.length - 1];
+    }
+    const resourceKey = targetBuild
+      ? `${app.name}::${controlId}::${targetBuild.buildId}`
       : `${app.name}::${controlId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pending  = allApprovals.filter(a => a.status === 'pending');
@@ -737,7 +790,8 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
         appId,
         controlId,
         appName: app.name,
-        buildId: latestBuild?.buildId,
+        buildId: targetBuild?.buildId,
+        buildState: targetBuild?.state,
         totalApprovals: allApprovals.length,
         pending: pending.length,
         approved: approved.length,

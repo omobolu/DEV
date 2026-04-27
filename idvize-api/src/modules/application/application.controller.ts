@@ -3,6 +3,8 @@ import { applicationService } from './application.service';
 import { ApplicationQuery } from './application.types';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
+import { auditService } from '../security/audit/audit.service';
 
 const router = Router();
 
@@ -69,7 +71,7 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // PATCH /applications/:id — update application fields (e.g. technicalSme)
-router.patch('/:id', (req: Request, res: Response) => {
+router.patch('/:id', requirePermission('applications.manage'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const appId = req.params.id as string;
   const existing = applicationService.getApplication(tenantId, appId);
@@ -82,8 +84,22 @@ router.patch('/:id', (req: Request, res: Response) => {
   const updates: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
-      updates[field] = req.body[field];
+      const val = req.body[field];
+      if (typeof val !== 'string' || val.length > 500) {
+        res.status(400).json({ success: false, error: `"${field}" must be a string (max 500 chars)`, timestamp: new Date().toISOString() });
+        return;
+      }
+      if (field.endsWith('Email') && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        res.status(400).json({ success: false, error: `"${field}" must be a valid email address`, timestamp: new Date().toISOString() });
+        return;
+      }
+      updates[field] = val;
     }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ success: false, error: 'No valid fields to update', timestamp: new Date().toISOString() });
+    return;
   }
 
   const updated = applicationService.updateFields(tenantId, appId, updates as any);
@@ -91,6 +107,19 @@ router.patch('/:id', (req: Request, res: Response) => {
     res.status(404).json({ success: false, error: 'Application not found', timestamp: new Date().toISOString() });
     return;
   }
+
+  await auditService.log({
+    tenantId,
+    eventType: 'user.updated',
+    actorId: req.user?.sub ?? 'unknown',
+    actorName: req.user?.name ?? 'unknown',
+    targetId: appId,
+    targetType: 'application',
+    resource: `/applications/${appId}`,
+    outcome: 'success',
+    metadata: { updatedFields: Object.keys(updates) },
+  });
+
   res.json({ success: true, data: updated, timestamp: new Date().toISOString() });
 });
 
