@@ -209,6 +209,36 @@ const TEMPLATES: EmailTemplate[] = [
     `),
     textTemplate: 'SSO Remediation Plan\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nStatus: {{outcome}}\nRisk: {{riskLevel}}\n\nRemediation Steps:\n{{remediationSteps}}\n\nEstimated Timeline: {{estimatedTimeline}}',
   },
+  {
+    templateId: 'agent-execution-result',
+    name: 'Agent Execution Result',
+    subject: 'IDVIZE — Execution {{outcome}}: {{applicationName}}',
+    description: 'Notification sent when an agent execution session completes or fails.',
+    htmlTemplate: baseLayout(`
+      <h2 style="color:#1e293b;font-size:20px;margin:0 0 8px;">Agent Execution {{outcome}}</h2>
+      <p style="color:#64748b;font-size:13px;margin:0 0 16px;">{{agentName}} has finished processing</p>
+      <div style="background:{{statusBg}};border-left:4px solid {{statusBorder}};padding:12px 16px;border-radius:4px;margin:0 0 16px;">
+        <span style="color:{{statusColor}};font-size:13px;font-weight:600;">{{statusLabel}}</span>
+        <p style="color:{{statusColor}};font-size:13px;margin:4px 0 0;">{{statusMessage}}</p>
+      </div>
+      <table style="margin:16px 0;border-collapse:collapse;width:100%;">
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Application</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-weight:500;">{{applicationName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Control</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;">{{controlName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Session</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-family:monospace;font-size:12px;">{{sessionId}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Steps Completed</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;">{{completedSteps}} / {{totalSteps}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Outcome</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;font-weight:600;">{{outcome}}</td></tr>
+      </table>
+      <div style="margin:24px 0 0;padding:16px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">
+        <p style="color:#475569;font-size:13px;margin:0;"><strong>Next Step:</strong> Review the execution results in the IDVIZE platform for full details and evidence.</p>
+      </div>
+    `),
+    textTemplate: 'Agent Execution {{outcome}}\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nSession: {{sessionId}}\nSteps: {{completedSteps}}/{{totalSteps}}\nOutcome: {{outcome}}\n\nReview results in the IDVIZE platform.',
+  },
 ];
 
 const TEMPLATE_MAP = new Map<EmailTemplateId, EmailTemplate>(

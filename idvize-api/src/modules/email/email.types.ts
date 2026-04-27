@@ -66,7 +66,8 @@ export type EmailTemplateId =
   | 'sso-mfa-conditional-access'
   | 'sso-group-targeting'
   | 'sso-group-creation'
-  | 'sso-remediation-plan';
+  | 'sso-remediation-plan'
+  | 'agent-execution-result';
 
 export interface EmailTemplate {
   templateId: EmailTemplateId;

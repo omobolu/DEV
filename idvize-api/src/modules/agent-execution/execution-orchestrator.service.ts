@@ -497,6 +497,10 @@ class ExecutionOrchestratorService {
         systemsTouched: session.plan.systemsTouched.map(s => s.systemName).join(', '),
         approvalsRequired: session.approvals.length,
         status: session.status,
+        outcome: 'PENDING_APPROVAL',
+        riskLevel: session.plan.blastRadius.level,
+        remediationSteps: session.plan.steps.map(s => `<li>${s.description}</li>`).join(''),
+        estimatedTimeline: session.plan.estimatedDuration ?? 'To be determined',
       },
     }, actorId, actorName);
   }
@@ -514,23 +518,31 @@ class ExecutionOrchestratorService {
     const controlId = session.plan.controlId;
 
     const succeeded = session.status === 'completed' || session.status === 'completed_simulation';
-    const notificationType = succeeded ? 'sso-remediation-plan' : 'sso-onboarding-request';
+    const completedSteps = session.plan.steps.filter(s => s.status === 'succeeded').length;
+    const totalSteps = session.plan.steps.length;
 
     await emailService.sendAgentNotification(tenantId, {
       agentId: `agent-${session.agentType}`,
       controlId,
       applicationId: session.plan.applicationId,
       applicationName: appName,
-      notificationType,
+      notificationType: 'agent-execution-result',
       recipients: [{ email: recipientEmail, name: actorName }],
       additionalData: {
         sessionId: session.sessionId,
         agentName: `${session.agentType.toUpperCase()} Agent`,
         status: session.status,
-        completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
-        totalSteps: session.plan.steps.length,
-        outcome: succeeded ? 'OK' : 'FAILED',
+        completedSteps,
+        totalSteps,
+        outcome: succeeded ? 'COMPLETED' : 'FAILED',
         riskLevel: session.plan.blastRadius.level,
+        statusBg: succeeded ? '#f0fdf4' : '#fef2f2',
+        statusBorder: succeeded ? '#16a34a' : '#dc2626',
+        statusColor: succeeded ? '#166534' : '#991b1b',
+        statusLabel: succeeded ? 'Execution Completed' : 'Execution Failed',
+        statusMessage: succeeded
+          ? `All ${completedSteps} steps completed successfully.`
+          : `${completedSteps} of ${totalSteps} steps completed. Review session for details.`,
       },
     }, actorId, actorName);
   }
