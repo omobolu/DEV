@@ -751,7 +751,12 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
       });
     }
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message, timestamp: new Date().toISOString() });
+    const msg: string = err.message ?? '';
+    const status = msg.includes('lacks') || msg.includes('permission') || msg.includes('not authorized') ? 403
+      : msg.includes('not found') ? 404
+      : msg.includes('already') ? 409
+      : 500;
+    res.status(status).json({ success: false, error: msg, timestamp: new Date().toISOString() });
   }
 });
 
