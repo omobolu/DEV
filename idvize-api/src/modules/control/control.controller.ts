@@ -472,8 +472,13 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       buildService.transition(tenantId, buildId, 'AWAITING_APPROVAL', 'system',
         `Waiting for ${approvals.length} approval(s): ${approvals.map(a => a.role).join(', ')}`);
     } else {
+      // No approvals required — chain through to AWAITING_FORM so the build isn't stranded
       buildService.transition(tenantId, buildId, 'ASSIGNED', 'system',
         `Assigned for remediation — no approvals required`);
+      buildService.transition(tenantId, buildId, 'AWAITING_APPROVAL', 'system',
+        `No approvals required — auto-advancing`);
+      buildService.transition(tenantId, buildId, 'AWAITING_FORM', 'system',
+        `All approvals satisfied (none required) — ready for form submission`);
     }
 
     // Who gets notified
@@ -492,7 +497,7 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       data: {
         approvals,
         buildId,
-        buildState:  approvals.length > 0 ? 'AWAITING_APPROVAL' : 'ASSIGNED',
+        buildState:  approvals.length > 0 ? 'AWAITING_APPROVAL' : 'AWAITING_FORM',
         controlId,
         controlName: ctrl.name,
         pillar:      ctrl.pillar,
