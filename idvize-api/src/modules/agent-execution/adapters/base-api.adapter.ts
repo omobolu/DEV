@@ -114,7 +114,8 @@ const tokenCache = new Map<string, CachedToken>();
 // Jitter: subtract 30-90 seconds to refresh before actual expiry
 function jitteredExpiry(expiresInSec: number): number {
   const jitter = 30 + Math.floor(Math.random() * 60);
-  return Date.now() + (expiresInSec - jitter) * 1000;
+  const effectiveExpiry = Math.max(expiresInSec - jitter, 10);
+  return Date.now() + effectiveExpiry * 1000;
 }
 
 // ── Circuit Breaker ──────────────────────────────────────────────────────────
@@ -394,10 +395,10 @@ export abstract class BaseApiAdapter {
         }
 
         const response = await fetch(options.url, fetchOptions);
-        clearTimeout(timeout);
 
-        // Check response size (read text, then parse — avoids streaming >5MB into memory)
+        // Keep timeout active during body read to protect against slow-loris
         const text = await response.text();
+        clearTimeout(timeout);
         if (text.length > MAX_RESPONSE_SIZE) {
           throw new Error(`Response exceeds maximum size of ${MAX_RESPONSE_SIZE} bytes`);
         }
@@ -517,6 +518,17 @@ export abstract class BaseApiAdapter {
    */
   protected encodePath(segment: string): string {
     return encodeURIComponent(segment);
+  }
+
+  /**
+   * Build a URL with OData query parameters safely URL-encoded.
+   * Prevents URL parsing issues when filter values contain &, #, + etc.
+   */
+  protected buildODataUrl(base: string, filter?: string, select?: string): string {
+    const url = new URL(base);
+    if (filter) url.searchParams.set('$filter', filter);
+    if (select) url.searchParams.set('$select', select);
+    return url.toString();
   }
 
   /**

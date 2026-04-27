@@ -182,7 +182,7 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     // Find the application object
     const appSearch = await this.apiCall(ctx.tenantId, {
       method: 'GET',
-      url: `${GRAPH_BASE}/applications?$filter=appId eq '${appId}'&$select=id`,
+      url: this.buildODataUrl(`${GRAPH_BASE}/applications`, `appId eq '${appId}'`, 'id'),
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -445,7 +445,7 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     try {
       const result = await this.apiCall(tenantId, {
         method: 'GET',
-        url: `${GRAPH_BASE}/applications?$filter=displayName eq '${displayName.replace(/'/g, "''")}'&$select=id,appId,displayName,tags`,
+        url: this.buildODataUrl(`${GRAPH_BASE}/applications`, `displayName eq '${displayName.replace(/'/g, "''")}'`, 'id,appId,displayName,tags'),
         headers: { Authorization: `Bearer ${token}` },
       });
       const apps = (result.body.value as Array<{ id: string; appId: string; displayName: string; tags?: string[] }>) ?? [];
@@ -461,7 +461,7 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     try {
       const result = await this.apiCall(tenantId, {
         method: 'GET',
-        url: `${GRAPH_BASE}/groups?$filter=displayName eq '${displayName.replace(/'/g, "''")}'&$select=id,displayName,description`,
+        url: this.buildODataUrl(`${GRAPH_BASE}/groups`, `displayName eq '${displayName.replace(/'/g, "''")}'`, 'id,displayName,description'),
         headers: { Authorization: `Bearer ${token}` },
       });
       const groups = (result.body.value as Array<{ id: string; displayName: string; description?: string }>) ?? [];

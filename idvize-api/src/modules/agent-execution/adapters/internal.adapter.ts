@@ -139,14 +139,22 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
     });
 
     // Check group member count
-    const membersResult = await this.apiCall(ctx.tenantId, {
-      method: 'GET',
-      url: `${GRAPH_BASE}/groups/${this.encodePath(groupId)}/members/$count`,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ConsistencyLevel: 'eventual',
-      },
-    });
+    let memberCount = 0;
+    try {
+      const membersResult = await this.apiCall(ctx.tenantId, {
+        method: 'GET',
+        url: `${GRAPH_BASE}/groups/${this.encodePath(groupId)}/members/$count`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ConsistencyLevel: 'eventual',
+        },
+      });
+      memberCount = typeof membersResult.body === 'number'
+        ? membersResult.body as unknown as number
+        : Number(membersResult.body) || 0;
+    } catch {
+      // Member count check is best-effort
+    }
 
     // If servicePrincipalId provided, check app role assignment
     let appAssigned = false;
@@ -154,7 +162,7 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
       try {
         const assignmentsResult = await this.apiCall(ctx.tenantId, {
           method: 'GET',
-          url: `${GRAPH_BASE}/servicePrincipals/${this.encodePath(servicePrincipalId)}/appRoleAssignedTo?$filter=principalId eq '${groupId}'`,
+          url: this.buildODataUrl(`${GRAPH_BASE}/servicePrincipals/${this.encodePath(servicePrincipalId)}/appRoleAssignedTo`, `principalId eq '${groupId}'`),
           headers: { Authorization: `Bearer ${token}` },
         });
         const assignments = (assignmentsResult.body.value as unknown[]) ?? [];
@@ -177,10 +185,13 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
       },
     );
 
+    const groupMembershipValid = servicePrincipalId ? appAssigned : memberCount > 0;
+
     return this.successResult({
-      groupMembershipValid: true,
+      groupMembershipValid,
       groupId,
       displayName: groupResult.body.displayName,
+      memberCount,
       appAssigned,
       verificationMethod: 'graph_api',
     }, [evidenceId]);
