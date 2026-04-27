@@ -153,7 +153,7 @@ class ToolBrokerService {
 
       await auditService.log({
         tenantId,
-        eventType: result.success ? 'approval.granted' : 'approval.rejected',
+        eventType: result.success ? 'agent.execution.completed' : 'agent.execution.failed',
         actorId,
         actorName,
         targetType: 'tool_action',
@@ -175,7 +175,7 @@ class ToolBrokerService {
 
       await auditService.log({
         tenantId,
-        eventType: 'approval.rejected',
+        eventType: 'agent.execution.failed',
         actorId,
         actorName,
         targetType: 'tool_action',

@@ -135,7 +135,7 @@ class ExecutionOrchestratorService {
       throw new Error(`Session ${sessionId} is in status "${session.status}" — cannot resolve approvals`);
     }
 
-    await executionApprovalService.resolve(tenantId, approvalId, approverId, approverName, decision, comment);
+    await executionApprovalService.resolve(tenantId, approvalId, sessionId, approverId, approverName, decision, comment);
 
     // Update session approvals
     session.approvals = executionApprovalService.getSessionApprovals(tenantId, sessionId);

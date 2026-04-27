@@ -84,6 +84,7 @@ class ExecutionApprovalService {
   async resolve(
     tenantId: string,
     approvalId: string,
+    sessionId: string,
     approverId: string,
     approverName: string,
     decision: 'approved' | 'rejected',
@@ -94,6 +95,11 @@ class ExecutionApprovalService {
 
     const approval = tenantApprovals.get(approvalId);
     if (!approval) throw new Error(`Approval ${approvalId} not found`);
+
+    if (approval.sessionId !== sessionId) {
+      throw new Error(`Approval ${approvalId} does not belong to session ${sessionId}`);
+    }
+
     if (approval.status !== 'pending') {
       throw new Error(`Approval ${approvalId} is already ${approval.status}`);
     }
