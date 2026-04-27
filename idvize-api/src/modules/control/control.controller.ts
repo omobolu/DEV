@@ -596,10 +596,12 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
       const approverEmail = approverUser?.email?.toLowerCase();
       const ownerEmail = app.ownerEmail?.toLowerCase();
       const isPlatformAdmin = approverUser?.roles?.includes('PlatformAdmin') ?? false;
-      if (!isPlatformAdmin && approverEmail !== ownerEmail) {
+      if (!isPlatformAdmin && (!ownerEmail || !approverEmail || approverEmail !== ownerEmail)) {
         res.status(403).json({
           success: false,
-          error: `App Owner approval can only be granted by the application owner (${app.owner}) or a PlatformAdmin`,
+          error: ownerEmail
+            ? `App Owner approval can only be granted by the application owner (${app.owner}) or a PlatformAdmin`
+            : `App Owner approval requires a PlatformAdmin — application has no owner email configured`,
           timestamp: new Date().toISOString(),
         });
         return;
