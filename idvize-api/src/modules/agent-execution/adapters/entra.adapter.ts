@@ -461,7 +461,7 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     try {
       const result = await this.apiCall(tenantId, {
         method: 'GET',
-        url: `${GRAPH_BASE}/groups?$filter=displayName eq '${displayName.replace(/'/g, "''")}'&$select=id,displayName`,
+        url: `${GRAPH_BASE}/groups?$filter=displayName eq '${displayName.replace(/'/g, "''")}'&$select=id,displayName,description`,
         headers: { Authorization: `Bearer ${token}` },
       });
       const groups = (result.body.value as Array<{ id: string; displayName: string; description?: string }>) ?? [];

@@ -419,8 +419,8 @@ export abstract class BaseApiAdapter {
           }
 
           if (NON_RETRYABLE_STATUS_CODES.has(response.status)) {
-            recordCircuitFailure(tenantId, this.systemType);
-            // Redact response body before including in error
+            // Client errors (4xx) do NOT trip the circuit breaker — they indicate
+            // bad input or auth issues, not service unavailability
             const safeBody = redactObject(responseBody);
             throw new ApiError(
               `${this.systemName} API error: ${response.status} ${response.statusText}`,
@@ -429,6 +429,7 @@ export abstract class BaseApiAdapter {
             );
           }
 
+          // Server errors (5xx not in retryable set) DO trip the circuit breaker
           recordCircuitFailure(tenantId, this.systemType);
           throw new ApiError(
             `${this.systemName} API error: ${response.status}`,
