@@ -174,6 +174,7 @@ export interface GroupMapping {
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
 export type ApprovalRiskLevel = 'standard' | 'high_risk';
+export type ApprovalDomain = 'generic' | 'remediation';
 
 export interface ApprovalRequest {
   requestId: string;
@@ -184,6 +185,7 @@ export interface ApprovalRequest {
   action: string;
   resource?: string;
   riskLevel: ApprovalRiskLevel;
+  approvalDomain: ApprovalDomain;
   status: ApprovalStatus;
   justification: string;
   approverId?: string;

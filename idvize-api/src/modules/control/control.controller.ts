@@ -451,6 +451,7 @@ router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute
         riskLevel:     (app.riskTier === 'critical' || app.riskTier === 'high') ? 'high_risk' : 'standard',
         justification: `Remediation requires IAM Manager approval per tenant policy. ` +
                        `Control gap: ${ctrl.name} (${controlId}) on ${app.name}. Build: ${buildId}.`,
+        approvalDomain: 'remediation',
       });
       approvals.push({ requestId: approval.requestId, role: 'iam_manager', status: 'pending' });
     }
@@ -463,6 +464,7 @@ router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute
         riskLevel:     'standard',
         justification: `Remediation requires App Owner approval per tenant policy. ` +
                        `Control gap: ${ctrl.name} (${controlId}) on ${app.name}. Owner: ${app.owner}. Build: ${buildId}.`,
+        approvalDomain: 'remediation',
       });
       approvals.push({ requestId: approval.requestId, role: 'app_owner', status: 'pending' });
     }

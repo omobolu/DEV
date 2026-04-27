@@ -7,7 +7,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { ApprovalRequest, ApprovalRiskLevel, PermissionId } from '../security.types';
+import { ApprovalRequest, ApprovalDomain, ApprovalRiskLevel, PermissionId } from '../security.types';
 import { approvalRepository } from './approval.repository';
 import { authzService } from '../authz/authz.service';
 import { authRepository } from '../auth/auth.repository';
@@ -25,6 +25,7 @@ class ApprovalService {
     resource?: string;
     riskLevel: ApprovalRiskLevel;
     justification: string;
+    approvalDomain?: ApprovalDomain;
   }): Promise<ApprovalRequest> {
     const requester = authRepository.findById(tenantId, input.requesterId);
     const now = new Date();
@@ -39,6 +40,7 @@ class ApprovalService {
       action: input.action,
       resource: input.resource,
       riskLevel: input.riskLevel,
+      approvalDomain: input.approvalDomain ?? 'generic',
       status: 'pending',
       justification: input.justification,
       expiresAt,

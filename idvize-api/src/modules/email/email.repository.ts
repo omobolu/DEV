@@ -20,7 +20,8 @@ function getEncryptionKey(): Buffer {
     return Buffer.from(envKey, 'hex');
   }
   // In production, require a valid 32-byte SMTP_ENCRYPTION_KEY — fail closed
-  if (process.env.NODE_ENV === 'production') {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+  if (isProduction) {
     throw new Error(
       'SMTP_ENCRYPTION_KEY is missing or invalid. A valid hex-encoded 32-byte key is required in production. ' +
       'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
@@ -48,7 +49,8 @@ function encryptPassword(plaintext: string): string {
 function decryptPassword(encrypted: string): string {
   const parts = encrypted.split(':');
   if (parts.length !== 3) {
-    if (process.env.NODE_ENV === 'production') {
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+    if (isProduction) {
       throw new Error('Legacy plaintext SMTP credentials are not allowed in production — re-save config to encrypt');
     }
     // Dev/test: legacy plaintext — return as-is (migration path)
