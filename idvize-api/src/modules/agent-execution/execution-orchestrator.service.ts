@@ -479,7 +479,7 @@ class ExecutionOrchestratorService {
     if (!session.plan) return;
     const recipientEmail = actorEmail ?? actorId;
     const appName = session.plan.applicationName;
-    const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
+    const controlId = session.plan.controlId;
     const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
 
     await emailService.sendAgentNotification(tenantId, {
@@ -511,7 +511,7 @@ class ExecutionOrchestratorService {
     if (!session.plan) return;
     const recipientEmail = actorEmail ?? actorId;
     const appName = session.plan.applicationName;
-    const controlId = session.plan.steps[0]?.actionType?.split('.').pop() ?? session.agentType;
+    const controlId = session.plan.controlId;
 
     const succeeded = session.status === 'completed' || session.status === 'completed_simulation';
     const notificationType = succeeded ? 'sso-remediation-plan' : 'sso-onboarding-request';
