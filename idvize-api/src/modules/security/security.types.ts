@@ -5,7 +5,7 @@
 
 // ── User ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'PlatformAdmin' | 'Manager' | 'Architect' | 'BusinessAnalyst' | 'Engineer' | 'Developer';
+export type UserRole = 'Manager' | 'Architect' | 'BusinessAnalyst' | 'Engineer' | 'Developer';
 export type UserStatus = 'active' | 'suspended' | 'deprovisioned' | 'pending';
 export type AuthProvider = 'oidc' | 'saml' | 'local';
 
@@ -84,16 +84,7 @@ export type PermissionId =
   | 'secrets.reveal'
   | 'secrets.rotate'
   | 'secrets.approve'
-  | 'secrets.manage.provider'
-  // Tenant management (PlatformAdmin only)
-  | 'tenants.manage'
-  // Risk Engine
-  | 'risks.view'
-  // Agents
-  | 'agents.invoke'
-  // Email
-  | 'email.configure'
-  | 'email.send';
+  | 'secrets.manage.provider';
 
 export interface Permission {
   permissionId: PermissionId;
@@ -216,15 +207,7 @@ export type AuditEventType =
   | 'policy.created'
   | 'policy.updated'
   | 'policy.deleted'
-  | 'secret.accessed'
-  | 'tenant.created'
-  | 'tenant.updated'
-  | 'tenant.suspended'
-  | 'email.config.updated'
-  | 'email.sent'
-  | 'email.delivery.failed'
-  | 'email.test.sent'
-  | 'email.agent.notification';
+  | 'secret.accessed';
 
 export interface AuditEvent {
   eventId: string;

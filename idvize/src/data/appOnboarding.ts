@@ -1,5 +1,5 @@
 export const ONBOARDING_KPIS = [
-  { id: 'onboarded', label: 'Apps Onboarded',     value: 40,       unit: '',       accentColor: '#2563eb' },
+  { id: 'onboarded', label: 'Apps Onboarded',     value: 40,       unit: '',       accentColor: '#6366f1' },
   { id: 'promoted',  label: 'Apps Promoted',       value: 28,       unit: '',       accentColor: '#22c55e' },
   { id: 'high-pri',  label: 'High Priority Apps',  value: 106,      unit: '',       accentColor: '#ef4444' },
   { id: 'avg-time',  label: 'Avg Onboarding Time', value: '15 days', unit: '',      accentColor: '#f59e0b' },

@@ -92,13 +92,13 @@ class IntegrationConfigService {
   }
 
   /** Save credentials: apply to runtime env + persist to .env + audit log */
-  async save(creds: PlatformCredentials, actorId = 'system', actorName = 'System'): Promise<void> {
+  save(creds: PlatformCredentials, actorId = 'system', actorName = 'System'): void {
     const platforms = Object.keys(creds) as PlatformKey[];
     this.applyToEnv(creds);
     this.persistToEnv(creds);
 
-    for (const platform of platforms) {
-      await auditService.log({
+    platforms.forEach(platform => {
+      auditService.log({
         eventType: 'authz.allow',
         actorId,
         actorName,
@@ -108,7 +108,7 @@ class IntegrationConfigService {
         metadata:  { action: 'integration.credentials.saved', platform },
       });
       console.log(`[IntegrationConfig] Credentials saved for platform=${platform} by actor=${actorId}`);
-    }
+    });
   }
 
   // ── Status helpers ─────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ class IntegrationConfigService {
     result = await this._runTest(platform, creds, now);
 
     // Audit every test attempt — success or failure
-    await auditService.log({
+    auditService.log({
       eventType: result.status === 'connected' ? 'authz.allow' : 'authz.deny',
       actorId,
       actorName,

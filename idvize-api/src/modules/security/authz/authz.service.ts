@@ -67,12 +67,8 @@ class AuthzService {
 
   // ── Authorization Check ───────────────────────────────────────────────────
 
-  /**
-   * Tenant-scoped authorization check. tenantId is REQUIRED — no global fallback
-   * for request-time checks. All callers must provide the tenant context.
-   */
-  check(userId: string, tenantId: string, permission: PermissionId, context: EvaluationContext = {}): AuthzDecision {
-    const user = authRepository.findById(tenantId, userId);
+  check(userId: string, permission: PermissionId, context: EvaluationContext = {}): AuthzDecision {
+    const user = authRepository.findByIdGlobal(userId);
     if (!user) {
       return { allowed: false, reason: 'User not found', permissionId: permission, userId };
     }
@@ -85,20 +81,19 @@ class AuthzService {
   /**
    * Evaluate multiple permissions at once — returns a map of decisions.
    */
-  checkBulk(userId: string, tenantId: string, permissions: PermissionId[], context: EvaluationContext = {}): Record<string, AuthzDecision> {
+  checkBulk(userId: string, permissions: PermissionId[], context: EvaluationContext = {}): Record<string, AuthzDecision> {
     const result: Record<string, AuthzDecision> = {};
     for (const perm of permissions) {
-      result[perm] = this.check(userId, tenantId, perm, context);
+      result[perm] = this.check(userId, perm, context);
     }
     return result;
   }
 
   /**
    * Return the effective permissions for a user (union of all roles).
-   * tenantId is REQUIRED — no global fallback.
    */
-  getUserPermissions(userId: string, tenantId: string): PermissionId[] {
-    const user = authRepository.findById(tenantId, userId);
+  getUserPermissions(userId: string): PermissionId[] {
+    const user = authRepository.findByIdGlobal(userId);
     if (!user || user.status !== 'active') return [];
     return resolvePermissions(user.roles);
   }
@@ -137,7 +132,7 @@ class AuthzService {
    * Return a permission matrix view: for each role, which permissions are granted.
    */
   getPermissionMatrix(): Record<UserRole, PermissionId[]> {
-    const roles: UserRole[] = ['PlatformAdmin', 'Manager', 'Architect', 'BusinessAnalyst', 'Engineer', 'Developer'];
+    const roles: UserRole[] = ['Manager', 'Architect', 'BusinessAnalyst', 'Engineer', 'Developer'];
     const matrix = {} as Record<UserRole, PermissionId[]>;
     for (const role of roles) {
       matrix[role] = resolvePermissions([role]);

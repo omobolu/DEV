@@ -1,7 +1,7 @@
 # IDVIZE IAM OS — The IAM Operating System
 
-> **Branch:** `develop` | **Version:** 2.1.0 | **Status:** Active Development
-> **URL:** http://localhost:5173 (frontend) · http://localhost:3001 (API)
+> **Branch:** `prototype` | **Version:** 2.0.0 | **Status:** Active Development
+> **URL:** http://localhost:5174 (frontend) · http://localhost:3001 (API)
 
 IDVIZE is an **IAM Operating System** — the management layer that sits above all enterprise IAM platforms and below business applications. From a single control plane, a CISO or IAM leader can **Monitor** every application and identity for IAM control coverage, **Operate** on identified gaps with one-click remediation, and **Control** the drivers, policies, and modules that govern the IAM program.
 
@@ -22,69 +22,20 @@ Audit Events                  ─→ Access intelligence      ─→ User Contro
 
 ## Table of Contents
 
-1. [Enterprise Foundation (New)](#enterprise-foundation)
-2. [Feature Status](#feature-status)
-3. [Architecture Overview](#architecture-overview)
-4. [Technology Stack](#technology-stack)
-5. [Prerequisites & Quick Start](#prerequisites--quick-start)
-6. [Repository Structure](#repository-structure)
-7. [API Reference](#api-reference)
-8. [IAM OS Kernel](#iam-os-kernel)
-9. [Controls Library](#controls-library)
-10. [All Modules](#all-modules)
-11. [IAM Program Maturity Model](#iam-program-maturity-model)
-12. [AI Agent Layer](#ai-agent-layer)
-13. [Authentication & Authorisation](#authentication--authorisation)
-14. [Demo Users](#demo-users)
-15. [What's Left](#whats-left)
-16. [Known Limitations](#known-limitations)
-
----
-
-## Enterprise Foundation
-
-The **Enterprise Foundation** PR introduces the persistence layer, multi-tenant architecture, and security-by-design changes required for enterprise SaaS readiness.
-
-### What Was Done
-
-| Area | Change |
-|---|---|
-| **PostgreSQL Persistence** | Added `pg` driver, connection pool (`db/pool.ts`), migration script (`db/migrate.ts`), and seed script (`db/seed.ts`). Tenants, users, and audit logs persist across restarts. |
-| **Multi-Tenant Architecture** | All entities include `tenantId`. All queries filter by `tenantId`. JWT tokens encode tenant context. Users only see their own tenant's data. |
-| **Bcrypt Password Hashing** | All user passwords stored as bcrypt hashes (`$2b$10$`). No plaintext passwords anywhere. |
-| **Audit Logging to PostgreSQL** | Login success/failure, token issuance, and security events written to `audit_logs` table. Visible in UI via System Events page. |
-| **Clean Login Page** | Demo tenant names (ACME, Globex) removed from login UI. Clean username/password/sign-in form only. |
-| **System Events Page** | Dedicated `/system-events` page under System sidebar showing live IAM event stream from PostgreSQL with search and severity filters. |
-| **Graceful Degradation** | If PostgreSQL is unavailable, the app falls back to in-memory seed data. Server always starts. |
-| **Controlled Data Initialization** | `SEED_MODE` env var: `production` (default, empty), `demo`, `development`. Production never auto-loads demo data. |
-| **API Tenant Provisioning** | `POST /tenants` creates tenant + admin user atomically in a single PG transaction. No restart required. |
-| **Differentiated Tenant Data** | ACME: 50 financial/banking apps. Globex: 30 tech/platform/SRE apps. Different names, counts, vendors, IAM postures. |
-
-### Data Initialization Strategy
-
-The system supports **three modes** via the `SEED_MODE` environment variable:
-
-- **`production`** (default) — NO demo data. System starts empty. Tenants created exclusively via API.
-- **`demo`** — Seeds ACME + Globex demo tenants with differentiated application portfolios.
-- **`development`** — Same as demo; allows flexible seeding + data reset.
-
-**Production mode is the default.** If `SEED_MODE` is not set, no demo tenants are created. See [SETUP.md](SETUP.md) for full details.
-
-### What Remains Node.js (Temporary)
-
-The current Node.js/Express backend is **temporary**. The target backend is **Go/Golang**.
-
-| Component | Current State | Go Migration Plan |
-|---|---|---|
-| Auth (login, JWT) | Node.js + bcrypt + jsonwebtoken | Rewrite with Go `golang-jwt/jwt` + `bcrypt` |
-| Tenant resolution | Node.js middleware | Go middleware with `pgx` |
-| Audit logging | Node.js fire-and-forget to PG | Go goroutine with channel-based writes |
-| Application CRUD | In-memory Map | Go + PostgreSQL (applications table ready) |
-| Control evaluation | In-memory | Go + PostgreSQL |
-| SCIM provisioning | In-memory | Go REST handlers |
-| All other modules | In-memory | Go services with PostgreSQL repositories |
-
-The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL types, JSONB for flexible fields, designed for `pgx` or `database/sql`.
+1. [Feature Status](#feature-status)
+2. [Architecture Overview](#architecture-overview)
+3. [Technology Stack](#technology-stack)
+4. [Prerequisites & Quick Start](#prerequisites--quick-start)
+5. [Repository Structure](#repository-structure)
+6. [API Reference](#api-reference)
+7. [IAM OS Kernel](#iam-os-kernel)
+8. [Controls Library](#controls-library)
+9. [All Modules](#all-modules)
+10. [IAM Program Maturity Model](#iam-program-maturity-model)
+11. [AI Agent Layer](#ai-agent-layer)
+12. [Authentication & Authorisation](#authentication--authorisation)
+13. [Demo Users](#demo-users)
+14. [Known Limitations](#known-limitations)
 
 ---
 
@@ -96,7 +47,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Feature | Route / Endpoint | Notes |
 |---|---|---|
 | **OS Control Panel** | `/os` | 3-tab interface: MONITOR / OPERATE / CONTROL |
-| **MONITOR tab** | `/os` | Kernel status bar, 6 KPI tiles, coverage-by-risk-tier bars, driver health cards, control-type coverage grid, top unprotected apps, alert feed |
+| **MONITOR tab** | `/os` | Kernel status bar, 6 KPI tiles, coverage-by-risk-tier bars, driver health cards, control-type coverage grid, top unprotected apps, alert feed, live event stream |
 | **OPERATE tab** | `/os` | Gap remediation queue with action buttons, pending approvals with Approve/Deny, active processes table |
 | **CONTROL tab** | `/os` | Driver manager cards, coverage policies display, installed modules grid |
 | **Kernel heartbeat** | `GET /os/status` | Coverage %, identity protection %, critical gaps, driver health, process count |
@@ -106,7 +57,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | **Driver registry** | `GET /os/drivers` | 4 drivers: Entra (healthy), SailPoint (degraded), CyberArk (healthy), Okta (healthy) |
 | **Process aggregator** | `GET /os/processes` | Active builds + pending approvals + overdue rotations |
 | **Module registry** | `GET /os/modules` | 8 installed modules with health status |
-| **Event stream** | `GET /os/events` | Last 50 IAM events from PostgreSQL with severity and driver tags |
+| **Event stream** | `GET /os/events` | Last 50 IAM events with severity and driver tags |
 | **Alert feed** | `GET /os/alerts` | Actionable alerts: critical gaps, expiring credentials, degraded drivers, low-maturity domains |
 | **Gap action** | `POST /os/gaps/:gapId/action` | Routes to build job (onboard-iam, request-sso) or approval (request-pam, schedule-review) |
 
@@ -191,7 +142,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | SCIM 2.0 groups | `GET /security/scim/v2/Groups` | Provisioned groups |
 | Approval workflow | `POST /security/approvals` | Create approval request |
 | Resolve approval | `POST /security/approvals/:id/resolve` | Approve / deny |
-| Audit log | `GET /security/audit` | Immutable event log (PostgreSQL-backed) |
+| Audit log | `GET /security/audit` | Immutable event log |
 | Security posture | `GET /security/posture` | Deterministic posture report |
 | AI posture analysis | `POST /security/posture/ai` | Claude-powered recommendations |
 | Field-level masking | `GET /security/masking/demo` | Role-based data masking demo |
@@ -230,7 +181,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 #### Frontend UI (All Pages)
 | Page | Route | Status |
 |---|---|---|
-| Login | `/` | ✅ Clean login (no demo tenants visible) |
+| Login | `/` | ✅ OS branding, demo quick-login |
 | OS Control Panel | `/os` | ✅ MONITOR / OPERATE / CONTROL tabs |
 | IAM Overview (Dashboard) | `/dashboard` | ✅ Maturity strip, domain cards |
 | Controls Library | `/controls/library` | ✅ 49 controls, pillar filter, search |
@@ -247,32 +198,17 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Integrations | `/integrations` | ✅ Platform credentials & testing |
 | Maturity | `/maturity` | ✅ Full programme maturity report |
 | Maturity Domain | `/maturity/domains/:domainId` | ✅ Evidence drill-down |
-| System Events | `/system-events` | ✅ Live IAM event stream from PostgreSQL, search + severity filters |
 
 ---
 
-### ✅ Recently Completed (Enterprise Foundation PR)
-
-| Item | Status | Notes |
-|---|---|---|
-| PostgreSQL persistence | Done | Tenants, users, audit logs persist across restarts |
-| Database migrations & seeding | Done | `npm run migrate` + `npm run seed` |
-| Multi-tenancy | Done | All queries scoped by `tenantId`, JWT encodes tenant context |
-| Bcrypt password hashing | Done | All passwords stored as bcrypt hashes |
-| Audit logging (PostgreSQL) | Done | Login events, token issuance persisted to `audit_logs` table |
-| Clean login page | Done | No demo tenants visible on login |
-| System Events page | Done | Dedicated `/system-events` with search + severity filters |
-| Tenant registration API | Done | `POST /tenants` — create tenants + users without restart |
-
 ### 🔲 Pending — Not Yet Implemented
 
-#### Go Backend Migration (Next PR)
+#### Data Persistence
 | Item | Priority | Notes |
 |---|---|---|
-| Go API server | High | Replace Node.js/Express with Go. PostgreSQL schema is already Go-compatible (snake_case, JSONB) |
-| Migrate all modules to Go | High | Application CRUD, controls, build, cost, integrations, maturity, documents |
-| PostgreSQL for all entities | High | Applications, controls, assessments still in-memory in Node.js |
-| Session persistence | Medium | Builds, credentials, approvals reset on restart (not yet in PostgreSQL) |
+| Persistent database (PostgreSQL / MongoDB) | High | All data is currently in-memory; restarting the API resets all state |
+| Database migrations & seeding | High | Depends on persistence layer |
+| Session persistence across restarts | High | Builds, credentials, approvals all reset on restart |
 
 #### Live Platform Adapters
 | Item | Priority | Notes |
@@ -282,20 +218,30 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Live CyberArk PAM adapter | High | Mock only |
 | Live Okta adapter | High | Mock only |
 | Real CMDB integration (ServiceNow, etc.) | Medium | CMDB currently uses seeded mock data |
+| Real 3rd party risk system feed | Medium | Risk scores currently deterministic from app metadata |
+
+#### IAM OS Kernel — Advanced Features
+| Item | Priority | Notes |
+|---|---|---|
+| Real cross-platform identity reconciliation | High | Identity plane currently uses mock identity records |
+| Leadership strategic plans intake | Medium | Documents module exists but not yet wired into kernel gap prioritisation |
+| OS gap action → full workflow tracking | Medium | Creates build/approval stubs; workflow completion not tracked in OS UI |
+| Driver configuration UI (editable) | Medium | Currently read-only display; no save from Control Panel |
+| Coverage trend history | Medium | Snapshot comparison over time |
 
 #### Security & Authentication
 | Item | Priority | Notes |
 |---|---|---|
-| OIDC integration (Entra ID / Okta) | High | Auth currently local only; prepare for federated login |
-| Refresh token support | High | Current JWTs are 8-hour, no refresh |
-| RBAC enforcement | Medium | Role field exists in user model; enforcement not yet wired |
+| Refresh token support | High | Current JWTs are 8-hour, no refresh; users must re-login |
 | Full SAML 2.0 SP implementation | Medium | Adapter scaffolded but not functional |
+| Per-client API key management | Medium | Single static key in `.env` |
 | MFA enforcement (login) | Medium | Evaluated per app but not enforced at login UI |
 
 #### Infrastructure & DevOps
 | Item | Priority | Notes |
 |---|---|---|
-| Docker Compose setup | Medium | One-command local launch (app + PostgreSQL) |
+| Docker Compose setup | Medium | One-command local launch |
+| Multi-tenancy | Low | Single-tenant only |
 | Code-split frontend bundle (~882 KB) | Low | Single JS chunk |
 | Unit and integration test suite | High | No tests currently |
 | CI/CD pipeline (GitHub Actions) | Medium | No automation |
@@ -305,6 +251,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 |---|---|---|
 | Maturity trend charting (historical) | Medium | History endpoint exists; no UI chart |
 | PDF export for maturity reports | Medium | UI report exists; no export |
+| Executive PDF/PPTX dashboard export | Low | |
 | IAM programme roadmap view | Medium | Gap list exists; no timeline/roadmap view |
 | SoD policy violation report | Medium | SoD is in the controls catalog but not detected live |
 
@@ -316,7 +263,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 ┌──────────────────────────────────────────────────────────────────┐
 │                     Browser (SPA)                                │
 │              React 19 + Vite + Tailwind CSS                      │
-│                   http://localhost:5173                          │
+│                   http://localhost:5174                          │
 └────────────────────────┬─────────────────────────────────────────┘
                          │ HTTP/JSON (JWT + API Key)
 ┌────────────────────────▼─────────────────────────────────────────┐
@@ -341,12 +288,6 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 │  │               AI Agent Layer (Claude / Anthropic)           │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └───────────────────────────┬──────────────────────────────────────┘
-                            │
-               ┌────────────▼─────────────────┐
-               │  PostgreSQL 14+              │
-               │  tenants · users             │
-               │  audit_logs · applications   │
-               └────────────┬─────────────────┘
                             │ OAuth2 / REST / SCIM (mock in dev)
           ┌─────────────────┼─────────────────┐
      ┌────▼────┐      ┌─────▼──────┐    ┌─────▼──────┐  ┌──────┐
@@ -365,12 +306,11 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Runtime | Node.js 18+ |
 | Framework | Express 5.2.1 |
 | Language | TypeScript 5.9 (strict) |
-| Database | PostgreSQL 14+ via `pg` driver |
-| Authentication | JWT (HS256, 8-hour TTL) + bcrypt password hashing |
+| Authentication | JWT (HS256, 8-hour TTL) |
 | AI Integration | Anthropic Claude via `@anthropic-ai/sdk` |
 | Security headers | Helmet 8 |
 | CORS | cors 2.8 |
-| Logging | Morgan (HTTP) + PostgreSQL-backed audit service |
+| Logging | Morgan (HTTP) + custom audit service |
 | Environment | dotenv 17 |
 
 ### Frontend
@@ -389,28 +329,23 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 
 ## Prerequisites & Quick Start
 
-**Requirements:** Node.js 18+, npm 9+, PostgreSQL 14+
+**Requirements:** Node.js 18+, npm 9+
 
 ```bash
-# 1. Set up PostgreSQL
-sudo -u postgres psql -c "CREATE USER idvize WITH PASSWORD 'idvize_dev_2026';"
-sudo -u postgres psql -c "CREATE DATABASE idvize OWNER idvize;"
-
-# 2. Backend
+# Terminal 1 — Backend
 cd idvize-api
 npm install
-cp .env.example .env        # edit DATABASE_URL if needed
-npm run migrate             # create tables
-npm run seed                # seed demo tenants + users
-npm run dev                 # → http://localhost:3001
+npm run build && node dist/index.js
+# API running at http://localhost:3001
 
-# 3. Frontend (new terminal)
+# Terminal 2 — Frontend
 cd idvize
 npm install
-npm run dev                 # → http://localhost:5173
+npm run dev
+# UI running at http://localhost:5174 (or 5173 if free)
 ```
 
-Login at **http://localhost:5173** with `admin@acme.com` / `password123`
+Login at **http://localhost:5174** with `admin@idvize.com` / `password123`
 
 The API key for all requests: `idvize-dev-key-change-me`
 
@@ -419,29 +354,20 @@ The API key for all requests: `idvize-dev-key-change-me`
 ## Repository Structure
 
 ```
-DEV/
-├── idvize-api/              # Express API backend (temporary — target is Go)
+IAM-Platform/
+├── idvize-api/              # Express API backend
 │   ├── src/
-│   │   ├── db/              # PostgreSQL layer (NEW)
-│   │   │   ├── pool.ts         # Connection pool (pg)
-│   │   │   ├── migrate.ts      # Schema migrations
-│   │   │   └── seed.ts         # Demo data seeder
 │   │   ├── middleware/      # Auth, API key, error handling
 │   │   ├── modules/
-│   │   │   ├── tenant/      # Multi-tenant management (NEW)
-│   │   │   │   ├── tenant.repository.ts  # PG + in-memory cache
-│   │   │   │   ├── tenant.service.ts     # Tenant operations
-│   │   │   │   ├── tenant.controller.ts  # REST endpoints
-│   │   │   │   └── tenant.seed.ts        # Seed data
 │   │   │   ├── application/ # Module 1 — Application Governance
 │   │   │   ├── control/     # Module 2 — Control Detection + Catalog
 │   │   │   ├── build/       # Module 4 — Build Execution
 │   │   │   ├── cost/        # Module 5 — Cost & Vendor Intelligence
 │   │   │   ├── integration/ # Module 6 — Platform Adapters
 │   │   │   ├── security/    # Module 7 — Security & Identity Gov
-│   │   │   │   ├── auth/       # JWT + bcrypt authentication (PG-backed)
+│   │   │   │   ├── auth/       # JWT authentication
 │   │   │   │   ├── authz/      # RBAC / ABAC policy engine
-│   │   │   │   ├── audit/      # Immutable audit log (PG-backed)
+│   │   │   │   ├── audit/      # Immutable audit log
 │   │   │   │   ├── scim/       # SCIM 2.0 provisioning
 │   │   │   │   ├── credentials/# Credential governance & rotation
 │   │   │   │   ├── vault/      # Secret vault abstraction
@@ -451,20 +377,19 @@ DEV/
 │   │   │   ├── maturity/    # IAM Program Maturity engine
 │   │   │   └── os/          # IAM OS Kernel (Coverage Intelligence Engine)
 │   │   └── index.ts         # Express app, routes, startup banner
-│   ├── .env.example         # Environment template
 │   └── package.json
 │
 ├── idvize/                  # React SPA frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/      # AppLayout, Header, Sidebar (System Events nav)
+│   │   │   ├── layout/      # AppLayout, Header (OS badge), Sidebar (OS sections)
 │   │   │   ├── common/      # Badge, DataTable, KpiCard, TabNav
 │   │   │   └── charts/      # Donut, Gauge, Bar, Trend charts
 │   │   ├── pages/
-│   │   │   ├── os/          # OS Control Panel + SystemEventsPage (NEW)
+│   │   │   ├── os/          # OS Control Panel (MONITOR/OPERATE/CONTROL)
 │   │   │   ├── controls/    # Controls Library (49 controls, 4 pillars)
 │   │   │   ├── Dashboard.tsx # IAM Overview
-│   │   │   ├── LoginPage.tsx # Clean login (no demo tenants)
+│   │   │   ├── LoginPage.tsx
 │   │   │   ├── applications/
 │   │   │   ├── cmdb/
 │   │   │   ├── documents/
@@ -477,7 +402,6 @@ DEV/
 │   │   └── lib/apiClient.ts # Shared HTTP client
 │   └── package.json
 │
-├── SETUP.md                 # PostgreSQL setup + tenant creation guide
 └── README.md
 ```
 
@@ -491,15 +415,6 @@ x-api-key: idvize-dev-key-change-me
 Authorization: Bearer <jwt>
 Content-Type: application/json
 ```
-
-### Tenant Management (`/tenants`)
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/tenants/me` | Current user's tenant info |
-| `GET` | `/tenants` | List all tenants (Manager only) |
-| `GET` | `/tenants/:tenantId` | Get one tenant |
-| `POST` | `/tenants` | Create new tenant + admin user (no restart required) |
 
 ### IAM OS Kernel (`/os`)
 
@@ -713,11 +628,11 @@ If `ANTHROPIC_API_KEY` is absent, all features work; AI narratives are omitted.
 ## Authentication & Authorisation
 
 ```bash
-# Get a token (ACME tenant)
+# Get a token
 curl -X POST http://localhost:3001/security/auth/token \
   -H "Content-Type: application/json" \
   -H "x-api-key: idvize-dev-key-change-me" \
-  -d '{"username":"admin@acme.com","password":"password123"}'
+  -d '{"username":"admin@idvize.com","password":"password123"}'
 ```
 
 ### Role Hierarchy
@@ -734,55 +649,15 @@ curl -X POST http://localhost:3001/security/auth/token \
 
 ## Demo Users
 
-### Tenant 1 — ACME Financial Services (`ten-acme`)
-
 | Email | Password | Role |
 |---|---|---|
-| `admin@acme.com` | `password123` | Manager (full access) |
-| `sarah.chen@acme.com` | `password123` | Architect |
-| `james.okafor@acme.com` | `password123` | Business Analyst |
-| `lisa.park@acme.com` | `password123` | Engineer |
-| `raj.patel@acme.com` | `password123` | Developer |
-
-### Tenant 2 — Globex Technologies (`ten-globex`)
-
-| Email | Password | Role |
-|---|---|---|
-| `admin@globex.io` | `password123` | Manager (full access) |
-| `priya.kumar@globex.io` | `password123` | Architect |
-| `tom.harris@globex.io` | `password123` | Business Analyst |
-| `anna.schmidt@globex.io` | `password123` | Engineer |
-| `wei.zhou@globex.io` | `password123` | Developer |
-
-All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own data.
+| `admin@idvize.com` | `password123` | Admin — full access |
+| `sarah.architect@idvize.com` | `password123` | Architect |
+| `james.analyst@idvize.com` | `password123` | Analyst |
+| `lisa.engineer@idvize.com` | `password123` | Engineer |
+| `raj.developer@idvize.com` | `password123` | Developer |
 
 > Development and demonstration only. Rotate all secrets before any deployment.
-
----
-
-## What's Left
-
-### Next PR: Go Backend Foundation (`feature/go-backend-foundation-devin-YYYYMMDD-HHMM`)
-
-| Task | Description |
-|---|---|
-| Go API server | Replace Node.js/Express with Go. Reuse existing PostgreSQL schema. |
-| Migrate auth to Go | `golang-jwt/jwt` + `bcrypt` for login, JWT issuance |
-| Migrate all modules | Application CRUD, controls, build, cost, integrations, maturity, documents |
-| Full PostgreSQL persistence | Move applications, controls, assessments from in-memory to PG |
-| RBAC enforcement | Wire role-based access control using the existing `roles` JSONB field |
-| OIDC preparation | Entra ID / Okta federated login support |
-
-### Other Pending Work
-
-| Task | Priority |
-|---|---|
-| Live platform adapters (Entra, SailPoint, CyberArk, Okta) | High |
-| Refresh token support | High |
-| Docker Compose setup | Medium |
-| Unit and integration test suite | High |
-| CI/CD pipeline (GitHub Actions) | Medium |
-| Frontend code-splitting | Low |
 
 ---
 
@@ -790,14 +665,13 @@ All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own dat
 
 | Area | Limitation |
 |---|---|
-| **Partial persistence** | Tenants, users, and audit logs are in PostgreSQL. Applications, controls, builds, credentials, and other modules remain in-memory and reset on restart. |
-| **Node.js backend (temporary)** | The Express backend is a temporary implementation. Target is Go/Golang. |
+| **Persistence** | All data is in-memory. Restarting the API resets all state. |
 | **Platform adapters** | All four adapters (Entra, SailPoint, CyberArk, Okta) return mock data unless live credentials are provided. Only the Entra test-connection performs a real OAuth2 call. |
 | **Identity plane** | Cross-platform identity reconciliation uses representative mock records. Real reconciliation requires live adapters. |
 | **JWT** | No refresh tokens. 8-hour TTL requires re-login. |
 | **API key** | Single static key in `.env`. |
 | **SAML** | Adapter scaffolded but not functional. |
-| **RBAC** | Role field exists in user model but enforcement is not yet wired. |
+| **Multi-tenancy** | Single-tenant only. |
 | **Bundle size** | Single JS chunk (~882 KB). No code-splitting applied. |
 | **Tests** | No unit or integration test suite. |
 
@@ -805,9 +679,8 @@ All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own dat
 
 ## Git Repository
 
-**Remote:** https://github.com/omobolu/DEV
-**Active branch:** `develop`
-**Enterprise Foundation PR:** https://github.com/omobolu/DEV/pull/10
+**Remote:** https://github.com/omobolu/Claud-IAM-Platform
+**Active branch:** `prototype`
 
 ---
 

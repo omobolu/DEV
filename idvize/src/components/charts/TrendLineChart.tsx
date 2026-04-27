@@ -15,7 +15,7 @@ interface TrendLineChartProps {
   showAvgLine?: boolean
 }
 
-export default function TrendLineChart({ data, xKey, yKey, color = '#2563eb', height = 240, unit = '', showAvgLine }: TrendLineChartProps) {
+export default function TrendLineChart({ data, xKey, yKey, color = '#6366f1', height = 240, unit = '', showAvgLine }: TrendLineChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
   const avg = showAvgLine

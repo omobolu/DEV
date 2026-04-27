@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 import Badge from '@/components/common/Badge'
-import EmptyState from '@/components/common/EmptyState'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -333,11 +332,13 @@ export default function AccessCertificationsTab() {
 
       {/* Empty state */}
       {campaigns.length === 0 && !loading && (
-        <EmptyState
-          icon={ShieldCheck}
-          title="No certification campaigns yet"
-          description="Launch a campaign to review user access against entitlements and ensure least-privilege compliance."
-        />
+        <div className="flex flex-col items-center justify-center h-48 text-center">
+          <div className="w-12 h-12 rounded-xl bg-surface-800 border border-surface-700 flex items-center justify-center mb-3">
+            <ShieldCheck size={20} className="text-faint" aria-hidden="true" />
+          </div>
+          <p className="text-sm text-muted">No certification campaigns found</p>
+          <p className="text-xs text-faint mt-1">Campaigns will appear here when created.</p>
+        </div>
       )}
 
       {/* Campaign cards */}

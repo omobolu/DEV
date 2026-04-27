@@ -27,7 +27,7 @@ interface Recommendation {
 }
 
 function levelColor(score: number): string {
-  if (score >= 81) return '#2563eb'
+  if (score >= 81) return '#6366f1'
   if (score >= 61) return '#22c55e'
   if (score >= 41) return '#eab308'
   if (score >= 21) return '#f97316'
@@ -229,7 +229,7 @@ export default function MaturityDomainDetail() {
           <h2 className="text-base font-semibold text-body mb-3">Recommendations for this Domain</h2>
           <div className="space-y-2">
             {recommendations.map((r, i) => {
-              const pc = r.priority === 'critical' ? '#ef4444' : r.priority === 'high' ? '#f97316' : r.priority === 'medium' ? '#eab308' : '#2563eb'
+              const pc = r.priority === 'critical' ? '#ef4444' : r.priority === 'high' ? '#f97316' : r.priority === 'medium' ? '#eab308' : '#6366f1'
               return (
                 <div key={i} className="rounded-lg border border-surface-600 bg-surface-800 p-4 flex gap-3">
                   <div className="w-1 rounded-full shrink-0 self-stretch" style={{ backgroundColor: pc }} />

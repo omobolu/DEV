@@ -9,7 +9,7 @@ interface KpiCardProps {
   loading?: boolean
 }
 
-export default function KpiCard({ label, value, unit = '', trend, accentColor = '#2563eb', loading = false }: KpiCardProps) {
+export default function KpiCard({ label, value, unit = '', trend, accentColor = '#6366f1', loading = false }: KpiCardProps) {
   if (loading) {
     return (
       <div className="bg-surface-800 border border-surface-700 rounded-xl p-5 flex flex-col gap-2 animate-pulse" aria-busy="true">

@@ -17,7 +17,7 @@ const EXPIRY_HOURS = 48;
 
 class ApprovalService {
 
-  async requestApproval(tenantId: string, input: {
+  requestApproval(tenantId: string, input: {
     requesterId: string;
     targetUserId?: string;
     permissionId?: PermissionId;
@@ -25,7 +25,7 @@ class ApprovalService {
     resource?: string;
     riskLevel: ApprovalRiskLevel;
     justification: string;
-  }): Promise<ApprovalRequest> {
+  }): ApprovalRequest {
     const requester = authRepository.findById(tenantId, input.requesterId);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EXPIRY_HOURS * 3600 * 1000).toISOString();
@@ -48,7 +48,7 @@ class ApprovalService {
 
     approvalRepository.save(tenantId, request);
 
-    await auditService.log({
+    auditService.log({
       tenantId,
       eventType: 'approval.requested',
       actorId: input.requesterId,
@@ -64,13 +64,13 @@ class ApprovalService {
     return request;
   }
 
-  async resolve(
+  resolve(
     tenantId: string,
     requestId: string,
     approverId: string,
     decision: 'approved' | 'rejected',
     comment?: string,
-  ): Promise<ApprovalRequest> {
+  ): ApprovalRequest {
     const request = approvalRepository.findById(tenantId, requestId);
     if (!request) throw new Error(`Approval request "${requestId}" not found`);
     if (request.status !== 'pending') throw new Error(`Request "${requestId}" is already ${request.status}`);
@@ -80,7 +80,7 @@ class ApprovalService {
       ? 'approval.grant.high_risk'
       : 'approval.grant.standard';
 
-    const authzDecision = authzService.check(approverId, tenantId, requiredPermission);
+    const authzDecision = authzService.check(approverId, requiredPermission);
     if (!authzDecision.allowed) {
       throw new Error(`Approver lacks "${requiredPermission}": ${authzDecision.reason}`);
     }
@@ -97,7 +97,7 @@ class ApprovalService {
 
     approvalRepository.save(tenantId, request);
 
-    await auditService.log({
+    auditService.log({
       tenantId,
       eventType: decision === 'approved' ? 'approval.granted' : 'approval.rejected',
       actorId: approverId,
@@ -132,7 +132,7 @@ class ApprovalService {
    * Expire all pending requests past their expiresAt timestamp.
    * Call periodically (e.g. via a cron job or on-request).
    */
-  async expireStale(tenantId: string): Promise<number> {
+  expireStale(tenantId: string): number {
     const now = new Date().toISOString();
     const stale = approvalRepository.findByStatus(tenantId, 'pending')
       .filter(r => r.expiresAt < now);
@@ -142,7 +142,7 @@ class ApprovalService {
       r.updatedAt = now;
       approvalRepository.save(tenantId, r);
 
-      await auditService.log({
+      auditService.log({
         tenantId,
         eventType: 'approval.expired',
         actorId: 'system',

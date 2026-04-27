@@ -71,9 +71,9 @@ router.get('/Users', requirePermission('security.manage.scim'), (req: Request, r
   res.json(scimService.listUsers(req.tenantId!, filter));
 });
 
-router.post('/Users', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.post('/Users', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const user = await scimService.createUser(req.tenantId!, req.body, actorId);
+  const user = scimService.createUser(req.tenantId!, req.body, actorId);
   res.status(201).json(user);
 });
 
@@ -84,30 +84,30 @@ router.get('/Users/:id', requirePermission('security.manage.scim'), (req: Reques
   res.json(user);
 });
 
-router.put('/Users/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.put('/Users/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const user = await scimService.updateUser(req.tenantId!, id, req.body, actorId);
+  const user = scimService.updateUser(req.tenantId!, id, req.body, actorId);
   if (!user) { scimError(res, 404, `User ${id} not found`); return; }
   res.json(user);
 });
 
-router.patch('/Users/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.patch('/Users/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
   const body = req.body;
   if (!body.schemas?.includes(SCIM_PATCH_SCHEMA)) {
     scimError(res, 400, 'Missing SCIM PatchOp schema'); return;
   }
-  const user = await scimService.patchUser(req.tenantId!, id, body, actorId);
+  const user = scimService.patchUser(req.tenantId!, id, body, actorId);
   if (!user) { scimError(res, 404, `User ${id} not found`); return; }
   res.json(user);
 });
 
-router.delete('/Users/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.delete('/Users/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const ok = await scimService.deprovisionUser(req.tenantId!, id, actorId);
+  const ok = scimService.deprovisionUser(req.tenantId!, id, actorId);
   if (!ok) { scimError(res, 404, `User ${id} not found`); return; }
   res.status(204).send();
 });
@@ -118,9 +118,9 @@ router.get('/Groups', requirePermission('security.manage.scim'), (req: Request, 
   res.json(scimService.listGroups(req.tenantId!));
 });
 
-router.post('/Groups', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.post('/Groups', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const group = await scimService.createGroup(req.tenantId!, req.body, actorId);
+  const group = scimService.createGroup(req.tenantId!, req.body, actorId);
   res.status(201).json(group);
 });
 
@@ -131,26 +131,26 @@ router.get('/Groups/:id', requirePermission('security.manage.scim'), (req: Reque
   res.json(group);
 });
 
-router.put('/Groups/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.put('/Groups/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const group = await scimService.updateGroup(req.tenantId!, id, req.body, actorId);
+  const group = scimService.updateGroup(req.tenantId!, id, req.body, actorId);
   if (!group) { scimError(res, 404, `Group ${id} not found`); return; }
   res.json(group);
 });
 
-router.patch('/Groups/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.patch('/Groups/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const group = await scimService.updateGroup(req.tenantId!, id, req.body, actorId);
+  const group = scimService.updateGroup(req.tenantId!, id, req.body, actorId);
   if (!group) { scimError(res, 404, `Group ${id} not found`); return; }
   res.json(group);
 });
 
-router.delete('/Groups/:id', requirePermission('security.manage.scim'), async (req: Request, res: Response) => {
+router.delete('/Groups/:id', requirePermission('security.manage.scim'), (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const actorId = req.user?.sub ?? 'scim-provisioner';
-  const ok = await scimService.deleteGroup(req.tenantId!, id, actorId);
+  const ok = scimService.deleteGroup(req.tenantId!, id, actorId);
   if (!ok) { scimError(res, 404, `Group ${id} not found`); return; }
   res.status(204).send();
 });

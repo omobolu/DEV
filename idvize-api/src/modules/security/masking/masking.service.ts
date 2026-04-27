@@ -51,13 +51,12 @@ class MaskingService {
    * Mask a single object according to the schema and the caller's permissions.
    * Returns a deep clone with restricted fields replaced by REDACTED.
    */
-  async maskObject<T extends Record<string, unknown>>(
+  maskObject<T extends Record<string, unknown>>(
     obj: T,
     userId: string,
-    tenantId: string,
     schemaName: string,
     requestId?: string,
-  ): Promise<T> {
+  ): T {
     const schema = FIELD_CLASSIFICATION_SCHEMAS[schemaName];
     if (!schema) return obj;
 
@@ -65,7 +64,7 @@ class MaskingService {
     let masked = false;
 
     for (const rule of schema) {
-      const decision = authzService.check(userId, tenantId, rule.permission);
+      const decision = authzService.check(userId, rule.permission);
       if (!decision.allowed) {
         for (const field of rule.fields) {
           this.setNestedField(clone, field, REDACTED);
@@ -75,7 +74,7 @@ class MaskingService {
     }
 
     if (masked) {
-      await auditService.log({
+      auditService.log({
         eventType: 'authz.field_masked',
         actorId: userId,
         actorName: userId,
@@ -92,25 +91,24 @@ class MaskingService {
   /**
    * Mask an array of objects — applies maskObject to each element.
    */
-  async maskArray<T extends Record<string, unknown>>(
+  maskArray<T extends Record<string, unknown>>(
     items: T[],
     userId: string,
-    tenantId: string,
     schemaName: string,
     requestId?: string,
-  ): Promise<T[]> {
-    return Promise.all(items.map(item => this.maskObject(item, userId, tenantId, schemaName, requestId)));
+  ): T[] {
+    return items.map(item => this.maskObject(item, userId, schemaName, requestId));
   }
 
   /**
    * Check if a user can see a specific field.
    */
-  canSeeField(userId: string, tenantId: string, schemaName: string, fieldPath: string): boolean {
+  canSeeField(userId: string, schemaName: string, fieldPath: string): boolean {
     const schema = FIELD_CLASSIFICATION_SCHEMAS[schemaName];
     if (!schema) return true;
     for (const rule of schema) {
       if (rule.fields.includes(fieldPath)) {
-        return authzService.check(userId, tenantId, rule.permission).allowed;
+        return authzService.check(userId, rule.permission).allowed;
       }
     }
     return true;
