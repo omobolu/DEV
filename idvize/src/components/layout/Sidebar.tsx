@@ -29,8 +29,11 @@ const SECTION_SYSTEM = [
 
 /**
  * Identity Domains — organized by business audience (B2E / B2B / B2C),
- * not by IAM acronym. Sub-paths use parent route wildcards (`iga/*`, `ciam/*`)
- * so each leaf has its own URL signature for active-state highlighting.
+ * not by IAM acronym. Each domain shows the capabilities relevant to it.
+ *
+ * Sub-paths use parent route wildcards (`iga/*`, `ciam/*`) so each leaf
+ * has its own URL signature for active-state highlighting without adding
+ * new pages — existing parent components render at every sub-path.
  */
 const IDENTITY_DOMAINS = [
   {
@@ -48,10 +51,10 @@ const IDENTITY_DOMAINS = [
     sublabel: 'Vendors & contractors · B2B',
     icon: Briefcase,
     items: [
-      { icon: UserPlus,       label: 'Partner Onboarding',  path: '/iga/partners/onboarding' },
-      { icon: Network,        label: 'Federated Access',    path: '/access-management/partners' },
-      { icon: Workflow,       label: 'Access Provisioning', path: '/iga/partners/provisioning' },
-      { icon: ClipboardCheck, label: 'Partner Governance',  path: '/iga/partners/governance' },
+      { icon: UserPlus,       label: 'Partner Onboarding',  path: '/iga/partners/onboarding',   color: '#2563eb' },
+      { icon: Network,        label: 'Federated Access',    path: '/access-management/partners', color: '#06b6d4' },
+      { icon: Workflow,       label: 'Access Provisioning', path: '/iga/partners/provisioning', color: '#475569' },
+      { icon: ClipboardCheck, label: 'Partner Governance',  path: '/iga/partners/governance',   color: '#16a34a' },
     ],
   },
   {
@@ -59,13 +62,13 @@ const IDENTITY_DOMAINS = [
     sublabel: 'External users · B2C',
     icon: UserRound,
     items: [
-      { icon: UserPlus,   label: 'Identity Registration',         path: '/ciam/registration' },
-      { icon: BadgeCheck, label: 'Identity Verification',         path: '/ciam/verification' },
-      { icon: KeyRound,   label: 'Authentication',                path: '/ciam/authentication' },
-      { icon: KeySquare,  label: 'Password & Account Management', path: '/ciam/accounts' },
-      { icon: UserCheck,  label: 'Customer Access',               path: '/ciam/access' },
-      { icon: Lock,       label: 'Consent & Privacy',             path: '/ciam/consent' },
-      { icon: Eye,        label: 'Fraud & Risk',                  path: '/ciam/fraud' },
+      { icon: UserPlus,       label: 'Identity Registration',         path: '/ciam/registration',   color: '#2563eb' },
+      { icon: BadgeCheck,     label: 'Identity Verification',         path: '/ciam/verification',   color: '#06b6d4' },
+      { icon: KeyRound,       label: 'Authentication',                path: '/ciam/authentication', color: '#475569' },
+      { icon: KeySquare,      label: 'Password & Account Management', path: '/ciam/accounts',       color: '#d97706' },
+      { icon: UserCheck,      label: 'Customer Access',               path: '/ciam/access',         color: '#16a34a' },
+      { icon: Lock,           label: 'Consent & Privacy',             path: '/ciam/consent',        color: '#475569' },
+      { icon: Eye,            label: 'Fraud & Risk',                  path: '/ciam/fraud',          color: '#dc2626' },
     ],
   },
 ] as const
