@@ -6,8 +6,12 @@ import { applicationRepository } from '../application/application.repository';
 import { IamPosture } from '../application/application.types';
 import { buildService } from '../build/build.service';
 import { approvalService } from '../security/approval/approval.service';
+import { tenantService } from '../tenant/tenant.service';
+import { emailService } from '../email/email.service';
+import { authService } from '../security/auth/auth.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
@@ -389,15 +393,14 @@ const PILLAR_FORM_FIELDS: Record<string, Array<{ label: string; hint: string; re
   ],
 };
 
-// ── POST /controls/app/:appId/:controlId/remediate — trigger remediation ──
-// Creates:  (1) approval request — represents email sent to app owner + technical admin
-//           (2) build job — the AI agent configuration task (pending until info gathered)
-// Returns:  both IDs, who was notified, and the form fields the agent will need filled.
-router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Response) => {
+// ── POST /controls/app/:appId/:controlId/remediate — sequential approval orchestration ──
+// Reads tenant settings → creates approvals for required roles → creates build in AWAITING_APPROVAL
+// On all approvals satisfied → fires emails + transitions build to AWAITING_FORM
+router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute.guided'), async (req: Request, res: Response) => {
   const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
-  const actor     = (req as any).user as { userId?: string; name?: string } | undefined;
+  const actor     = (req as any).user as { userId?: string; name?: string; sub?: string } | undefined;
 
   const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
@@ -412,17 +415,15 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
   }
 
   try {
-    // Step 1 — Create approval (simulates email to Business Owner + Technical Admin)
-    const approval = await approvalService.requestApproval(tenantId, {
-      requesterId:   actor?.userId ?? 'system',
-      action:        `IAM Configuration Request — ${ctrl.name} on ${app.name}`,
-      resource:      app.name,
-      riskLevel:     (app.riskTier === 'critical' || app.riskTier === 'high') ? 'high_risk' : 'standard',
-      justification: `Control gap detected: ${ctrl.name} (${controlId}) is not implemented on ${app.name}. ` +
-                     `Business owner and technical admin have been notified to provide configuration information.`,
-    });
+    // Step 1 — Read tenant remediation settings
+    const tenant = await tenantService.getTenant(tenantId);
+    const rem = tenant?.settings?.remediation;
+    const remediationSettings = {
+      requireIamManagerApproval: rem?.requireIamManagerApproval ?? true,
+      requireAppOwnerApproval: rem?.requireAppOwnerApproval ?? true,
+    };
 
-    // Step 2 — Create build job (AI agent configuration task — queued until info received)
+    // Step 2 — Create build job first (so we can use buildId to scope approvals)
     const buildTypeMap: Record<string, string> = {
       AM: 'sso_integration', IGA: 'iga_onboarding', PAM: 'pam_onboarding', CIAM: 'ciam_onboarding',
     };
@@ -436,31 +437,398 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
       platform:   platformMap[ctrl.pillar] as any,
       assignedTo: actor?.name ?? 'IAM Team',
     });
+    const buildId = (job as any).buildId as string;
 
-    // Who gets notified
-    const sentTo = [
-      { role: 'Business Owner',  name: app.owner,     email: app.ownerEmail },
-      { role: 'Technical Admin', name: 'IAM Team',    email: 'iam-team@corp.com' },
-    ];
-    if (app.supportContact) sentTo.push({ role: 'Support Contact', name: app.supportContact, email: app.supportContact });
+    // Step 3 — Create approvals scoped to this specific build (prevents stale approval contamination)
+    const resourceKey = `${appId}::${controlId}::${buildId}`;
+    const approvals: Array<{ requestId: string; role: string; status: string }> = [];
+
+    if (remediationSettings.requireIamManagerApproval) {
+      const approval = await approvalService.requestApproval(tenantId, {
+        requesterId:   actor?.sub ?? actor?.userId ?? 'system',
+        action:        `IAM Manager Approval — ${ctrl.name} on ${app.name}`,
+        resource:      resourceKey,
+        riskLevel:     (app.riskTier === 'critical' || app.riskTier === 'high') ? 'high_risk' : 'standard',
+        justification: `Remediation requires IAM Manager approval per tenant policy. ` +
+                       `Control gap: ${ctrl.name} (${controlId}) on ${app.name}. Build: ${buildId}.`,
+        approvalDomain: 'remediation',
+      });
+      approvals.push({ requestId: approval.requestId, role: 'iam_manager', status: 'pending' });
+    }
+
+    if (remediationSettings.requireAppOwnerApproval) {
+      const approval = await approvalService.requestApproval(tenantId, {
+        requesterId:   actor?.sub ?? actor?.userId ?? 'system',
+        action:        `App Owner Approval — ${ctrl.name} on ${app.name}`,
+        resource:      resourceKey,
+        riskLevel:     'standard',
+        justification: `Remediation requires App Owner approval per tenant policy. ` +
+                       `Control gap: ${ctrl.name} (${controlId}) on ${app.name}. Owner: ${app.owner}. Build: ${buildId}.`,
+        approvalDomain: 'remediation',
+      });
+      approvals.push({ requestId: approval.requestId, role: 'app_owner', status: 'pending' });
+    }
+
+    // Transition to AWAITING_APPROVAL if approvals needed (must go through ASSIGNED first per state machine)
+    if (approvals.length > 0) {
+      buildService.transition(tenantId, buildId, 'ASSIGNED', 'system',
+        `Assigned for remediation — ${approvals.length} approval(s) required`);
+      buildService.transition(tenantId, buildId, 'AWAITING_APPROVAL', 'system',
+        `Waiting for ${approvals.length} approval(s): ${approvals.map(a => a.role).join(', ')}`);
+    } else {
+      // No approvals required — chain through to AWAITING_FORM so the build isn't stranded
+      buildService.transition(tenantId, buildId, 'ASSIGNED', 'system',
+        `Assigned for remediation — no approvals required`);
+      buildService.transition(tenantId, buildId, 'AWAITING_APPROVAL', 'system',
+        `No approvals required — auto-advancing`);
+      buildService.transition(tenantId, buildId, 'AWAITING_FORM', 'system',
+        `All approvals satisfied (none required) — ready for form submission`);
+    }
+
+    // Who gets notified — suppress invalid/empty recipient emails
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const sentTo: Array<{ role: string; name: string; email: string }> = [];
+    if (app.ownerEmail && emailRe.test(app.ownerEmail)) {
+      sentTo.push({ role: 'Business Owner', name: app.owner, email: app.ownerEmail });
+    }
+    if (app.technicalSme && app.technicalSmeEmail && emailRe.test(app.technicalSmeEmail)) {
+      sentTo.push({ role: 'Technical SME', name: app.technicalSme, email: app.technicalSmeEmail });
+    }
+    if (app.supportContact && emailRe.test(app.supportContact)) {
+      sentTo.push({ role: 'Support Contact', name: app.supportContact, email: app.supportContact });
+    }
 
     res.json({
       success: true,
       data: {
-        approvalId:  approval.requestId,
-        buildId:     (job as any).buildId,
+        approvals,
+        buildId,
+        buildState:  approvals.length > 0 ? 'AWAITING_APPROVAL' : 'AWAITING_FORM',
         controlId,
         controlName: ctrl.name,
         pillar:      ctrl.pillar,
         appName:     app.name,
         sentTo,
         formFields:  PILLAR_FORM_FIELDS[ctrl.pillar] ?? [],
-        nextSteps: [
-          `Email sent to ${sentTo.map(r => r.name).join(' and ')} with configuration form`,
-          `AI agent (build ${(job as any).buildId}) queued — will start once form is submitted`,
-          `Engineer review approval (${approval.requestId}) will be triggered after configuration completes`,
-        ],
-        message: `Configuration request sent for ${ctrl.name} on ${app.name}`,
+        nextSteps: approvals.length > 0
+          ? [
+              `${approvals.length} approval(s) required before execution`,
+              ...approvals.map(a => `${a.role} approval pending (${a.requestId})`),
+              `Build ${buildId} will transition to AWAITING_FORM once all approvals are granted`,
+            ]
+          : [
+              `No approvals required — build proceeding directly`,
+              `AI agent (build ${buildId}) queued — will start once form is submitted`,
+            ],
+        message: approvals.length > 0
+          ? `Remediation initiated for ${ctrl.name} on ${app.name} — awaiting ${approvals.length} approval(s)`
+          : `Remediation initiated for ${ctrl.name} on ${app.name} — no approvals required`,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+// ── POST /controls/app/:appId/:controlId/remediate/approve — approve a remediation ──
+// Resolves an approval; when all approvals for a build are satisfied, fires emails + transitions to AWAITING_FORM
+router.post('/app/:appId/:controlId/remediate/approve', requirePermission('approval.grant.standard'), async (req: Request, res: Response) => {
+  const tenantId   = req.tenantId!;
+  const appId      = req.params.appId     as string;
+  const controlId  = req.params.controlId as string;
+  const actor      = (req as any).user as { sub?: string; name?: string; userId?: string } | undefined;
+  const { approvalId, decision } = req.body as { approvalId: string; decision: 'approved' | 'rejected' };
+
+  if (!approvalId || !decision) {
+    res.status(400).json({ success: false, error: 'approvalId and decision (approved|rejected) required', timestamp: new Date().toISOString() });
+    return;
+  }
+  if (decision !== 'approved' && decision !== 'rejected') {
+    res.status(400).json({ success: false, error: '"decision" must be "approved" or "rejected"', timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const app = applicationRepository.findById(tenantId, appId);
+  if (!app) {
+    res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  try {
+    // Step 1 — Load approval BEFORE resolving to validate it belongs to this app/control/build
+    const pendingApproval = approvalService.getRequest(tenantId, approvalId);
+    if (!pendingApproval) {
+      res.status(404).json({ success: false, error: `Approval ${approvalId} not found`, timestamp: new Date().toISOString() });
+      return;
+    }
+    if (pendingApproval.status !== 'pending') {
+      res.status(409).json({ success: false, error: `Approval ${approvalId} is already ${pendingApproval.status}`, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Step 2 — Derive and validate buildId from approval's resource key (format: appId::controlId::buildId)
+    const resourceParts = (pendingApproval.resource ?? '').split('::');
+    if (resourceParts.length !== 3) {
+      res.status(400).json({ success: false, error: `Approval ${approvalId} has malformed resource key`, timestamp: new Date().toISOString() });
+      return;
+    }
+    const [resourceAppId, resourceControlId, resourceBuildId] = resourceParts;
+    if (resourceAppId !== appId || resourceControlId !== controlId) {
+      res.status(403).json({
+        success: false,
+        error: `Approval ${approvalId} does not belong to ${appId}/${controlId} — it targets ${resourceAppId}/${resourceControlId}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 3 — Validate the build exists and is still in AWAITING_APPROVAL
+    const targetBuild = buildService.getBuild(tenantId, resourceBuildId);
+    if (!targetBuild) {
+      res.status(404).json({ success: false, error: `Build ${resourceBuildId} not found`, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Step 4 — Enforce role-specific approval eligibility
+    const actorUserId = actor?.sub ?? actor?.userId ?? 'system';
+    const isAppOwnerApproval = (pendingApproval.action ?? '').startsWith('App Owner Approval');
+    if (isAppOwnerApproval) {
+      const approverUser = authService.getUser(tenantId, actorUserId);
+      const approverEmail = approverUser?.email?.toLowerCase();
+      const ownerEmail = app.ownerEmail?.toLowerCase();
+      const isPlatformAdmin = approverUser?.roles?.includes('PlatformAdmin') ?? false;
+      if (!isPlatformAdmin && (!ownerEmail || !approverEmail || approverEmail !== ownerEmail)) {
+        res.status(403).json({
+          success: false,
+          error: ownerEmail
+            ? `App Owner approval can only be granted by the application owner (${app.owner}) or a PlatformAdmin`
+            : `App Owner approval requires a PlatformAdmin — application has no owner email configured`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    }
+
+    // Step 5 — Reject stale approvals: build must still be AWAITING_APPROVAL before mutation
+    if (targetBuild.state !== 'AWAITING_APPROVAL') {
+      res.status(409).json({
+        success: false,
+        error: `Build ${resourceBuildId} is in ${targetBuild.state} state — approval can no longer be resolved`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 6 — Validate build ownership: build must belong to this route's app/control
+    if (targetBuild.appId !== appId || targetBuild.controlGap !== controlId) {
+      res.status(403).json({
+        success: false,
+        error: `Build ${resourceBuildId} does not belong to ${appId}/${controlId}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 7 — Resolve the approval now that binding + eligibility + build state are validated
+    const approval = await approvalService.resolveApproval(tenantId, approvalId, {
+      decision,
+      decidedBy: actorUserId,
+      reason: `${decision} by ${actor?.name ?? 'system'} for ${controlId} on ${app.name} (build ${resourceBuildId})`,
+    });
+
+    if (decision === 'rejected') {
+      if (targetBuild.state === 'AWAITING_APPROVAL') {
+        try {
+          buildService.transition(tenantId, resourceBuildId, 'FAILED', actor?.sub ?? 'system',
+            `Approval ${approvalId} rejected by ${actor?.name ?? 'system'} — remediation cancelled`);
+        } catch (transErr) {
+          console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
+        }
+        // Cancel any remaining pending approvals for this build (uses cancelBySystem to bypass authz)
+        const rejResourceKey = `${appId}::${controlId}::${resourceBuildId}`;
+        const siblingApprovals = await approvalService.listByResource(tenantId, rejResourceKey);
+        for (const sib of siblingApprovals) {
+          if (sib.status === 'pending' && sib.requestId !== approvalId) {
+            await approvalService.cancelBySystem(tenantId, sib.requestId,
+              `Auto-cancelled: sibling approval ${approvalId} was rejected`);
+          }
+        }
+      }
+      res.json({
+        success: true,
+        data: { approvalId, decision, status: 'rejected', buildId: resourceBuildId, message: `Approval ${approvalId} rejected — build cancelled` },
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Check approvals scoped to this specific build (prevents stale approvals from prior attempts)
+    const resourceKey = `${appId}::${controlId}::${resourceBuildId}`;
+    const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
+    const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
+    const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
+    const approvedApprovals = allApprovals.filter(a => a.status === 'approved');
+
+    if (approvedApprovals.length === allApprovals.length && allApprovals.length > 0) {
+      // All approvals satisfied — fire emails + transition build
+      const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
+      const actorId = actor?.sub ?? actor?.userId ?? 'system';
+      const actorName = actor?.name ?? 'System';
+      let transitioned = false;
+      try {
+        buildService.transition(tenantId, resourceBuildId, 'AWAITING_FORM', actorId,
+          `All approvals granted — transitioning to AWAITING_FORM`);
+        transitioned = true;
+      } catch (transErr) {
+        console.warn(`[remediate/approve] Build transition failed: ${(transErr as Error).message}`);
+      }
+
+      if (transitioned) {
+        // Fire email notification only if build actually transitioned (prevents duplicate emails on concurrent approvals)
+        emailService.sendAgentNotification(tenantId, {
+          agentId: 'remediation-orchestrator',
+          controlId,
+          applicationId: appId,
+          applicationName: app.name,
+          notificationType: 'sso-remediation-plan',
+          recipients: [
+            ...(app.ownerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.ownerEmail) ? [{ email: app.ownerEmail, name: app.owner }] : []),
+            ...(app.technicalSmeEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.technicalSmeEmail) ? [{ email: app.technicalSmeEmail, name: app.technicalSme ?? 'Technical SME' }] : []),
+          ],
+          additionalData: {
+            status: 'all_approvals_granted',
+            controlName: ctrl?.name ?? controlId,
+            pillar: ctrl?.pillar ?? 'AM',
+            outcome: 'ALL_APPROVALS_GRANTED',
+            riskLevel: (app.riskTier === 'critical' || app.riskTier === 'high') ? 'High' : 'Standard',
+            remediationSteps: 'Pending technical data collection — form will be sent to app owner and technical SME.',
+            estimatedTimeline: 'To be determined after form submission',
+          },
+        }, actorId, actorName).catch(() => {});
+      }
+
+      res.json({
+        success: true,
+        data: {
+          approvalId,
+          decision,
+          allApprovalsSatisfied: true,
+          buildTransition: transitioned ? 'AWAITING_FORM' : null,
+          buildId: resourceBuildId,
+          message: transitioned
+            ? `All approvals granted — build transitioning to AWAITING_FORM. Emails sent to ${app.owner}${app.technicalSme ? ` and ${app.technicalSme}` : ''}.`
+            : `All approvals granted, but build transition failed (possibly already handled by a concurrent request).`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      // If rejected/cancelled approvals exist, the build can never complete — fail it and clean up
+      if (rejectedApprovals.length > 0 || (pendingApprovals.length === 0 && approvedApprovals.length < allApprovals.length)) {
+        try {
+          buildService.transition(tenantId, resourceBuildId, 'FAILED', actor?.sub ?? 'system',
+            `Build cannot proceed — ${rejectedApprovals.length} approval(s) rejected/cancelled`);
+        } catch (_) { /* already transitioned */ }
+        // Cancel remaining pending approvals
+        for (const pend of pendingApprovals) {
+          await approvalService.cancelBySystem(tenantId, pend.requestId,
+            `Auto-cancelled: build failed due to rejected sibling approvals`);
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          approvalId,
+          decision,
+          allApprovalsSatisfied: false,
+          pendingCount: pendingApprovals.length,
+          rejectedCount: rejectedApprovals.length,
+          buildId: resourceBuildId,
+          message: rejectedApprovals.length > 0
+            ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build failed.`
+            : pendingApprovals.length > 0
+              ? `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`
+              : `Approval ${approvalId} granted but some approvals are expired/cancelled. Build failed.`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (err: any) {
+    const msg: string = err.message ?? '';
+    const status = msg.includes('lacks') || msg.includes('permission') || msg.includes('not authorized') ? 403
+      : msg.includes('not found') ? 404
+      : msg.includes('already') ? 409
+      : 500;
+    res.status(status).json({ success: false, error: msg, timestamp: new Date().toISOString() });
+  }
+});
+
+// ── GET /controls/app/:appId/:controlId/remediate/status — poll approval state ──
+// Accepts optional ?buildId= query param to target a specific build; otherwise uses latest
+router.get('/app/:appId/:controlId/remediate/status', requirePermission('build.view'), async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const appId    = req.params.appId     as string;
+  const controlId = req.params.controlId as string;
+  const queryBuildId = req.query.buildId as string | undefined;
+
+  const app = applicationRepository.findById(tenantId, appId);
+  if (!app) {
+    res.status(404).json({ success: false, error: `Application ${appId} not found`, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  try {
+    const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
+    let targetBuild;
+    if (queryBuildId) {
+      targetBuild = builds.find(b => b.buildId === queryBuildId);
+      if (!targetBuild) {
+        res.status(404).json({ success: false, error: `Build ${queryBuildId} not found for ${appId}/${controlId}`, timestamp: new Date().toISOString() });
+        return;
+      }
+    } else {
+      targetBuild = builds.find(b => b.state === 'AWAITING_APPROVAL') ?? builds[builds.length - 1];
+    }
+    const resourceKey = targetBuild
+      ? `${appId}::${controlId}::${targetBuild.buildId}`
+      : `${appId}::${controlId}`;
+    const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
+    const pending  = allApprovals.filter(a => a.status === 'pending');
+    const approved = allApprovals.filter(a => a.status === 'approved');
+    const rejected = allApprovals.filter(a => a.status === 'rejected');
+
+    // Only expose approval details (IDs, approver metadata) to users with approval.grant.standard
+    const actor = (req as any).user as { sub?: string } | undefined;
+    const callerUser = actor?.sub ? authService.getUser(tenantId, actor.sub) : undefined;
+    const canActOnApprovals = callerUser?.roles?.some(
+      (r: string) => ['PlatformAdmin', 'Manager', 'Architect'].includes(r),
+    ) ?? false;
+
+    res.json({
+      success: true,
+      data: {
+        appId,
+        controlId,
+        appName: app.name,
+        buildId: targetBuild?.buildId,
+        buildState: targetBuild?.state,
+        totalApprovals: allApprovals.length,
+        pending: pending.length,
+        approved: approved.length,
+        rejected: rejected.length,
+        allSatisfied: approved.length === allApprovals.length && allApprovals.length > 0,
+        approvals: canActOnApprovals
+          ? allApprovals.map(a => ({
+              requestId: a.requestId,
+              action: a.action,
+              status: a.status,
+              decidedBy: a.approverId,
+              decidedAt: a.resolvedAt,
+            }))
+          : allApprovals.map(a => ({
+              status: a.status,
+            })),
       },
       timestamp: new Date().toISOString(),
     });

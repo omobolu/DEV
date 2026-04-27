@@ -89,6 +89,9 @@ export class ApplicationService {
       appType: data.appType ?? 'unknown',
       tags: data.tags ?? [],
       source: 'manual',
+      technicalSme: data.technicalSme ?? '',
+      technicalSmeEmail: data.technicalSmeEmail ?? '',
+      supportContact: data.supportContact ?? '',
       status: data.status ?? 'active',
       createdAt: now,
       updatedAt: now,
@@ -99,6 +102,15 @@ export class ApplicationService {
     applicationRepository.registerDedupeKey(tenantId, dedupeKey, app.appId);
     applicationRepository.save(tenantId, enriched);
     return enriched;
+  }
+
+  updateFields(tenantId: string, appId: string, fields: Partial<Pick<Application,
+    'technicalSme' | 'technicalSmeEmail' | 'owner' | 'ownerEmail' | 'supportContact' | 'department'
+  >>): Application | null {
+    return applicationRepository.update(tenantId, appId, {
+      ...fields,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   getApplication(tenantId: string, appId: string): Application | undefined {

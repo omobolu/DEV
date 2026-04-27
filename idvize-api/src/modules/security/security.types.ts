@@ -85,8 +85,9 @@ export type PermissionId =
   | 'secrets.rotate'
   | 'secrets.approve'
   | 'secrets.manage.provider'
-  // Tenant management (PlatformAdmin only)
+  // Tenant management
   | 'tenants.manage'
+  | 'tenants.settings.update'
   // Risk Engine
   | 'risks.view'
   // Agents
@@ -173,6 +174,7 @@ export interface GroupMapping {
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
 export type ApprovalRiskLevel = 'standard' | 'high_risk';
+export type ApprovalDomain = 'generic' | 'remediation';
 
 export interface ApprovalRequest {
   requestId: string;
@@ -183,6 +185,7 @@ export interface ApprovalRequest {
   action: string;
   resource?: string;
   riskLevel: ApprovalRiskLevel;
+  approvalDomain: ApprovalDomain;
   status: ApprovalStatus;
   justification: string;
   approverId?: string;
@@ -222,10 +225,12 @@ export type AuditEventType =
   | 'approval.granted'
   | 'approval.rejected'
   | 'approval.expired'
+  | 'approval.cancelled'
   | 'policy.created'
   | 'policy.updated'
   | 'policy.deleted'
   | 'secret.accessed'
+  | 'application.updated'
   | 'tenant.created'
   | 'tenant.updated'
   | 'tenant.suspended'

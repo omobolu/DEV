@@ -19,8 +19,19 @@ function getEncryptionKey(): Buffer {
   if (envKey && Buffer.byteLength(envKey, 'hex') === 32) {
     return Buffer.from(envKey, 'hex');
   }
-  // Dev fallback — deterministic key derived from JWT_SIGNING_SECRET or static dev key
-  const fallback = process.env.JWT_SIGNING_SECRET ?? 'idvize-dev-smtp-key-do-not-use-in-production';
+  // In production, require a valid 32-byte SMTP_ENCRYPTION_KEY — fail closed
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+  if (isProduction) {
+    throw new Error(
+      'SMTP_ENCRYPTION_KEY is missing or invalid. A valid hex-encoded 32-byte key is required in production. ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+  }
+  // Dev/test fallback — deterministic key derived from JWT_SIGNING_SECRET
+  const fallback = process.env.JWT_SIGNING_SECRET;
+  if (!fallback) {
+    throw new Error('Neither SMTP_ENCRYPTION_KEY nor JWT_SIGNING_SECRET is set — cannot encrypt SMTP credentials');
+  }
   const { createHash } = require('crypto') as typeof import('crypto');
   return createHash('sha256').update(fallback).digest();
 }
@@ -38,7 +49,11 @@ function encryptPassword(plaintext: string): string {
 function decryptPassword(encrypted: string): string {
   const parts = encrypted.split(':');
   if (parts.length !== 3) {
-    // Legacy plaintext — return as-is (migration path)
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+    if (isProduction) {
+      throw new Error('Legacy plaintext SMTP credentials are not allowed in production — re-save config to encrypt');
+    }
+    // Dev/test: legacy plaintext — return as-is (migration path)
     return encrypted;
   }
   const [ivHex, authTagHex, ciphertextHex] = parts;
@@ -72,6 +87,7 @@ class EmailRepository {
         updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_by       TEXT NOT NULL
       );
+      ALTER TABLE email_config ADD COLUMN IF NOT EXISTS allow_self_signed BOOLEAN NOT NULL DEFAULT false;
     `);
   }
 

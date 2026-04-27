@@ -66,6 +66,7 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   { permissionId: 'secrets.manage.provider',  module: 'secrets',      action: 'manage.provider',     description: 'Configure vault provider connections and settings',         riskLevel: 'high',   requiresApproval: true },
   // Tenant management
   { permissionId: 'tenants.manage',           module: 'tenants',      action: 'manage',              description: 'Create, list, and manage tenant organizations (PlatformAdmin only)', riskLevel: 'high', requiresApproval: true },
+  { permissionId: 'tenants.settings.update', module: 'tenants',      action: 'settings.update',     description: 'Update tenant settings such as remediation workflow configuration', riskLevel: 'medium', requiresApproval: false },
   // Risk Engine
   { permissionId: 'risks.view',              module: 'risks',        action: 'view',                description: 'View IAM risk assessments across applications',                    riskLevel: 'low',  requiresApproval: false },
   // Agents
@@ -101,7 +102,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'security.view.audit', 'security.manage.access', 'security.manage.scim',
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
-    'tenants.manage',
+    'tenants.manage', 'tenants.settings.update',
     'risks.view',
     'agents.invoke',
     'email.configure', 'email.send',
@@ -119,6 +120,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'security.view.audit', 'security.manage.access', 'security.manage.scim',
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
+    'tenants.settings.update',
     'risks.view',
     'agents.invoke',
     'email.configure', 'email.send',

@@ -7,7 +7,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { ApprovalRequest, ApprovalRiskLevel, PermissionId } from '../security.types';
+import { ApprovalRequest, ApprovalDomain, ApprovalRiskLevel, PermissionId } from '../security.types';
 import { approvalRepository } from './approval.repository';
 import { authzService } from '../authz/authz.service';
 import { authRepository } from '../auth/auth.repository';
@@ -25,6 +25,7 @@ class ApprovalService {
     resource?: string;
     riskLevel: ApprovalRiskLevel;
     justification: string;
+    approvalDomain?: ApprovalDomain;
   }): Promise<ApprovalRequest> {
     const requester = authRepository.findById(tenantId, input.requesterId);
     const now = new Date();
@@ -39,6 +40,7 @@ class ApprovalService {
       action: input.action,
       resource: input.resource,
       riskLevel: input.riskLevel,
+      approvalDomain: input.approvalDomain ?? 'generic',
       status: 'pending',
       justification: input.justification,
       expiresAt,
@@ -126,6 +128,47 @@ class ApprovalService {
 
   getRequest(tenantId: string, requestId: string): ApprovalRequest | undefined {
     return approvalRepository.findById(tenantId, requestId);
+  }
+
+  listByResource(tenantId: string, resource: string): ApprovalRequest[] {
+    return approvalRepository.findAll(tenantId).filter(r => r.resource === resource);
+  }
+
+  async resolveApproval(tenantId: string, requestId: string, opts: {
+    decision: 'approved' | 'rejected';
+    decidedBy: string;
+    reason?: string;
+  }): Promise<ApprovalRequest> {
+    return this.resolve(tenantId, requestId, opts.decidedBy, opts.decision, opts.reason);
+  }
+
+  /**
+   * System-initiated cancellation — bypasses authz check.
+   * Used when a sibling approval is rejected and remaining pending approvals must be cleaned up.
+   */
+  async cancelBySystem(tenantId: string, requestId: string, reason: string): Promise<void> {
+    const request = approvalRepository.findById(tenantId, requestId);
+    if (!request || request.status !== 'pending') return;
+
+    const now = new Date().toISOString();
+    request.status = 'cancelled';
+    request.approverId = 'system';
+    request.approverName = 'System';
+    request.approverComment = reason;
+    request.resolvedAt = now;
+    request.updatedAt = now;
+    approvalRepository.save(tenantId, request);
+
+    await auditService.log({
+      tenantId,
+      eventType: 'approval.cancelled',
+      actorId: 'system',
+      actorName: 'System',
+      targetId: request.requesterId,
+      targetType: 'approval_request',
+      outcome: 'success',
+      metadata: { requestId, reason },
+    });
   }
 
   /**

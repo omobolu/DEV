@@ -161,6 +161,16 @@ CREATE TABLE IF NOT EXISTS execution_evidence (
 );
 CREATE INDEX IF NOT EXISTS idx_eve_session ON execution_evidence(tenant_id, session_id);
 
+-- Add technical_sme columns to applications (idempotent)
+DO $$ BEGIN
+  ALTER TABLE applications ADD COLUMN technical_sme TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE applications ADD COLUMN technical_sme_email TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
 -- Email Configuration (per-tenant SMTP settings)
 CREATE TABLE IF NOT EXISTS email_config (
   tenant_id        TEXT PRIMARY KEY REFERENCES tenants(tenant_id),

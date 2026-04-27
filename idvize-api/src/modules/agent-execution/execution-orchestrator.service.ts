@@ -27,6 +27,7 @@ import { toolBrokerService } from './tool-broker.service';
 import { evidenceStoreService } from './evidence-store.service';
 import { credentialEscrowService } from './credential-escrow.service';
 import { auditService } from '../security/audit/audit.service';
+import { emailService } from '../email/email.service';
 import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
@@ -62,6 +63,7 @@ class ExecutionOrchestratorService {
     request: CreatePlanRequest,
     actorId: string,
     actorName: string,
+    actorEmail?: string,
   ): Promise<ExecutionSession> {
     const sessionId = `exs-${uuidv4()}`;
 
@@ -128,6 +130,11 @@ class ExecutionOrchestratorService {
       stepsCount: plan.steps.length,
       blastRadius: plan.blastRadius.level,
       approvalsRequired: approvals.length,
+    });
+
+    // Fire email notification for plan created (best-effort — failure does not block session)
+    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
+      console.warn(`[ExecutionOrchestrator] notifyPlanCreated failed for session ${sessionId}:`, (err as Error).message);
     });
 
     return session;
@@ -215,6 +222,7 @@ class ExecutionOrchestratorService {
     actorId: string,
     actorName: string,
     actorPermissions: PermissionId[],
+    actorEmail?: string,
   ): Promise<ExecutionSession> {
     const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -337,6 +345,11 @@ class ExecutionOrchestratorService {
       },
     );
 
+    // Fire email notification for execution completed/failed (best-effort)
+    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
+      console.warn(`[ExecutionOrchestrator] notifyExecutionCompleted failed for session ${session.sessionId}:`, (err as Error).message);
+    });
+
     return session;
   }
 
@@ -452,6 +465,88 @@ class ExecutionOrchestratorService {
         requiredPermissions: ['agents.plan' as const, 'agents.execute.sso' as const],
       },
     ];
+  }
+
+  // ── Email Notifications ─────────────────────────────────────────────────
+
+  private async notifyPlanCreated(
+    tenantId: string,
+    session: ExecutionSession,
+    actorId: string,
+    actorName: string,
+    actorEmail: string,
+  ): Promise<void> {
+    if (!session.plan) return;
+    if (!actorEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)) return;
+    const recipientEmail = actorEmail;
+    const appName = session.plan.applicationName;
+    const controlId = session.plan.controlId;
+    const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
+
+    await emailService.sendAgentNotification(tenantId, {
+      agentId: `agent-${session.agentType}`,
+      controlId,
+      applicationId: session.plan.applicationId,
+      applicationName: appName,
+      notificationType: 'sso-remediation-plan',
+      recipients: [{ email: recipientEmail, name: actorName }],
+      additionalData: {
+        sessionId: session.sessionId,
+        agentName: `${agentLabel} Agent`,
+        blastRadius: session.plan.blastRadius.level,
+        stepsCount: session.plan.steps.length,
+        systemsTouched: session.plan.systemsTouched.map(s => s.systemName).join(', '),
+        approvalsRequired: session.approvals.length,
+        status: session.status,
+        outcome: 'PENDING_APPROVAL',
+        riskLevel: session.plan.blastRadius.level,
+        remediationSteps: session.plan.steps.map((s, i) => `${i + 1}. ${s.description}`).join('\n'),
+        estimatedTimeline: session.plan.estimatedDuration ?? 'To be determined',
+      },
+    }, actorId, actorName);
+  }
+
+  private async notifyExecutionCompleted(
+    tenantId: string,
+    session: ExecutionSession,
+    actorId: string,
+    actorName: string,
+    actorEmail: string,
+  ): Promise<void> {
+    if (!session.plan) return;
+    if (!actorEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)) return;
+    const recipientEmail = actorEmail;
+    const appName = session.plan.applicationName;
+    const controlId = session.plan.controlId;
+
+    const succeeded = session.status === 'completed' || session.status === 'completed_simulation';
+    const completedSteps = session.plan.steps.filter(s => s.status === 'succeeded').length;
+    const totalSteps = session.plan.steps.length;
+
+    await emailService.sendAgentNotification(tenantId, {
+      agentId: `agent-${session.agentType}`,
+      controlId,
+      applicationId: session.plan.applicationId,
+      applicationName: appName,
+      notificationType: 'agent-execution-result',
+      recipients: [{ email: recipientEmail, name: actorName }],
+      additionalData: {
+        sessionId: session.sessionId,
+        agentName: `${session.agentType.toUpperCase()} Agent`,
+        status: session.status,
+        completedSteps,
+        totalSteps,
+        outcome: succeeded ? 'COMPLETED' : 'FAILED',
+        riskLevel: session.plan.blastRadius.level,
+        statusBg: succeeded ? '#f0fdf4' : '#fef2f2',
+        statusBorder: succeeded ? '#16a34a' : '#dc2626',
+        statusColor: succeeded ? '#166534' : '#991b1b',
+        statusLabel: succeeded ? 'Execution Completed' : 'Execution Failed',
+        statusMessage: succeeded
+          ? `All ${completedSteps} steps completed successfully.`
+          : `${completedSteps} of ${totalSteps} steps completed. Review session for details.`,
+      },
+    }, actorId, actorName);
   }
 
   // ── Permission Checking ────────────────────────────────────────────────

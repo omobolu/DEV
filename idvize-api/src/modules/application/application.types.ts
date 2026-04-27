@@ -16,6 +16,8 @@ export interface Application {
   rawName: string;                      // Original name from source
   owner: string;
   ownerEmail: string;
+  technicalSme?: string;                // Technical subject-matter expert name
+  technicalSmeEmail?: string;           // Technical SME email
   vendor: string;
   supportContact?: string;
   department: string;

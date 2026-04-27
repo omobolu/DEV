@@ -12,6 +12,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../../middleware/requireAuth';
 import { requirePermission } from '../../middleware/requirePermission';
 import { tenantService, CreateTenantInput } from './tenant.service';
+import { auditService } from '../security/audit/audit.service';
 
 const router = Router();
 
@@ -78,6 +79,95 @@ router.post('/', requireAuth, requirePermission('tenants.manage'), async (req: R
       timestamp: new Date().toISOString(),
     });
   }
+});
+
+// ── PATCH /tenants/me/settings — update tenant settings (Manager+) ────────────
+router.patch('/me/settings', requireAuth, requirePermission('tenants.settings.update'), async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const tenant = await tenantService.getTenant(tenantId);
+  if (!tenant) {
+    res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
+    return;
+  }
+
+  // Whitelist only allowed setting keys and validate shape
+  const body = req.body;
+  if (body == null || typeof body !== 'object') {
+    res.status(400).json({ success: false, error: 'Request body must be a JSON object', timestamp: new Date().toISOString() });
+    return;
+  }
+
+  const allowedKeys = ['remediation'];
+  const extraKeys = Object.keys(body).filter(k => !allowedKeys.includes(k));
+  if (extraKeys.length > 0) {
+    res.status(400).json({
+      success: false,
+      error: `Unrecognized settings keys: ${extraKeys.join(', ')}. Allowed: ${allowedKeys.join(', ')}`,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // Validate remediation shape if provided
+  if (body.remediation !== undefined) {
+    const rem = body.remediation;
+    if (typeof rem !== 'object' || rem === null) {
+      res.status(400).json({ success: false, error: 'remediation must be an object', timestamp: new Date().toISOString() });
+      return;
+    }
+    const remAllowed = ['requireIamManagerApproval', 'requireAppOwnerApproval'];
+    const remExtra = Object.keys(rem).filter(k => !remAllowed.includes(k));
+    if (remExtra.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: `Unrecognized remediation keys: ${remExtra.join(', ')}. Allowed: ${remAllowed.join(', ')}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+    if (rem.requireIamManagerApproval !== undefined && typeof rem.requireIamManagerApproval !== 'boolean') {
+      res.status(400).json({ success: false, error: 'requireIamManagerApproval must be a boolean', timestamp: new Date().toISOString() });
+      return;
+    }
+    if (rem.requireAppOwnerApproval !== undefined && typeof rem.requireAppOwnerApproval !== 'boolean') {
+      res.status(400).json({ success: false, error: 'requireAppOwnerApproval must be a boolean', timestamp: new Date().toISOString() });
+      return;
+    }
+  }
+
+  // Clone tenant before mutation to avoid cache corruption on DB failure
+  const updatedTenant = {
+    ...tenant,
+    settings: { ...tenant.settings, ...(body.remediation ? { remediation: { ...tenant.settings?.remediation, ...body.remediation } } : {}) },
+    updatedAt: new Date().toISOString(),
+  };
+
+  await tenantService.updateTenant(updatedTenant);
+
+  await auditService.log({
+    tenantId,
+    eventType: 'tenant.updated',
+    actorId: req.user?.sub ?? 'unknown',
+    actorName: req.user?.name ?? 'unknown',
+    targetId: tenantId,
+    targetType: 'tenant',
+    resource: '/tenants/me/settings',
+    outcome: 'success',
+    metadata: { updatedSettings: body },
+  });
+
+  res.json({ success: true, data: updatedTenant.settings, timestamp: new Date().toISOString() });
+});
+
+// ── GET /tenants/me/settings — get tenant settings (Manager+) ─────────────────
+router.get('/me/settings', requireAuth, async (req: Request, res: Response) => {
+  const tenantId = req.tenantId!;
+  const tenant = await tenantService.getTenant(tenantId);
+  if (!tenant) {
+    res.status(404).json({ success: false, error: 'Tenant not found', timestamp: new Date().toISOString() });
+    return;
+  }
+  res.json({ success: true, data: tenant.settings, timestamp: new Date().toISOString() });
 });
 
 export default router;

@@ -66,7 +66,7 @@ router.post('/sessions', requirePermission('agents.plan'), async (req: Request, 
 
     const request: CreatePlanRequest = { agentType, applicationId, controlId, context };
     const session = await executionOrchestratorService.createSession(
-      tenantId, request, user.sub, user.name,
+      tenantId, request, user.sub, user.name, user.email,
     );
 
     const status = session.status === 'failed' ? 422 : 201;
@@ -181,7 +181,7 @@ router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.re
 
     const sessionId = req.params.sessionId as string;
     const session = await executionOrchestratorService.executeSession(
-      tenantId, sessionId, user.sub, user.name, user.permissions,
+      tenantId, sessionId, user.sub, user.name, user.permissions, user.email,
     );
 
     res.json({ success: true, data: session });

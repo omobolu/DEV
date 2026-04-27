@@ -168,6 +168,10 @@ export class BuildService {
     return buildRepository.findById(tenantId, buildId);
   }
 
+  findByAppAndControl(tenantId: string, appId: string, controlGap: string): BuildJob[] {
+    return buildRepository.findByAppId(tenantId, appId).filter(j => j.controlGap === controlGap);
+  }
+
   /**
    * Run a full automated build for an app gap (automated mode).
    * Advances through all states, generating artifacts along the way.

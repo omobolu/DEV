@@ -23,6 +23,10 @@ export interface Tenant {
     allowedAuthProviders:    string[];
     maxUsers:                number;
     maxApps:                 number;
+    remediation?: {
+      requireIamManagerApproval: boolean;
+      requireAppOwnerApproval:   boolean;
+    };
   };
   createdAt: string;
   updatedAt: string;

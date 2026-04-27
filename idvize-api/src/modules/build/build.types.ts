@@ -4,6 +4,8 @@ export type BuildState =
   | 'DETECTED'
   | 'CLASSIFIED'
   | 'ASSIGNED'
+  | 'AWAITING_APPROVAL'
+  | 'AWAITING_FORM'
   | 'READY_TO_BUILD'
   | 'OUTREACH_SENT'
   | 'MEETING_SCHEDULED'

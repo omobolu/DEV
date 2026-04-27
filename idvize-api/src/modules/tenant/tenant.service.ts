@@ -55,6 +55,10 @@ class TenantService {
     return tenant;
   }
 
+  async updateTenant(tenant: Tenant): Promise<Tenant> {
+    return tenantRepository.save(tenant);
+  }
+
   async listTenants(): Promise<TenantSummary[]> {
     const tenants = await tenantRepository.findAll();
     return tenants.map(t => ({
