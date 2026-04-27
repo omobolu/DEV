@@ -671,6 +671,19 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
         timestamp: new Date().toISOString(),
       });
     } else {
+      // If rejected/cancelled approvals exist, the build can never complete — fail it and clean up
+      if (rejectedApprovals.length > 0 || (pendingApprovals.length === 0 && approvedApprovals.length < allApprovals.length)) {
+        try {
+          buildService.transition(tenantId, awaitingBuild.buildId, 'FAILED', actor?.sub ?? 'system',
+            `Build cannot proceed — ${rejectedApprovals.length} approval(s) rejected/cancelled`);
+        } catch (_) { /* already transitioned */ }
+        // Cancel remaining pending approvals
+        for (const pend of pendingApprovals) {
+          await approvalService.cancelBySystem(tenantId, pend.requestId,
+            `Auto-cancelled: build failed due to rejected sibling approvals`);
+        }
+      }
+
       res.json({
         success: true,
         data: {
@@ -679,11 +692,12 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           allApprovalsSatisfied: false,
           pendingCount: pendingApprovals.length,
           rejectedCount: rejectedApprovals.length,
+          buildId: awaitingBuild.buildId,
           message: rejectedApprovals.length > 0
-            ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build cannot proceed.`
+            ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build failed.`
             : pendingApprovals.length > 0
               ? `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`
-              : `Approval ${approvalId} granted but some approvals are expired/cancelled. Build cannot proceed.`,
+              : `Approval ${approvalId} granted but some approvals are expired/cancelled. Build failed.`,
         },
         timestamp: new Date().toISOString(),
       });
