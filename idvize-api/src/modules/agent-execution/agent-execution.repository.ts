@@ -8,6 +8,7 @@
  */
 
 import pool from '../../db/pool';
+import { applicationRepository } from '../application/application.repository';
 import type {
   ExecutionSession,
   ExecutionSessionStatus,
@@ -265,12 +266,22 @@ function rowToEvidence(row: Record<string, unknown>): EvidenceRecord {
   };
 }
 
-// ── Application lookup (PG-backed, replaces in-memory) ────────────────────────
+// ── Application lookup ────────────────────────────────────────────────────────
+// In-memory applicationRepository is the canonical source during normal server
+// operation (populated by seedApplications on startup). PG applications table
+// is used as fallback for production/CLI-seeded environments.
 
 export async function getApplication(
   tenantId: string,
   applicationId: string,
 ): Promise<{ appId: string; name: string; tenantId: string } | undefined> {
+  // 1. Check in-memory first (canonical source during normal operation)
+  const inMemory = applicationRepository.findById(tenantId, applicationId);
+  if (inMemory) {
+    return { appId: inMemory.appId, name: inMemory.name, tenantId };
+  }
+
+  // 2. Fall back to PG (for production/CLI-seeded environments)
   const { rows } = await pool.query(
     `SELECT app_id, name, tenant_id FROM applications WHERE tenant_id = $1 AND app_id = $2`,
     [tenantId, applicationId],

@@ -27,8 +27,8 @@ const APPROVAL_EXPIRY_HOURS = 24;
  * Only users with matching RBAC roles can resolve the corresponding approval.
  */
 const ROLE_ELIGIBILITY: Record<ApprovalRole, string[]> = {
-  app_owner: ['Manager', 'Architect', 'PlatformAdmin'],
-  iam_admin: ['Manager', 'Architect', 'PlatformAdmin'],
+  app_owner: ['Manager', 'PlatformAdmin'],
+  iam_admin: ['Manager', 'PlatformAdmin'],
   platform_admin: ['PlatformAdmin'],
   security_admin: ['Manager', 'PlatformAdmin'],
 };
