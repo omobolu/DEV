@@ -54,21 +54,24 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   })
 
   if (res.status === 401) {
-    // Distinguish between expired and invalid tokens
-    try {
-      const body = await res.clone().json()
-      if (body.code === 'TOKEN_EXPIRED' || body.code === 'TOKEN_INVALID' || body.code === 'AUTH_REQUIRED') {
+    // Only treat as session expiry if user was previously authenticated.
+    // Pre-login 401s (e.g. wrong credentials) should pass through normally.
+    const hadToken = !!localStorage.getItem('idvize_token')
+    if (hadToken) {
+      try {
+        const body = await res.clone().json()
+        if (body.code === 'TOKEN_EXPIRED' || body.code === 'TOKEN_INVALID' || body.code === 'AUTH_REQUIRED') {
+          localStorage.removeItem('idvize_token')
+          localStorage.removeItem('idvize_user')
+          localStorage.removeItem('idvize_tenant')
+          dispatchSessionExpired()
+        }
+      } catch {
         localStorage.removeItem('idvize_token')
         localStorage.removeItem('idvize_user')
         localStorage.removeItem('idvize_tenant')
         dispatchSessionExpired()
       }
-    } catch {
-      // If we can't parse the response, still treat as session expired
-      localStorage.removeItem('idvize_token')
-      localStorage.removeItem('idvize_user')
-      localStorage.removeItem('idvize_tenant')
-      dispatchSessionExpired()
     }
   }
 

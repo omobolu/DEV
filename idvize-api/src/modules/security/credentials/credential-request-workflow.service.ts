@@ -36,7 +36,7 @@ class CredentialRequestWorkflowService {
 
   // ── Submit Request ────────────────────────────────────────────────────────
 
-  submitRequest(tenantId: string, input: {
+  async submitRequest(tenantId: string, input: {
     requestedBy: string;
     credentialId?: string;
     requestType: CredentialRequestType;
@@ -47,7 +47,7 @@ class CredentialRequestWorkflowService {
     vaultProvider?: VaultProviderType;
     justification: string;
     assignedTo?: string;
-  }): CredentialRequest {
+  }): Promise<CredentialRequest> {
     const requester = authRepository.findById(tenantId, input.requestedBy);
     const assignee = input.assignedTo ? authRepository.findById(tenantId, input.assignedTo) : undefined;
     const now = new Date();
@@ -80,7 +80,7 @@ class CredentialRequestWorkflowService {
 
     credentialRequestRepository.save(tenantId, request);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'approval.requested',
       actorId: input.requestedBy,
@@ -101,13 +101,13 @@ class CredentialRequestWorkflowService {
 
   // ── Approve / Reject ──────────────────────────────────────────────────────
 
-  resolve(
+  async resolve(
     tenantId: string,
     requestId: string,
     approverId: string,
     decision: 'approved' | 'rejected',
     comment?: string,
-  ): CredentialRequest {
+  ): Promise<CredentialRequest> {
     const request = credentialRequestRepository.findById(tenantId, requestId);
     if (!request) throw Object.assign(new Error(`Request "${requestId}" not found`), { statusCode: 404 });
     if (request.status !== 'pending') throw Object.assign(new Error(`Request is already ${request.status}`), { statusCode: 409 });
@@ -123,7 +123,7 @@ class CredentialRequestWorkflowService {
 
     // If approved + handoff mode: auto-register the credential record
     if (decision === 'approved' && request.operatingMode === 'handoff' && !request.credentialId) {
-      const record = credentialRegistryService.register(tenantId, {
+      const record = await credentialRegistryService.register(tenantId, {
         name: `${request.targetSystem} ${request.credentialType} — ${request.targetEnvironment}`,
         description: request.justification,
         credentialType: request.credentialType,
@@ -139,7 +139,7 @@ class CredentialRequestWorkflowService {
 
     credentialRequestRepository.save(tenantId, request);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: decision === 'approved' ? 'approval.granted' : 'approval.rejected',
       actorId: approverId,

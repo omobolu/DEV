@@ -22,8 +22,11 @@ import MaturityPage from '@/pages/maturity/MaturityPage'
 import MaturityDomainDetail from '@/pages/maturity/MaturityDomainDetail'
 import OSControlPanel from '@/pages/os/OSControlPanel'
 import TopRisks from '@/pages/os/TopRisks'
+import ControlDetailView from '@/pages/os/ControlDetailView'
 import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import ValueDashboard  from '@/pages/value/ValueDashboard'
+import SystemEventsPage from '@/pages/os/SystemEventsPage'
+import EmailSettings from '@/pages/settings/EmailSettings'
 import { CMDBProvider } from '@/context/CMDBContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SESSION_EXPIRED_EVENT } from '@/lib/apiClient'
@@ -81,13 +84,15 @@ export default function App() {
               <Route index element={<Navigate to="/os" replace />} />
               <Route path="os" element={<OSControlPanel />} />
               <Route path="risks" element={<TopRisks />} />
+              <Route path="risks/:appId/controls" element={<ControlDetailView />} />
               <Route path="controls/library" element={<ControlsLibrary />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="insights/program-maturity" element={<ProgramInsights />} />
               <Route path="iga/*" element={<IdentityWarehouse />} />
               <Route path="access-management" element={<AccessManagement />} />
+              <Route path="access-management/partners" element={<AccessManagement audience="partners" />} />
               <Route path="pam" element={<PAMDashboard />} />
-              <Route path="ciam" element={<CIAMDashboard />} />
+              <Route path="ciam/*" element={<CIAMDashboard />} />
               <Route path="applications/onboarding" element={<AppOnboarding />} />
               <Route path="applications/management" element={<AppManagement />} />
               <Route path="applications/orphan-accounts" element={<OrphanAccounts />} />
@@ -100,6 +105,8 @@ export default function App() {
               <Route path="maturity" element={<MaturityPage />} />
               <Route path="maturity/domains/:domainId" element={<MaturityDomainDetail />} />
               <Route path="value" element={<ValueDashboard />} />
+              <Route path="system-events" element={<SystemEventsPage />} />
+              <Route path="settings/email" element={<EmailSettings />} />
               <Route path="my-account" element={<StubPage title="My Account" />} />
               <Route path="users" element={<StubPage title="Users" />} />
               <Route path="admin" element={<StubPage title="Admin" />} />

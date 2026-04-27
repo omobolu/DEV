@@ -12,6 +12,7 @@ import { requireAuth } from '../../../middleware/requireAuth';
 import { requirePermission } from '../../../middleware/requirePermission';
 import { tenantContext } from '../../../middleware/tenantContext';
 import { AuditEventType } from '../security.types';
+import { getSeedMode } from '../../../config/seed-mode';
 
 const router = Router();
 
@@ -19,10 +20,10 @@ router.use(requireAuth, tenantContext);
 router.use(requirePermission('security.view.audit'));
 
 // GET /security/audit
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { eventType, actorId, targetId, outcome, dateFrom, dateTo, limit, offset } = req.query;
-  const events = auditService.query(tenantId, {
+  const filter = {
     eventType: eventType as AuditEventType | undefined,
     actorId: actorId as string | undefined,
     targetId: targetId as string | undefined,
@@ -31,14 +32,21 @@ router.get('/', (req: Request, res: Response) => {
     dateTo: dateTo as string | undefined,
     limit: limit ? parseInt(limit as string) : 100,
     offset: offset ? parseInt(offset as string) : 0,
-  });
-  res.json({ success: true, data: { total: auditService.count(tenantId), returned: events.length, events }, timestamp: new Date().toISOString() });
+  };
+  const isProd = getSeedMode() === 'production';
+  const [events, total] = isProd
+    ? await Promise.all([auditService.queryPg(tenantId, filter), auditService.countPg(tenantId)])
+    : [auditService.query(tenantId, filter), auditService.count(tenantId)];
+  res.json({ success: true, data: { total, returned: events.length, events }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/summary
-router.get('/summary', (req: Request, res: Response) => {
+router.get('/summary', async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const events = auditService.query(tenantId, { limit: 10000 });
+  const isProd = getSeedMode() === 'production';
+  const [events, totalEvents] = isProd
+    ? await Promise.all([auditService.queryPg(tenantId, { limit: 10000 }), auditService.countPg(tenantId)])
+    : [auditService.query(tenantId, { limit: 10000 }), auditService.count(tenantId)];
   const byType = events.reduce<Record<string, number>>((acc, e) => {
     acc[e.eventType] = (acc[e.eventType] ?? 0) + 1;
     return acc;
@@ -47,13 +55,15 @@ router.get('/summary', (req: Request, res: Response) => {
     acc[e.outcome] = (acc[e.outcome] ?? 0) + 1;
     return acc;
   }, {});
-  res.json({ success: true, data: { totalEvents: auditService.count(tenantId), byType, byOutcome }, timestamp: new Date().toISOString() });
+  res.json({ success: true, data: { totalEvents, byType, byOutcome }, timestamp: new Date().toISOString() });
 });
 
 // GET /security/audit/:id
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const event = auditService.findById(id);
+  const event = getSeedMode() === 'production'
+    ? await auditService.findByIdPg(id, req.tenantId!)
+    : auditService.findById(id);
   if (!event) {
     res.status(404).json({ success: false, error: 'Audit event not found', timestamp: new Date().toISOString() });
     return;

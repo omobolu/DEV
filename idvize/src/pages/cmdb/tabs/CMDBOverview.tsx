@@ -12,7 +12,7 @@ export default function CMDBOverview() {
   const n = apps.length
 
   const appTypeData = useMemo(() => {
-    const palette = ['#8b5cf6','#a78bfa','#c4b5fd','#6d28d9']
+    const palette = ['#1e40af','#a78bfa','#c4b5fd','#6d28d9']
     const counts: Record<string, number> = {}
     apps.forEach(a => { counts[a.appType] = (counts[a.appType] ?? 0) + 1 })
     return Object.entries(counts).map(([name, value], i) => ({ name, value, fill: palette[i % palette.length] }))
@@ -38,7 +38,7 @@ export default function CMDBOverview() {
   }, [apps, n])
 
   const onboardingData = useMemo(() => {
-    const palette: Record<string, string> = { Onboarded: '#22c55e', 'In Progress': '#6366f1', Planned: '#06b6d4', 'Not Started': '#f97316' }
+    const palette: Record<string, string> = { Onboarded: '#22c55e', 'In Progress': '#2563eb', Planned: '#06b6d4', 'Not Started': '#f97316' }
     const counts: Record<string, number> = {}
     apps.forEach(a => { counts[a.onboardingStatus] = (counts[a.onboardingStatus] ?? 0) + 1 })
     return ['Onboarded','In Progress','Planned','Not Started'].map(label => ({
@@ -70,8 +70,8 @@ export default function CMDBOverview() {
       )}
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard label="Total Applications" value={n.toLocaleString()}                    accentColor="#8b5cf6" />
-        <KpiCard label="SSO Coverage"       value={Math.round(ssoCount / n * 100)} unit="%" accentColor="#6366f1" />
+        <KpiCard label="Total Applications" value={n.toLocaleString()}                    accentColor="#1e40af" />
+        <KpiCard label="SSO Coverage"       value={Math.round(ssoCount / n * 100)} unit="%" accentColor="#2563eb" />
         <KpiCard label="MFA Coverage"       value={Math.round(mfaCount / n * 100)} unit="%" accentColor="#06b6d4" />
         <KpiCard label="Total Orphan Accts" value={orphans.toLocaleString()}               accentColor="#ef4444" />
       </div>
@@ -93,7 +93,7 @@ export default function CMDBOverview() {
           <VerticalBarChart
             data={onboardingData}
             xKey="label"
-            series={[{ key: 'count', name: 'Apps', color: '#8b5cf6' }]}
+            series={[{ key: 'count', name: 'Apps', color: '#1e40af' }]}
             showLegend={false}
             height={260}
             colorByValue={false}

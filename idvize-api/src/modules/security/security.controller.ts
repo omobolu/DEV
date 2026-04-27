@@ -96,13 +96,13 @@ router.get('/authz/check', requireAuth, (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: '"permission" query param required', timestamp: new Date().toISOString() });
     return;
   }
-  const decision = authzService.check(req.user!.sub, permission);
+  const decision = authzService.check(req.user!.sub, req.user!.tenantId, permission);
   res.json({ success: true, data: decision, timestamp: new Date().toISOString() });
 });
 
 // GET /security/authz/my-permissions — effective permissions for current user
 router.get('/authz/my-permissions', requireAuth, (req: Request, res: Response) => {
-  const permissions = authzService.getUserPermissions(req.user!.sub);
+  const permissions = authzService.getUserPermissions(req.user!.sub, req.user!.tenantId);
   res.json({ success: true, data: { userId: req.user!.sub, roles: req.user!.roles, permissions }, timestamp: new Date().toISOString() });
 });
 
@@ -125,7 +125,7 @@ router.get('/authz/matrix', requireAuth, requirePermission('security.view.audit'
  * If the caller has `cost.view.salary_detail` → full data.
  * If not (Architect, Engineer, etc.) → annualCost is [RESTRICTED].
  */
-router.get('/masking/demo', requireAuth, requirePermission('cost.view.summary'), (req: Request, res: Response) => {
+router.get('/masking/demo', requireAuth, requirePermission('cost.view.summary'), async (req: Request, res: Response) => {
   const samplePeople = [
     { personId: 'p-demo-1', name: 'Demo FTE 1', role: 'iam_architect',  employmentType: 'fte',        annualCost: 145000, fteEquivalent: 1.0 },
     { personId: 'p-demo-2', name: 'Demo FTE 2', role: 'iam_engineer',   employmentType: 'fte',        annualCost: 118000, fteEquivalent: 1.0 },
@@ -133,14 +133,15 @@ router.get('/masking/demo', requireAuth, requirePermission('cost.view.summary'),
   ];
 
   const userId = req.user!.sub;
-  const masked = maskingService.maskArray(
+  const masked = await maskingService.maskArray(
     samplePeople as unknown as Record<string, unknown>[],
     userId,
+    req.user!.tenantId,
     'PersonCost',
     req.requestId,
   );
 
-  const hasSalaryAccess = authzService.check(userId, 'cost.view.salary_detail').allowed;
+  const hasSalaryAccess = authzService.check(userId, req.user!.tenantId, 'cost.view.salary_detail').allowed;
 
   res.json({
     success: true,

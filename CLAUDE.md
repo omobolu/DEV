@@ -7,7 +7,7 @@ Enterprise IAM operating system for application governance, control detection, b
 - **Monorepo**: `idvize/` (React frontend) + `idvize-api/` (Express backend)
 - **Backend**: Module-per-feature — each module has `controller.ts`, `service.ts`, `repository.ts`, `types.ts`
 - **Frontend**: Page-per-route with shared layout, common components, and chart library
-- **Data**: All in-memory (Map-based repositories partitioned by tenantId) — no database
+- **Data**: PostgreSQL for tenants, users, audit logs; in-memory Map caches partitioned by tenantId for hot-path lookups; other modules still in-memory only (pending Go migration)
 - **Multi-tenancy**: JWT claims carry `tenantId`; middleware enforces tenant isolation
 - **External integrations**: Entra, SailPoint, CyberArk, Okta — all fall back to mock data when credentials absent
 - **AI**: Anthropic SDK (`claude-opus-4-6`) for cost analysis and security posture — gracefully degrades without API key
@@ -77,9 +77,10 @@ npm run lint         # eslint
 - **JWT**: HS256, 8-hour TTL; issued via `POST /security/auth/token`
 - **Middleware chain**: `helmet → cors → json(10mb) → morgan → apiKeyAuth → [requireAuth → tenantContext → requirePermission]`
 - **RBAC**: 24 permission IDs checked via `requirePermission(permissionId)` middleware
-- **Roles**: Manager, Architect, BusinessAnalyst, Engineer, Developer
-- **Demo tenants**: `ten-acme` (ACME Financial, enterprise), `ten-globex` (Globex Tech, professional)
-- **Demo login**: See `LoginPage.tsx` for accounts; all passwords: `password123`
+- **Roles**: PlatformAdmin, Manager, Architect, BusinessAnalyst, Engineer, Developer
+- **Passwords**: bcrypt-hashed (`$2b$10$`); no plaintext stored
+- **Demo tenants**: Only loaded when `SEED_MODE=demo` or `SEED_MODE=development`; production starts empty
+- **Demo login**: `admin@acme.com` / `admin@globex.io` / `password123` (demo/dev mode only)
 
 ## API Conventions
 
@@ -93,7 +94,7 @@ npm run lint         # eslint
 
 - NEVER commit `.env` files or real credentials
 - All platform adapters must fall back to mock mode when credentials are absent
-- Data is in-memory only — document any persistence assumptions before adding a database
+- Tenants, users, and audit logs are persisted to PostgreSQL; other modules use in-memory storage pending Go backend migration
 - Keep modules self-contained (controller + service + repository + types in one directory)
 - When adding a new module, read an existing module (e.g., `document`) as a template
 - Frontend API calls go through `apiClient.ts` `apiFetch()` — never use raw `fetch()`
@@ -103,7 +104,7 @@ npm run lint         # eslint
 
 ## Known Limitations
 
-- No database — all data lost on restart
+- PostgreSQL used for tenants/users/audit; other modules (applications, controls, etc.) are still in-memory and lost on restart
 - No test framework installed; zero test coverage
 - No Docker/containerization setup
 - No refresh tokens — JWT expires after 8 hours, requires full re-login

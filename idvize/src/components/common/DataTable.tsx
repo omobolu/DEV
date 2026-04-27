@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { ChevronUp, ChevronDown, Inbox } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import EmptyState from './EmptyState'
 
 export interface Column<T> {
   key: keyof T
@@ -15,9 +17,12 @@ interface DataTableProps<T> {
   rowClickable?: (row: T) => boolean
   loading?: boolean
   emptyMessage?: string
+  emptyDescription?: string
+  emptyIcon?: LucideIcon
+  emptyAction?: { label: string; onClick: () => void }
 }
 
-export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick, rowClickable, loading = false, emptyMessage = 'No data available' }: DataTableProps<T>) {
+export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick, rowClickable, loading = false, emptyMessage = 'No data available', emptyDescription, emptyIcon, emptyAction }: DataTableProps<T>) {
   const [page, setPage] = useState(0)
   const [sortKey, setSortKey] = useState<keyof T | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -79,10 +84,12 @@ export default function DataTable<T>({ columns, data, pageSize = 10, onRowClick,
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted">
-        <Inbox size={32} className="text-faint" />
-        <p className="text-sm">{emptyMessage}</p>
-      </div>
+      <EmptyState
+        icon={emptyIcon ?? Inbox}
+        title={emptyMessage}
+        description={emptyDescription}
+        action={emptyAction}
+      />
     )
   }
 

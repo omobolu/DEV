@@ -7,39 +7,112 @@
  */
 
 import { SecretName } from './secrets.types';
+import { getSeedMode } from '../../../config/seed-mode';
 
 const DEV_DEFAULTS: Partial<Record<SecretName, string>> = {
   JWT_SIGNING_SECRET: 'idvize-jwt-dev-secret-change-in-production',
   SCIM_BEARER_TOKEN: 'idvize-scim-bearer-token-dev',
 };
 
+const WEAK_SECRET_PATTERNS = [
+  'change-me',
+  'change_me',
+  'changeme',
+  'placeholder',
+  'replace-me',
+  'your-secret',
+  'your_secret',
+  'secret123',
+  'password',
+  'default',
+  'example',
+  'todo',
+  'fixme',
+  'idvize-jwt-dev',
+  'idvize-dev-secret',
+];
+
+const MIN_SECRET_LENGTH = 32;
+
+function isProduction(): boolean {
+  return getSeedMode() === 'production' || process.env.NODE_ENV === 'production';
+}
+
+function isWeakSecret(value: string): string | null {
+  if (value.length < MIN_SECRET_LENGTH) {
+    return `Secret is too short (${value.length} chars). Production secrets must be at least ${MIN_SECRET_LENGTH} characters.`;
+  }
+  const lower = value.toLowerCase();
+  for (const pattern of WEAK_SECRET_PATTERNS) {
+    if (lower.includes(pattern)) {
+      return `Secret contains known placeholder pattern "${pattern}". Use a cryptographically random value.`;
+    }
+  }
+  return null;
+}
+
 export class SecretsService {
   /**
    * Retrieve a named secret.
-   * Reads from process.env first, then falls back to dev defaults.
-   * In production, NODE_ENV=production causes missing secrets to throw.
+   * In production: ONLY reads from process.env — dev defaults are never used.
+   *   Additionally rejects known weak/placeholder values for signing secrets.
+   * In demo/development: falls back to dev defaults when env var is missing.
    */
   async get(name: SecretName): Promise<string> {
-    const value = process.env[name] ?? DEV_DEFAULTS[name];
-    if (!value) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(`[SecretsService] Secret "${name}" is not configured`);
+    const envValue = process.env[name];
+
+    if (isProduction()) {
+      if (!envValue) {
+        throw new Error(
+          `[SecretsService] FATAL: Secret "${name}" is not configured. ` +
+          `In production, all secrets must be set via environment variables. ` +
+          `Set ${name} in your environment.`
+        );
       }
-      throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
+      if (name === 'JWT_SIGNING_SECRET') {
+        const weakness = isWeakSecret(envValue);
+        if (weakness) {
+          throw new Error(
+            `[SecretsService] FATAL: ${name} is not safe for production. ${weakness}`
+          );
+        }
+      }
+      return envValue;
     }
-    return value;
+
+    if (envValue) return envValue;
+    const fallback = DEV_DEFAULTS[name];
+    if (fallback) return fallback;
+    throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
   }
 
   /**
-   * Synchronous get — use only when async is not possible.
-   * Not available in production vault mode.
+   * Synchronous get — same production/dev split as async get.
    */
   getSync(name: SecretName): string {
-    const value = process.env[name] ?? DEV_DEFAULTS[name];
-    if (!value) {
-      throw new Error(`[SecretsService] Secret "${name}" not found`);
+    const envValue = process.env[name];
+
+    if (isProduction()) {
+      if (!envValue) {
+        throw new Error(
+          `[SecretsService] FATAL: Secret "${name}" is not configured in production. Set ${name} in your environment.`
+        );
+      }
+      if (name === 'JWT_SIGNING_SECRET') {
+        const weakness = isWeakSecret(envValue);
+        if (weakness) {
+          throw new Error(
+            `[SecretsService] FATAL: ${name} is not safe for production. ${weakness}`
+          );
+        }
+      }
+      return envValue;
     }
-    return value;
+
+    if (envValue) return envValue;
+    const fallback = DEV_DEFAULTS[name];
+    if (fallback) return fallback;
+    throw new Error(`[SecretsService] Secret "${name}" not found — set process.env.${name}`);
   }
 }
 

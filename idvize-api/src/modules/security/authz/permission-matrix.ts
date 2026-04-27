@@ -64,11 +64,39 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   { permissionId: 'secrets.rotate',           module: 'secrets',      action: 'rotate',              description: 'Trigger credential rotation workflow',                     riskLevel: 'medium', requiresApproval: false },
   { permissionId: 'secrets.approve',          module: 'secrets',      action: 'approve',             description: 'Approve or reject credential requests and revocations',    riskLevel: 'high',   requiresApproval: false },
   { permissionId: 'secrets.manage.provider',  module: 'secrets',      action: 'manage.provider',     description: 'Configure vault provider connections and settings',         riskLevel: 'high',   requiresApproval: true },
+  // Tenant management
+  { permissionId: 'tenants.manage',           module: 'tenants',      action: 'manage',              description: 'Create, list, and manage tenant organizations (PlatformAdmin only)', riskLevel: 'high', requiresApproval: true },
+  // Risk Engine
+  { permissionId: 'risks.view',              module: 'risks',        action: 'view',                description: 'View IAM risk assessments across applications',                    riskLevel: 'low',  requiresApproval: false },
+  // Agents
+  { permissionId: 'agents.invoke',           module: 'agents',       action: 'invoke',              description: 'Invoke IAM control agents for guidance and remediation',           riskLevel: 'low',  requiresApproval: false },
+  // Email
+  { permissionId: 'email.configure',         module: 'email',        action: 'configure',           description: 'View and update email SMTP configuration',                         riskLevel: 'high', requiresApproval: false },
+  { permissionId: 'email.send',              module: 'email',        action: 'send',                description: 'Send test emails and agent notification emails',                   riskLevel: 'medium', requiresApproval: false },
 ];
 
 // ── Role → Permission Matrix ───────────────────────────────────────────────────
 
 const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
+  PlatformAdmin: [
+    // All Manager permissions + tenant management. This is a super-admin role
+    // for the SaaS platform operator, NOT a per-tenant role.
+    'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
+    'applications.view.all', 'applications.view.assigned', 'applications.manage',
+    'controls.view', 'controls.evaluate',
+    'build.view', 'build.execute.guided', 'build.execute.automated',
+    'integrations.view', 'integrations.manage',
+    'tasks.view.assigned', 'tasks.view.all',
+    'document.view', 'document.review', 'document.publish',
+    'approval.request', 'approval.grant.standard', 'approval.grant.high_risk',
+    'security.view.audit', 'security.manage.access', 'security.manage.scim',
+    'vendors.view', 'vendors.manage',
+    'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
+    'tenants.manage',
+    'risks.view',
+    'agents.invoke',
+    'email.configure', 'email.send',
+  ],
   Manager: [
     'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
     'applications.view.all', 'applications.view.assigned', 'applications.manage',
@@ -81,6 +109,9 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'security.view.audit', 'security.manage.access', 'security.manage.scim',
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
+    'risks.view',
+    'agents.invoke',
+    'email.configure', 'email.send',
   ],
   Architect: [
     // NO: cost.view.salary_detail, approval.grant.high_risk, security.manage.access/scim, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -95,6 +126,9 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'security.view.audit',
     'vendors.view', 'vendors.manage',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
+    'risks.view',
+    'agents.invoke',
+    'email.configure', 'email.send',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -108,6 +142,9 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'approval.request',
     'vendors.view',
     'secrets.request', 'secrets.view.metadata',
+    'risks.view',
+    'agents.invoke',
+    'email.send',
   ],
   Engineer: [
     // NO: cost module, salary data, tasks.view.all, document.publish, approval.grant.*, security.manage.*, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -119,6 +156,9 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'document.view',
     'approval.request',
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
+    'risks.view',
+    'agents.invoke',
+    'email.send',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage
@@ -129,6 +169,8 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'document.view',
     'approval.request',
     'secrets.request',
+    'risks.view',
+    'agents.invoke',
   ],
 };
 
@@ -137,7 +179,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
 export const SYSTEM_ROLES: Role[] = (Object.keys(ROLE_PERMISSIONS) as UserRole[]).map(roleName => ({
   roleId: `role-${roleName.toLowerCase()}`,
   name: roleName,
-  displayName: roleName === 'BusinessAnalyst' ? 'Business Analyst' : roleName,
+  displayName: roleName === 'BusinessAnalyst' ? 'Business Analyst' : roleName === 'PlatformAdmin' ? 'Platform Admin' : roleName,
   description: getRoleDescription(roleName),
   permissions: ROLE_PERMISSIONS[roleName],
   isSystemRole: true,
@@ -147,6 +189,7 @@ export const SYSTEM_ROLES: Role[] = (Object.keys(ROLE_PERMISSIONS) as UserRole[]
 
 function getRoleDescription(role: UserRole): string {
   const descriptions: Record<UserRole, string> = {
+    PlatformAdmin:   'SaaS platform super-admin. All Manager permissions plus tenant/organization management.',
     Manager:         'Executive, cost, vendor, and full operational visibility. Approves high-risk actions.',
     Architect:       'Architecture, controls, technical views, and design authority. No salary detail.',
     BusinessAnalyst: 'Intake, tickets, documents, and process views. No salary or secrets access.',

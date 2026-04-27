@@ -10,7 +10,7 @@ interface HorizontalBarChartProps {
   colorByValue?: boolean
 }
 
-export default function HorizontalBarChart({ data, color = '#6366f1', height, unit, colorByValue }: HorizontalBarChartProps) {
+export default function HorizontalBarChart({ data, color = '#2563eb', height, unit, colorByValue }: HorizontalBarChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
 

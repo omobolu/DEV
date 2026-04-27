@@ -126,7 +126,7 @@ class ScimService {
     return user ? this.toScimUser(user) : undefined;
   }
 
-  createUser(tenantId: string, payload: ScimUserPayload, actorId = 'scim-provisioner'): Record<string, unknown> {
+  async createUser(tenantId: string, payload: ScimUserPayload, actorId = 'scim-provisioner'): Promise<Record<string, unknown>> {
     const existing = authRepository.findByUsername(tenantId, payload.userName);
     if (existing) {
       // SCIM spec: return existing resource if userName matches
@@ -161,7 +161,7 @@ class ScimService {
 
     authRepository.save(tenantId, user);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.user.create',
       actorId,
@@ -175,7 +175,7 @@ class ScimService {
     return this.toScimUser(user);
   }
 
-  updateUser(tenantId: string, scimId: string, payload: ScimUserPayload, actorId = 'scim-provisioner'): Record<string, unknown> | undefined {
+  async updateUser(tenantId: string, scimId: string, payload: ScimUserPayload, actorId = 'scim-provisioner'): Promise<Record<string, unknown> | undefined> {
     const user = authRepository.findById(tenantId, scimId)
       ?? authRepository.findAll(tenantId).find(u => u.scimId === scimId);
     if (!user) return undefined;
@@ -194,7 +194,7 @@ class ScimService {
 
     authRepository.save(tenantId, user);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.user.update',
       actorId,
@@ -208,7 +208,7 @@ class ScimService {
     return this.toScimUser(user);
   }
 
-  patchUser(tenantId: string, scimId: string, patch: ScimPatchOp, actorId = 'scim-provisioner'): Record<string, unknown> | undefined {
+  async patchUser(tenantId: string, scimId: string, patch: ScimPatchOp, actorId = 'scim-provisioner'): Promise<Record<string, unknown> | undefined> {
     const user = authRepository.findById(tenantId, scimId)
       ?? authRepository.findAll(tenantId).find(u => u.scimId === scimId);
     if (!user) return undefined;
@@ -224,7 +224,7 @@ class ScimService {
     user.updatedAt = new Date().toISOString();
     authRepository.save(tenantId, user);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.user.update',
       actorId,
@@ -238,7 +238,7 @@ class ScimService {
     return this.toScimUser(user);
   }
 
-  deprovisionUser(tenantId: string, scimId: string, actorId = 'scim-provisioner'): boolean {
+  async deprovisionUser(tenantId: string, scimId: string, actorId = 'scim-provisioner'): Promise<boolean> {
     const user = authRepository.findById(tenantId, scimId)
       ?? authRepository.findAll(tenantId).find(u => u.scimId === scimId);
     if (!user) return false;
@@ -247,7 +247,7 @@ class ScimService {
     user.updatedAt = new Date().toISOString();
     authRepository.save(tenantId, user);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.user.delete',
       actorId,
@@ -273,7 +273,7 @@ class ScimService {
     return group ? this.toScimGroup(group) : undefined;
   }
 
-  createGroup(tenantId: string, payload: ScimGroupPayload, actorId = 'scim-provisioner'): Record<string, unknown> {
+  async createGroup(tenantId: string, payload: ScimGroupPayload, actorId = 'scim-provisioner'): Promise<Record<string, unknown>> {
     const now = new Date().toISOString();
     const scimId = uuidv4();
 
@@ -296,7 +296,7 @@ class ScimService {
 
     scimGroupRepository.save(tenantId, group);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.group.create',
       actorId,
@@ -310,7 +310,7 @@ class ScimService {
     return this.toScimGroup(group);
   }
 
-  updateGroup(tenantId: string, scimId: string, payload: ScimGroupPayload, actorId = 'scim-provisioner'): Record<string, unknown> | undefined {
+  async updateGroup(tenantId: string, scimId: string, payload: ScimGroupPayload, actorId = 'scim-provisioner'): Promise<Record<string, unknown> | undefined> {
     const group = scimGroupRepository.findByScimId(tenantId, scimId) ?? scimGroupRepository.findById(tenantId, scimId);
     if (!group) return undefined;
 
@@ -322,7 +322,7 @@ class ScimService {
     group.updatedAt = new Date().toISOString();
     scimGroupRepository.save(tenantId, group);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.group.update',
       actorId,
@@ -336,13 +336,13 @@ class ScimService {
     return this.toScimGroup(group);
   }
 
-  deleteGroup(tenantId: string, scimId: string, actorId = 'scim-provisioner'): boolean {
+  async deleteGroup(tenantId: string, scimId: string, actorId = 'scim-provisioner'): Promise<boolean> {
     const group = scimGroupRepository.findByScimId(tenantId, scimId) ?? scimGroupRepository.findById(tenantId, scimId);
     if (!group) return false;
 
     scimGroupRepository.delete(tenantId, group.groupId);
 
-    auditService.log({
+    await auditService.log({
       tenantId,
       eventType: 'scim.group.delete',
       actorId,
