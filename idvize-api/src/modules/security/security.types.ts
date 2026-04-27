@@ -228,6 +228,7 @@ export type AuditEventType =
   | 'policy.updated'
   | 'policy.deleted'
   | 'secret.accessed'
+  | 'application.updated'
   | 'tenant.created'
   | 'tenant.updated'
   | 'tenant.suspended'

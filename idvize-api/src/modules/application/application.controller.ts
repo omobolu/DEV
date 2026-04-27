@@ -110,7 +110,7 @@ router.patch('/:id', requirePermission('applications.manage'), async (req: Reque
 
   await auditService.log({
     tenantId,
-    eventType: 'user.updated',
+    eventType: 'application.updated',
     actorId: req.user?.sub ?? 'unknown',
     actorName: req.user?.name ?? 'unknown',
     targetId: appId,

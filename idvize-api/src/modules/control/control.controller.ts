@@ -564,12 +564,17 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
     }
 
     // Step 2 — Derive and validate buildId from approval's resource key (format: appName::controlId::buildId)
-    const resourceParts = (pendingApproval.resource ?? '').split('::');
-    if (resourceParts.length !== 3) {
+    // Parse from the right since controlId and buildId have known formats without '::' but app names could contain '::'
+    const resource = pendingApproval.resource ?? '';
+    const lastSep = resource.lastIndexOf('::');
+    const secondLastSep = lastSep > 0 ? resource.lastIndexOf('::', lastSep - 1) : -1;
+    if (lastSep <= 0 || secondLastSep < 0) {
       res.status(400).json({ success: false, error: `Approval ${approvalId} has malformed resource key`, timestamp: new Date().toISOString() });
       return;
     }
-    const [resourceAppName, resourceControlId, resourceBuildId] = resourceParts;
+    const resourceAppName = resource.substring(0, secondLastSep);
+    const resourceControlId = resource.substring(secondLastSep + 2, lastSep);
+    const resourceBuildId = resource.substring(lastSep + 2);
     if (resourceAppName !== app.name || resourceControlId !== controlId) {
       res.status(403).json({
         success: false,
