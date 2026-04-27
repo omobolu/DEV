@@ -81,7 +81,7 @@ class CredentialEscrowService {
     actorName: string,
     ttlMinutes = DEFAULT_TTL_MINUTES,
   ): Promise<CredentialHandoff> {
-    const handleId = `credh-${uuidv4().split('-')[0]}`;
+    const handleId = `credh-${uuidv4()}`;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000).toISOString();
 

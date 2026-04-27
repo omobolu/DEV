@@ -74,7 +74,7 @@ class PlanningService {
   // ── SSO Plan ─────────────────────────────────────────────────────────────
 
   private generateSsoPlan(ctx: PlanContext): ExecutionPlan {
-    const planId = `plan-${uuidv4().split('-')[0]}`;
+    const planId = `plan-${uuidv4()}`;
     const sessionId = ctx.additionalContext?.sessionId as string ?? '';
 
     const steps: ExecutionStep[] = [
@@ -221,25 +221,25 @@ class PlanningService {
 
     const prerequisites: PlanPrerequisite[] = [
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'data_collection',
         description: `Collect SAML Entity ID and ACS URL from ${ctx.applicationName} admin`,
         status: 'pending',
       },
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'owner_confirmation',
         description: `${ctx.applicationName} owner must confirm SSO scope and user groups`,
         status: 'pending',
       },
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'credential_handoff',
         description: `Temporary admin credentials for ${ctx.applicationName} app-side configuration`,
         status: 'pending',
       },
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'system_access_verification',
         description: 'Verify IDVIZE has API access to Entra ID, SailPoint, and ServiceNow',
         status: 'pending',
@@ -269,7 +269,7 @@ class PlanningService {
   // ── MFA Plan ─────────────────────────────────────────────────────────────
 
   private generateMfaPlan(ctx: PlanContext): ExecutionPlan {
-    const planId = `plan-${uuidv4().split('-')[0]}`;
+    const planId = `plan-${uuidv4()}`;
     const sessionId = ctx.additionalContext?.sessionId as string ?? '';
 
     const steps: ExecutionStep[] = [
@@ -323,13 +323,13 @@ class PlanningService {
 
     const prerequisites: PlanPrerequisite[] = [
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'data_collection',
         description: `Identify target user groups for MFA enforcement on ${ctx.applicationName}`,
         status: 'pending',
       },
       {
-        prerequisiteId: `prereq-${uuidv4().split('-')[0]}`,
+        prerequisiteId: `prereq-${uuidv4()}`,
         type: 'owner_confirmation',
         description: `${ctx.applicationName} owner must confirm MFA scope and rollout plan`,
         status: 'pending',
@@ -368,7 +368,7 @@ class PlanningService {
     requiresCredential: boolean,
   ): ExecutionStep {
     return {
-      stepId: `step-${uuidv4().split('-')[0]}`,
+      stepId: `step-${uuidv4()}`,
       order,
       actionType,
       targetSystem: { systemType, systemName, operations: [actionType.split('.').pop() ?? actionType] },

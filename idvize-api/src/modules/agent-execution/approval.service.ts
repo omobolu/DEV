@@ -180,7 +180,7 @@ class ExecutionApprovalService {
 
   private createApproval(sessionId: string, role: ApprovalRole, requiredBy: string): ExecutionApproval {
     return {
-      approvalId: `apv-${uuidv4().split('-')[0]}`,
+      approvalId: `apv-${uuidv4()}`,
       sessionId,
       role,
       status: 'pending',

@@ -63,7 +63,7 @@ class ExecutionOrchestratorService {
     actorId: string,
     actorName: string,
   ): Promise<ExecutionSession> {
-    const sessionId = `exs-${uuidv4().split('-')[0]}`;
+    const sessionId = `exs-${uuidv4()}`;
 
     // 1. Generate plan
     const plan = await planningService.generatePlan(

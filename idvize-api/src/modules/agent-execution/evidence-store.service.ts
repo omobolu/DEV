@@ -30,7 +30,7 @@ class EvidenceStoreService {
     data: Record<string, unknown>,
     stepId?: string,
   ): Promise<EvidenceRecord> {
-    const evidenceId = `ev-${uuidv4().split('-')[0]}`;
+    const evidenceId = `ev-${uuidv4()}`;
 
     // Sanitize data — remove any fields that might contain credentials
     const sanitizedData = this.sanitize(data);
