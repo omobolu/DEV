@@ -415,9 +415,10 @@ router.post('/app/:appId/:controlId/remediate', async (req: Request, res: Respon
   try {
     // Step 1 — Read tenant remediation settings
     const tenant = await tenantService.getTenant(tenantId);
-    const remediationSettings = tenant?.settings?.remediation ?? {
-      requireIamManagerApproval: true,
-      requireAppOwnerApproval: true,
+    const rem = tenant?.settings?.remediation;
+    const remediationSettings = {
+      requireIamManagerApproval: rem?.requireIamManagerApproval ?? true,
+      requireAppOwnerApproval: rem?.requireAppOwnerApproval ?? true,
     };
 
     // Step 2 — Create build job first (so we can use buildId to scope approvals)

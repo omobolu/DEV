@@ -198,9 +198,7 @@ const TEMPLATES: EmailTemplate[] = [
             <td style="padding:8px 12px;color:#1e293b;font-size:13px;font-weight:600;">{{riskLevel}}</td></tr>
       </table>
       <h3 style="color:#1e293b;font-size:15px;margin:16px 0 8px;">Remediation Steps</h3>
-      <ol style="color:#475569;font-size:13px;line-height:1.8;padding-left:20px;">
-        {{remediationSteps}}
-      </ol>
+      <pre style="color:#475569;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;margin:0;padding:0 0 0 8px;">{{remediationSteps}}</pre>
       <h3 style="color:#1e293b;font-size:15px;margin:16px 0 8px;">Estimated Timeline</h3>
       <p style="color:#475569;font-size:13px;">{{estimatedTimeline}}</p>
       <div style="margin:24px 0 0;padding:16px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">

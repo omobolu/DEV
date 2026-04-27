@@ -499,7 +499,7 @@ class ExecutionOrchestratorService {
         status: session.status,
         outcome: 'PENDING_APPROVAL',
         riskLevel: session.plan.blastRadius.level,
-        remediationSteps: session.plan.steps.map(s => `<li>${s.description}</li>`).join(''),
+        remediationSteps: session.plan.steps.map((s, i) => `${i + 1}. ${s.description}`).join('\n'),
         estimatedTimeline: session.plan.estimatedDuration ?? 'To be determined',
       },
     }, actorId, actorName);
