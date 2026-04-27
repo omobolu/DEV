@@ -557,8 +557,9 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
     const resourceKey = `${app.name}::${controlId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
+    const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
 
-    if (pendingApprovals.length === 0) {
+    if (pendingApprovals.length === 0 && rejectedApprovals.length === 0 && allApprovals.length > 0) {
       // All approvals satisfied — fire emails + transition build
       const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
       const actorId = actor?.sub ?? actor?.userId ?? 'system';
@@ -614,7 +615,10 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           decision,
           allApprovalsSatisfied: false,
           pendingCount: pendingApprovals.length,
-          message: `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`,
+          rejectedCount: rejectedApprovals.length,
+          message: rejectedApprovals.length > 0
+            ? `Approval ${approvalId} granted but ${rejectedApprovals.length} approval(s) were rejected. Build cannot proceed.`
+            : `Approval ${approvalId} granted. ${pendingApprovals.length} approval(s) still pending.`,
         },
         timestamp: new Date().toISOString(),
       });
