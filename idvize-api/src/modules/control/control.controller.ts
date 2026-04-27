@@ -532,6 +532,10 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
     res.status(400).json({ success: false, error: 'approvalId and decision (approved|rejected) required', timestamp: new Date().toISOString() });
     return;
   }
+  if (decision !== 'approved' && decision !== 'rejected') {
+    res.status(400).json({ success: false, error: '"decision" must be "approved" or "rejected"', timestamp: new Date().toISOString() });
+    return;
+  }
 
   const app = applicationRepository.findById(tenantId, appId);
   if (!app) {
@@ -547,9 +551,20 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
     });
 
     if (decision === 'rejected') {
+      // Transition the associated build to FAILED so it doesn't block future remediation attempts
+      const builds = buildService.findByAppAndControl(tenantId, appId, controlId);
+      const awaitingBuild = builds.find(b => b.state === 'AWAITING_APPROVAL');
+      if (awaitingBuild) {
+        try {
+          buildService.transition(tenantId, awaitingBuild.buildId, 'FAILED', actor?.sub ?? 'system',
+            `Approval ${approvalId} rejected by ${actor?.name ?? 'system'} — remediation cancelled`);
+        } catch (transErr) {
+          console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
+        }
+      }
       res.json({
         success: true,
-        data: { approvalId, decision, status: 'rejected', message: `Approval ${approvalId} rejected` },
+        data: { approvalId, decision, status: 'rejected', buildId: awaitingBuild?.buildId, message: `Approval ${approvalId} rejected — build cancelled` },
         timestamp: new Date().toISOString(),
       });
       return;
