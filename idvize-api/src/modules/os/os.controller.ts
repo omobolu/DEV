@@ -34,6 +34,7 @@ import { requireAuth }                      from '../../middleware/requireAuth';
 import { tenantContext }                    from '../../middleware/tenantContext';
 import { evaluateApp, evaluateApps, AppGapInput } from './gap.engine';
 import { riskService } from './risk.service';
+import { agentService } from './agents/agent.service';
 import { requirePermission } from '../../middleware/requirePermission';
 import { CONTROLS_CATALOG }                 from '../control/control.catalog';
 import { controlOverridesStore }            from '../control/control.overrides.store';
@@ -752,6 +753,31 @@ router.get('/risks', requirePermission('risks.view'), async (req: Request, res: 
   }
 });
 
+// ── GET /os/risks/:appId/controls — full control detail view ─────────────────
+// Returns all 49 controls for an application with assessment outcomes, catalog
+// metadata, and recommended remediation actions. Scoped by tenantId from JWT.
+router.get('/risks/:appId/controls', requirePermission('risks.view'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const appId    = req.params.appId as string;
+    const result   = await riskService.getApplicationControls(tenantId, appId);
+
+    if (!result) {
+      res.status(404).json({ success: false, error: 'Application not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] GET /risks/:appId/controls failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Control data temporarily unavailable' });
+  }
+});
+
 // ── GET /os/risks/:applicationId — single app risk assessment ─────────────────
 // Queries by BOTH applicationId AND tenantId via PostgreSQL. Returns 404 if not found.
 // Production fail-closed: PG unavailable → 503.
@@ -774,6 +800,51 @@ router.get('/risks/:appId', requirePermission('risks.view'), async (req: Request
   } catch (err) {
     console.error('[OS] GET /risks/:appId failed:', (err as Error).message);
     res.status(503).json({ success: false, error: 'Risk data temporarily unavailable' });
+  }
+});
+
+// ── Agent Framework v1 ────────────────────────────────────────────────────────
+router.get('/agents', requirePermission('agents.invoke'), (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: agentService.listAgents(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.post('/agents/invoke', requirePermission('agents.invoke'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { controlId, applicationId } = req.body as { controlId?: string; applicationId?: string };
+
+    if (!controlId || !applicationId) {
+      res.status(400).json({
+        success: false,
+        error: 'controlId and applicationId are required',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const result = await agentService.invoke(tenantId, applicationId, controlId);
+
+    if (!result) {
+      res.status(404).json({
+        success: false,
+        error: 'Agent not available for this control or application not found',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[OS] POST /agents/invoke failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: 'Agent service temporarily unavailable' });
   }
 });
 

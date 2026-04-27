@@ -356,7 +356,7 @@ export default function TopRisks() {
                     key={app.applicationId}
                     app={app}
                     rank={i + 1}
-                    onDrillDown={id => navigate(`/cmdb/${id}`)}
+                    onDrillDown={id => navigate(`/risks/${id}/controls`)}
                   />
                 ))}
                 {visible.length === 0 && (
@@ -375,7 +375,7 @@ export default function TopRisks() {
       {/* Footer hint */}
       {!loading && visible.length > 0 && (
         <p className="text-xs text-faint text-center">
-          Click any row to open the full IAM control detail for that application.
+          Click any row to view all 49 controls and remediation steps for that application.
         </p>
       )}
     </div>
