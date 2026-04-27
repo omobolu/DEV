@@ -614,6 +614,10 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           status: 'all_approvals_granted',
           controlName: ctrl?.name ?? controlId,
           pillar: ctrl?.pillar ?? 'AM',
+          outcome: 'ALL_APPROVALS_GRANTED',
+          riskLevel: (app.riskTier === 'critical' || app.riskTier === 'high') ? 'High' : 'Standard',
+          remediationSteps: 'Pending technical data collection — form will be sent to app owner and technical SME.',
+          estimatedTimeline: 'To be determined after form submission',
         },
       }, actorId, actorName).catch(() => {});
 
