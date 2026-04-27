@@ -6,12 +6,38 @@ import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
 import { auditService } from '../security/audit/audit.service';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RECIPIENT_FIELDS = ['ownerEmail', 'technicalSmeEmail', 'supportContact'] as const;
+
+function validateRecipientEmails(body: Record<string, unknown>): string | null {
+  for (const field of RECIPIENT_FIELDS) {
+    const val = body[field];
+    if (val !== undefined && val !== null && val !== '') {
+      if (typeof val !== 'string' || !EMAIL_RE.test(val)) {
+        return `"${field}" must be a valid email address`;
+      }
+    }
+  }
+  return null;
+}
+
+function sanitizeRecipientEmails(body: Record<string, unknown>): void {
+  for (const field of RECIPIENT_FIELDS) {
+    const val = body[field];
+    if (val !== undefined && val !== null && val !== '') {
+      if (typeof val !== 'string' || !EMAIL_RE.test(val)) {
+        body[field] = '';
+      }
+    }
+  }
+}
+
 const router = Router();
 
 router.use(requireAuth, tenantContext);
 
 // POST /applications/import — bulk import from raw JSON array or CSV text
-router.post('/import', (req: Request, res: Response) => {
+router.post('/import', requirePermission('applications.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { rows, csv, source } = req.body as {
     rows?: Record<string, unknown>[];
@@ -26,6 +52,9 @@ router.post('/import', (req: Request, res: Response) => {
   }
 
   if (rows && Array.isArray(rows)) {
+    for (const row of rows) {
+      if (row && typeof row === 'object') sanitizeRecipientEmails(row as Record<string, unknown>);
+    }
     const result = applicationService.importApplications(tenantId, rows as any[], (source as any) ?? 'api');
     res.status(200).json({ success: true, data: result, timestamp: new Date().toISOString() });
     return;
@@ -35,10 +64,15 @@ router.post('/import', (req: Request, res: Response) => {
 });
 
 // POST /applications — create/upsert a single application
-router.post('/', (req: Request, res: Response) => {
+router.post('/', requirePermission('applications.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   if (!req.body?.name) {
     res.status(400).json({ success: false, error: '"name" is required', timestamp: new Date().toISOString() });
+    return;
+  }
+  const emailErr = validateRecipientEmails(req.body);
+  if (emailErr) {
+    res.status(400).json({ success: false, error: emailErr, timestamp: new Date().toISOString() });
     return;
   }
   const app = applicationService.upsertApplication(tenantId, req.body);

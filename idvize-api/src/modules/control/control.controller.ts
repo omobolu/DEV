@@ -440,7 +440,7 @@ router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute
     const buildId = (job as any).buildId as string;
 
     // Step 3 — Create approvals scoped to this specific build (prevents stale approval contamination)
-    const resourceKey = `${app.name}::${controlId}::${buildId}`;
+    const resourceKey = `${appId}::${controlId}::${buildId}`;
     const approvals: Array<{ requestId: string; role: string; status: string }> = [];
 
     if (remediationSettings.requireIamManagerApproval) {
@@ -483,14 +483,16 @@ router.post('/app/:appId/:controlId/remediate', requirePermission('build.execute
         `All approvals satisfied (none required) — ready for form submission`);
     }
 
-    // Who gets notified
-    const sentTo = [
-      { role: 'Business Owner',  name: app.owner,     email: app.ownerEmail },
-    ];
-    if (app.technicalSme) {
-      sentTo.push({ role: 'Technical SME', name: app.technicalSme, email: app.technicalSmeEmail ?? '' });
+    // Who gets notified — suppress invalid/empty recipient emails
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const sentTo: Array<{ role: string; name: string; email: string }> = [];
+    if (app.ownerEmail && emailRe.test(app.ownerEmail)) {
+      sentTo.push({ role: 'Business Owner', name: app.owner, email: app.ownerEmail });
     }
-    if (app.supportContact) {
+    if (app.technicalSme && app.technicalSmeEmail && emailRe.test(app.technicalSmeEmail)) {
+      sentTo.push({ role: 'Technical SME', name: app.technicalSme, email: app.technicalSmeEmail });
+    }
+    if (app.supportContact && emailRe.test(app.supportContact)) {
       sentTo.push({ role: 'Support Contact', name: app.supportContact, email: app.supportContact });
     }
 
@@ -563,22 +565,17 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
       return;
     }
 
-    // Step 2 — Derive and validate buildId from approval's resource key (format: appName::controlId::buildId)
-    // Parse from the right since controlId and buildId have known formats without '::' but app names could contain '::'
-    const resource = pendingApproval.resource ?? '';
-    const lastSep = resource.lastIndexOf('::');
-    const secondLastSep = lastSep > 0 ? resource.lastIndexOf('::', lastSep - 1) : -1;
-    if (lastSep <= 0 || secondLastSep < 0) {
+    // Step 2 — Derive and validate buildId from approval's resource key (format: appId::controlId::buildId)
+    const resourceParts = (pendingApproval.resource ?? '').split('::');
+    if (resourceParts.length !== 3) {
       res.status(400).json({ success: false, error: `Approval ${approvalId} has malformed resource key`, timestamp: new Date().toISOString() });
       return;
     }
-    const resourceAppName = resource.substring(0, secondLastSep);
-    const resourceControlId = resource.substring(secondLastSep + 2, lastSep);
-    const resourceBuildId = resource.substring(lastSep + 2);
-    if (resourceAppName !== app.name || resourceControlId !== controlId) {
+    const [resourceAppId, resourceControlId, resourceBuildId] = resourceParts;
+    if (resourceAppId !== appId || resourceControlId !== controlId) {
       res.status(403).json({
         success: false,
-        error: `Approval ${approvalId} does not belong to ${app.name}/${controlId} — it targets ${resourceAppName}/${resourceControlId}`,
+        error: `Approval ${approvalId} does not belong to ${appId}/${controlId} — it targets ${resourceAppId}/${resourceControlId}`,
         timestamp: new Date().toISOString(),
       });
       return;
@@ -609,7 +606,27 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
       }
     }
 
-    // Step 5 — Resolve the approval now that binding + eligibility are validated
+    // Step 5 — Reject stale approvals: build must still be AWAITING_APPROVAL before mutation
+    if (targetBuild.state !== 'AWAITING_APPROVAL') {
+      res.status(409).json({
+        success: false,
+        error: `Build ${resourceBuildId} is in ${targetBuild.state} state — approval can no longer be resolved`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 6 — Validate build ownership: build must belong to this route's app/control
+    if (targetBuild.appId !== appId || targetBuild.controlGap !== controlId) {
+      res.status(403).json({
+        success: false,
+        error: `Build ${resourceBuildId} does not belong to ${appId}/${controlId}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Step 7 — Resolve the approval now that binding + eligibility + build state are validated
     const approval = await approvalService.resolveApproval(tenantId, approvalId, {
       decision,
       decidedBy: actorUserId,
@@ -625,8 +642,8 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
           console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
         }
         // Cancel any remaining pending approvals for this build (uses cancelBySystem to bypass authz)
-        const resourceKey = `${app.name}::${controlId}::${resourceBuildId}`;
-        const siblingApprovals = await approvalService.listByResource(tenantId, resourceKey);
+        const rejResourceKey = `${appId}::${controlId}::${resourceBuildId}`;
+        const siblingApprovals = await approvalService.listByResource(tenantId, rejResourceKey);
         for (const sib of siblingApprovals) {
           if (sib.status === 'pending' && sib.requestId !== approvalId) {
             await approvalService.cancelBySystem(tenantId, sib.requestId,
@@ -642,25 +659,8 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
       return;
     }
 
-    // Build already terminated (e.g. prior rejection) — approval granted but no further action
-    if (targetBuild.state !== 'AWAITING_APPROVAL') {
-      res.json({
-        success: true,
-        data: {
-          approvalId,
-          decision,
-          allApprovalsSatisfied: false,
-          buildId: resourceBuildId,
-          buildState: targetBuild.state,
-          message: `Approval ${approvalId} granted, but build ${resourceBuildId} is already in ${targetBuild.state} state. No further action needed.`,
-        },
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
-
     // Check approvals scoped to this specific build (prevents stale approvals from prior attempts)
-    const resourceKey = `${app.name}::${controlId}::${resourceBuildId}`;
+    const resourceKey = `${appId}::${controlId}::${resourceBuildId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pendingApprovals = allApprovals.filter(a => a.status === 'pending');
     const rejectedApprovals = allApprovals.filter(a => a.status === 'rejected');
@@ -689,8 +689,8 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
           applicationName: app.name,
           notificationType: 'sso-remediation-plan',
           recipients: [
-            { email: app.ownerEmail, name: app.owner },
-            ...(app.technicalSmeEmail ? [{ email: app.technicalSmeEmail, name: app.technicalSme ?? 'Technical SME' }] : []),
+            ...(app.ownerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.ownerEmail) ? [{ email: app.ownerEmail, name: app.owner }] : []),
+            ...(app.technicalSmeEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.technicalSmeEmail) ? [{ email: app.technicalSmeEmail, name: app.technicalSme ?? 'Technical SME' }] : []),
           ],
           additionalData: {
             status: 'all_approvals_granted',
@@ -762,7 +762,7 @@ router.post('/app/:appId/:controlId/remediate/approve', requirePermission('appro
 
 // ── GET /controls/app/:appId/:controlId/remediate/status — poll approval state ──
 // Accepts optional ?buildId= query param to target a specific build; otherwise uses latest
-router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: Response) => {
+router.get('/app/:appId/:controlId/remediate/status', requirePermission('build.view'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const appId    = req.params.appId     as string;
   const controlId = req.params.controlId as string;
@@ -787,12 +787,19 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
       targetBuild = builds.find(b => b.state === 'AWAITING_APPROVAL') ?? builds[builds.length - 1];
     }
     const resourceKey = targetBuild
-      ? `${app.name}::${controlId}::${targetBuild.buildId}`
-      : `${app.name}::${controlId}`;
+      ? `${appId}::${controlId}::${targetBuild.buildId}`
+      : `${appId}::${controlId}`;
     const allApprovals = await approvalService.listByResource(tenantId, resourceKey);
     const pending  = allApprovals.filter(a => a.status === 'pending');
     const approved = allApprovals.filter(a => a.status === 'approved');
     const rejected = allApprovals.filter(a => a.status === 'rejected');
+
+    // Only expose approval details (IDs, approver metadata) to users with approval.grant.standard
+    const actor = (req as any).user as { sub?: string } | undefined;
+    const callerUser = actor?.sub ? authService.getUser(tenantId, actor.sub) : undefined;
+    const canActOnApprovals = callerUser?.roles?.some(
+      (r: string) => ['PlatformAdmin', 'Manager', 'Architect'].includes(r),
+    ) ?? false;
 
     res.json({
       success: true,
@@ -807,13 +814,17 @@ router.get('/app/:appId/:controlId/remediate/status', async (req: Request, res: 
         approved: approved.length,
         rejected: rejected.length,
         allSatisfied: approved.length === allApprovals.length && allApprovals.length > 0,
-        approvals: allApprovals.map(a => ({
-          requestId: a.requestId,
-          action: a.action,
-          status: a.status,
-          decidedBy: a.approverId,
-          decidedAt: a.resolvedAt,
-        })),
+        approvals: canActOnApprovals
+          ? allApprovals.map(a => ({
+              requestId: a.requestId,
+              action: a.action,
+              status: a.status,
+              decidedBy: a.approverId,
+              decidedAt: a.resolvedAt,
+            }))
+          : allApprovals.map(a => ({
+              status: a.status,
+            })),
       },
       timestamp: new Date().toISOString(),
     });
