@@ -621,36 +621,40 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
       const ctrl = CONTROLS_CATALOG.find(c => c.controlId === controlId);
       const actorId = actor?.sub ?? actor?.userId ?? 'system';
       const actorName = actor?.name ?? 'System';
+      let transitioned = false;
       if (awaitingBuild) {
         try {
           buildService.transition(tenantId, awaitingBuild.buildId, 'AWAITING_FORM', actorId,
             `All approvals granted — transitioning to AWAITING_FORM`);
+          transitioned = true;
         } catch (transErr) {
           console.warn(`[remediate/approve] Build transition failed: ${(transErr as Error).message}`);
         }
       }
 
-      // Fire email notification (best-effort)
-      emailService.sendAgentNotification(tenantId, {
-        agentId: 'remediation-orchestrator',
-        controlId,
-        applicationId: appId,
-        applicationName: app.name,
-        notificationType: 'sso-remediation-plan',
-        recipients: [
-          { email: app.ownerEmail, name: app.owner },
-          ...(app.technicalSmeEmail ? [{ email: app.technicalSmeEmail, name: app.technicalSme ?? 'Technical SME' }] : []),
-        ],
-        additionalData: {
-          status: 'all_approvals_granted',
-          controlName: ctrl?.name ?? controlId,
-          pillar: ctrl?.pillar ?? 'AM',
-          outcome: 'ALL_APPROVALS_GRANTED',
-          riskLevel: (app.riskTier === 'critical' || app.riskTier === 'high') ? 'High' : 'Standard',
-          remediationSteps: 'Pending technical data collection — form will be sent to app owner and technical SME.',
-          estimatedTimeline: 'To be determined after form submission',
-        },
-      }, actorId, actorName).catch(() => {});
+      if (transitioned) {
+        // Fire email notification only if build actually transitioned (prevents duplicate emails on concurrent approvals)
+        emailService.sendAgentNotification(tenantId, {
+          agentId: 'remediation-orchestrator',
+          controlId,
+          applicationId: appId,
+          applicationName: app.name,
+          notificationType: 'sso-remediation-plan',
+          recipients: [
+            { email: app.ownerEmail, name: app.owner },
+            ...(app.technicalSmeEmail ? [{ email: app.technicalSmeEmail, name: app.technicalSme ?? 'Technical SME' }] : []),
+          ],
+          additionalData: {
+            status: 'all_approvals_granted',
+            controlName: ctrl?.name ?? controlId,
+            pillar: ctrl?.pillar ?? 'AM',
+            outcome: 'ALL_APPROVALS_GRANTED',
+            riskLevel: (app.riskTier === 'critical' || app.riskTier === 'high') ? 'High' : 'Standard',
+            remediationSteps: 'Pending technical data collection — form will be sent to app owner and technical SME.',
+            estimatedTimeline: 'To be determined after form submission',
+          },
+        }, actorId, actorName).catch(() => {});
+      }
 
       res.json({
         success: true,
@@ -658,9 +662,11 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
           approvalId,
           decision,
           allApprovalsSatisfied: true,
-          buildTransition: 'AWAITING_FORM',
+          buildTransition: transitioned ? 'AWAITING_FORM' : null,
           buildId: awaitingBuild?.buildId,
-          message: `All approvals granted — build transitioning to AWAITING_FORM. Emails sent to ${app.owner}${app.technicalSme ? ` and ${app.technicalSme}` : ''}.`,
+          message: transitioned
+            ? `All approvals granted — build transitioning to AWAITING_FORM. Emails sent to ${app.owner}${app.technicalSme ? ` and ${app.technicalSme}` : ''}.`
+            : `All approvals granted, but build transition failed (possibly already handled by a concurrent request).`,
         },
         timestamp: new Date().toISOString(),
       });
