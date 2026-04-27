@@ -6,6 +6,11 @@ import { useTheme } from '@/context/ThemeContext'
 const API = 'http://localhost:3001'
 const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'demo-key' }
 
+/* =============================================================================
+ * Top header — navy palette, matches the sidebar so the chrome reads as one
+ * security command surface. The brand wordmark lives in the sidebar only.
+ * ========================================================================== */
+
 export default function Header({ onLogout, onMenuClick }: { onLogout?: () => void; onMenuClick?: () => void }) {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -34,43 +39,36 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
     kernelStatus === 'offline'  ? 'System offline'  : 'Checking status'
 
   return (
-    <header className="flex items-center h-14 px-4 md:px-6 bg-surface-800 border-b border-surface-700 flex-shrink-0 gap-3 md:gap-4" role="banner">
+    <header
+      className="flex items-center h-14 px-4 md:px-6 bg-slate-900 text-slate-100 border-b border-slate-800 flex-shrink-0 gap-3 md:gap-4"
+      role="banner"
+    >
       {/* Mobile menu button */}
       {onMenuClick && (
         <button
           onClick={onMenuClick}
-          className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-heading transition-colors"
+          className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
           aria-label="Open navigation menu"
         >
           <Menu size={18} />
         </button>
       )}
 
-      {/* Logo wordmark + OS badge + kernel dot */}
-      <div className="flex items-center gap-2 mr-2 md:mr-4">
-        <div className="relative">
-          <span className="text-heading font-bold text-lg tracking-tight">
-            id<span className="text-a-indigo">vize</span>
-          </span>
-        </div>
-        <span className="text-[10px] font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.5 rounded hidden sm:inline">
-          OS
-        </span>
-        <div className="flex items-center gap-1.5 ml-1">
-          <span
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor} ${kernelStatus === 'running' ? 'shadow-[0_0_6px_rgba(74,222,128,0.8)]' : ''}`}
-            role="status"
-            aria-label={statusLabel}
-          />
-          <span className="text-[10px] text-muted hidden lg:block">IAM Operating System</span>
-        </div>
+      {/* Kernel status — wordmark removed (already in sidebar) */}
+      <div className="flex items-center gap-1.5">
+        <span
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor} ${kernelStatus === 'running' ? 'shadow-[0_0_6px_rgba(74,222,128,0.8)]' : ''}`}
+          role="status"
+          aria-label={statusLabel}
+        />
+        <span className="text-[11px] text-slate-300 hidden lg:block">IAM Operating System</span>
       </div>
 
       {/* Tenant badge */}
       {tenantName && (
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-700/50 border border-surface-600">
-          <Building2 size={12} className="text-a-indigo flex-shrink-0" />
-          <span className="text-xs text-secondary font-medium max-w-[160px] truncate">{tenantName}</span>
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700">
+          <Building2 size={12} className="text-blue-400 flex-shrink-0" />
+          <span className="text-xs text-slate-200 font-medium max-w-[160px] truncate">{tenantName}</span>
         </div>
       )}
 
@@ -80,13 +78,13 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
       <div className="flex items-center gap-1.5 md:gap-2">
         <button
           onClick={toggleTheme}
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-heading transition-colors"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
           aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
         <button
-          className="relative flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-body transition-colors"
+          className="relative flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
           aria-label="Notifications"
         >
           <Bell size={16} />
@@ -94,26 +92,26 @@ export default function Header({ onLogout, onMenuClick }: { onLogout?: () => voi
         </button>
         <button
           onClick={() => navigate('/settings/email')}
-          className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-surface-700 hover:text-body transition-colors"
+          className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
           aria-label="Settings"
         >
           <Settings size={16} />
         </button>
 
         {/* Avatar + name */}
-        <div className="flex items-center gap-2 ml-1 pl-2 border-l border-surface-600">
+        <div className="flex items-center gap-2 ml-1 pl-2 border-l border-slate-700">
           <div
-            className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold"
+            className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold"
             aria-label={`User: ${name}`}
           >
             {initials}
           </div>
-          <span className="text-xs text-muted hidden md:block max-w-[120px] truncate">{name}</span>
+          <span className="text-xs text-slate-300 hidden md:block max-w-[120px] truncate">{name}</span>
           {onLogout && (
             <button
               onClick={onLogout}
               title="Sign out"
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-muted hover:bg-surface-700 hover:text-red-400 transition-colors"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-red-400 transition-colors"
               aria-label="Sign out"
             >
               <LogOut size={14} />
