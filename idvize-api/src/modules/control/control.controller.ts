@@ -567,18 +567,13 @@ router.post('/app/:appId/:controlId/remediate/approve', async (req: Request, res
         } catch (transErr) {
           console.warn(`[remediate/approve] Build transition on rejection failed: ${(transErr as Error).message}`);
         }
-        // Cancel any remaining pending approvals for this build
+        // Cancel any remaining pending approvals for this build (uses cancelBySystem to bypass authz)
         const rejResourceKey = `${app.name}::${controlId}::${awaitingBuild.buildId}`;
         const siblingApprovals = await approvalService.listByResource(tenantId, rejResourceKey);
         for (const sib of siblingApprovals) {
           if (sib.status === 'pending' && sib.requestId !== approvalId) {
-            try {
-              await approvalService.resolveApproval(tenantId, sib.requestId, {
-                decision: 'rejected',
-                decidedBy: 'system',
-                reason: `Auto-cancelled: sibling approval ${approvalId} was rejected`,
-              });
-            } catch (_) { /* best-effort */ }
+            await approvalService.cancelBySystem(tenantId, sib.requestId,
+              `Auto-cancelled: sibling approval ${approvalId} was rejected`);
           }
         }
       }

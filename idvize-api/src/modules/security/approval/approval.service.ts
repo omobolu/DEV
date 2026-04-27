@@ -141,6 +141,35 @@ class ApprovalService {
   }
 
   /**
+   * System-initiated cancellation — bypasses authz check.
+   * Used when a sibling approval is rejected and remaining pending approvals must be cleaned up.
+   */
+  async cancelBySystem(tenantId: string, requestId: string, reason: string): Promise<void> {
+    const request = approvalRepository.findById(tenantId, requestId);
+    if (!request || request.status !== 'pending') return;
+
+    const now = new Date().toISOString();
+    request.status = 'rejected';
+    request.approverId = 'system';
+    request.approverName = 'System';
+    request.approverComment = reason;
+    request.resolvedAt = now;
+    request.updatedAt = now;
+    approvalRepository.save(tenantId, request);
+
+    await auditService.log({
+      tenantId,
+      eventType: 'approval.rejected',
+      actorId: 'system',
+      actorName: 'System',
+      targetId: request.requesterId,
+      targetType: 'approval_request',
+      outcome: 'success',
+      metadata: { requestId, reason },
+    });
+  }
+
+  /**
    * Expire all pending requests past their expiresAt timestamp.
    * Call periodically (e.g. via a cron job or on-request).
    */
