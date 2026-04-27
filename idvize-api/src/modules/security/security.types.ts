@@ -89,6 +89,8 @@ export type PermissionId =
   | 'tenants.manage'
   // Risk Engine
   | 'risks.view'
+  // Agents
+  | 'agents.invoke'
   // Agent Execution
   | 'agents.use'
   | 'agents.plan'
@@ -97,7 +99,10 @@ export type PermissionId =
   | 'agents.execute.sso'
   | 'agents.execute.iga'
   | 'agents.execute.servicenow'
-  | 'agents.admin';
+  | 'agents.admin'
+  // Email
+  | 'email.configure'
+  | 'email.send';
 
 export interface Permission {
   permissionId: PermissionId;
@@ -231,7 +236,13 @@ export type AuditEventType =
   | 'agent.execution.started'
   | 'agent.execution.completed'
   | 'agent.execution.failed'
-  | 'agent.execution.cancelled';
+  | 'agent.execution.cancelled'
+  // Email
+  | 'email.config.updated'
+  | 'email.sent'
+  | 'email.delivery.failed'
+  | 'email.test.sent'
+  | 'email.agent.notification';
 
 export interface AuditEvent {
   eventId: string;
