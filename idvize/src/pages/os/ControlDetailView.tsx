@@ -476,10 +476,23 @@ interface LaunchedItem {
   result: RemediationResult
 }
 
+interface ExecutionSessionResult {
+  sessionId: string
+  status: string
+  agentType: string
+  plan?: {
+    summary: string
+    stepsCount?: number
+    blastRadius?: { level: string }
+  }
+  approvalsCount: number
+}
+
 type ModalState =
   | { kind: 'confirm' }
   | { kind: 'loading' }
   | { kind: 'result'; items: LaunchedItem[] }
+  | { kind: 'session'; session: ExecutionSessionResult }
   | { kind: 'error'; message: string }
 
 function LaunchAgentModal({
@@ -492,27 +505,56 @@ function LaunchAgentModal({
   initiatorName: string
   onClose: () => void
 }) {
+  const navigate = useNavigate()
   const [state, setState] = useState<ModalState>({ kind: 'confirm' })
   const [includePaired, setIncludePaired] = useState(false)
+  const [useExecution, setUseExecution] = useState(true)
   const agent = AGENT_BY_PILLAR[ctrl.pillar]
+
+  const agentTypeMap: Record<string, string> = { AM: 'sso', IGA: 'lifecycle', PAM: 'pam', CIAM: 'lifecycle' }
 
   const handleConfirm = useCallback(async () => {
     setState({ kind: 'loading' })
     try {
-      const items: LaunchedItem[] = []
-      // Always launch the originating control first
-      const primary = await triggerRemediation(appId, ctrl.controlId)
-      items.push({ control: ctrl, result: primary })
-      // Optionally chain the SSO/MFA pair
-      if (includePaired && pairedCtrl) {
-        const paired = await triggerRemediation(appId, pairedCtrl.controlId)
-        items.push({ control: pairedCtrl, result: paired })
+      if (useExecution) {
+        // Controlled execution path — creates session with plan + approval gates
+        const agentType = ctrl.controlId === 'AM-002' ? 'mfa' : (agentTypeMap[ctrl.pillar] ?? 'sso')
+        const res = await apiFetch('/agent-execution/sessions', {
+          method: 'POST',
+          body: JSON.stringify({ agentType, applicationId: appId, controlId: ctrl.controlId }),
+        })
+        const json = await res.json()
+        if (!json.success) throw new Error(json.error)
+        const data = json.data
+        setState({
+          kind: 'session',
+          session: {
+            sessionId: data.sessionId,
+            status: data.status,
+            agentType: data.agentType,
+            plan: data.plan ? {
+              summary: data.plan.summary,
+              stepsCount: data.plan.steps?.length,
+              blastRadius: data.plan.blastRadius,
+            } : undefined,
+            approvalsCount: data.approvals?.length ?? 0,
+          },
+        })
+      } else {
+        // Advisory path (legacy)
+        const items: LaunchedItem[] = []
+        const primary = await triggerRemediation(appId, ctrl.controlId)
+        items.push({ control: ctrl, result: primary })
+        if (includePaired && pairedCtrl) {
+          const paired = await triggerRemediation(appId, pairedCtrl.controlId)
+          items.push({ control: pairedCtrl, result: paired })
+        }
+        setState({ kind: 'result', items })
       }
-      setState({ kind: 'result', items })
     } catch (e) {
       setState({ kind: 'error', message: (e as Error).message })
     }
-  }, [appId, ctrl, pairedCtrl, includePaired])
+  }, [appId, ctrl, pairedCtrl, includePaired, useExecution])
 
   // Close on Escape (only allowed when not in flight)
   useEffect(() => {
@@ -574,18 +616,59 @@ function LaunchAgentModal({
               initiatorName={initiatorName}
               includePaired={includePaired}
               onTogglePaired={setIncludePaired}
+              useExecution={useExecution}
+              onToggleExecution={setUseExecution}
             />
           )}
 
           {state.kind === 'loading' && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Loader2 size={28} className="animate-spin text-blue-400 mb-3" />
-              <p className="text-sm font-medium text-body">Dispatching {agent.name}…</p>
-              <p className="text-xs text-muted mt-1">
-                {includePaired && pairedCtrl
-                  ? `Creating 2 approvals and queueing 2 build jobs (${ctrl.controlId} + ${pairedCtrl.controlId})`
-                  : 'Creating approval and queueing build job'}
+              <p className="text-sm font-medium text-body">
+                {useExecution ? 'Creating execution session…' : `Dispatching ${agent.name}…`}
               </p>
+              <p className="text-xs text-muted mt-1">
+                {useExecution
+                  ? 'Generating execution plan and approval requirements'
+                  : includePaired && pairedCtrl
+                    ? `Creating 2 approvals and queueing 2 build jobs (${ctrl.controlId} + ${pairedCtrl.controlId})`
+                    : 'Creating approval and queueing build job'}
+              </p>
+            </div>
+          )}
+
+          {state.kind === 'session' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-900/15 border border-green-800/40">
+                <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-300">Execution Session Created</p>
+                  <p className="text-xs text-muted mt-0.5 font-mono">{state.session.sessionId}</p>
+                </div>
+              </div>
+              {state.session.plan && (
+                <div className="bg-surface-800 border border-surface-700 rounded-lg p-4">
+                  <p className="text-xs text-body leading-relaxed">{state.session.plan.summary}</p>
+                  <div className="flex items-center gap-3 mt-2 text-[10px] text-muted">
+                    {state.session.plan.stepsCount && <span>{state.session.plan.stepsCount} execution steps</span>}
+                    {state.session.plan.blastRadius && (
+                      <span className="uppercase font-semibold" style={{
+                        color: state.session.plan.blastRadius.level === 'critical' ? '#ef4444'
+                          : state.session.plan.blastRadius.level === 'high' ? '#f97316' : '#eab308'
+                      }}>
+                        {state.session.plan.blastRadius.level} blast radius
+                      </span>
+                    )}
+                    <span>{state.session.approvalsCount} approval(s) required</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-900/15 border border-yellow-800/40">
+                <Clock size={14} className="text-yellow-400 flex-shrink-0" />
+                <p className="text-xs text-yellow-300">
+                  This session requires human approval before execution can begin.
+                </p>
+              </div>
             </div>
           )}
 
@@ -637,6 +720,24 @@ function LaunchAgentModal({
               Done
             </button>
           )}
+          {state.kind === 'session' && (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-muted hover:text-body hover:bg-surface-700 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => { onClose(); navigate(`/execution/${state.session.sessionId}`) }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+              >
+                View Execution Session
+              </button>
+            </>
+          )}
           {state.kind === 'error' && (
             <>
               <button
@@ -663,6 +764,7 @@ function LaunchAgentModal({
 
 function ConfirmStep({
   ctrl: _ctrl, pairedCtrl, agent, appName, initiatorName, includePaired, onTogglePaired,
+  useExecution, onToggleExecution,
 }: {
   ctrl: EnrichedControl
   pairedCtrl: EnrichedControl | null
@@ -671,6 +773,8 @@ function ConfirmStep({
   initiatorName: string
   includePaired: boolean
   onTogglePaired: (next: boolean) => void
+  useExecution: boolean
+  onToggleExecution: (next: boolean) => void
 }) {
   return (
     <div className="space-y-4">
@@ -680,6 +784,34 @@ function ConfirmStep({
           {' '}<strong className="text-body">{appName ?? 'this application'}</strong>. It will configure
           the {agent.configures}.
         </p>
+      </div>
+
+      {/* Execution mode toggle */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onToggleExecution(true)}
+          className={`flex-1 p-3 rounded-lg border text-left transition-colors ${
+            useExecution
+              ? 'bg-blue-900/15 border-blue-700/50'
+              : 'bg-surface-800 border-surface-700 hover:border-surface-600'
+          }`}
+        >
+          <p className="text-xs font-semibold text-body">Controlled Execution</p>
+          <p className="text-[10px] text-muted mt-0.5">Plan → Approve → Execute with audit trail</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onToggleExecution(false)}
+          className={`flex-1 p-3 rounded-lg border text-left transition-colors ${
+            !useExecution
+              ? 'bg-blue-900/15 border-blue-700/50'
+              : 'bg-surface-800 border-surface-700 hover:border-surface-600'
+          }`}
+        >
+          <p className="text-xs font-semibold text-body">Advisory Only</p>
+          <p className="text-[10px] text-muted mt-0.5">Get guidance without creating an execution session</p>
+        </button>
       </div>
 
       {/* SSO/MFA pair toggle — shown only when launching SSO or MFA controls */}

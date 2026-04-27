@@ -189,15 +189,25 @@ export async function getSessionApprovals(tenantId: string, sessionId: string): 
 
 export async function isFullyApproved(tenantId: string, sessionId: string): Promise<boolean> {
   const { rows } = await pool.query(
-    `SELECT COUNT(*) AS total,
+    `SELECT COUNT(*) FILTER (WHERE status NOT IN ('expired')) AS active_total,
             COUNT(*) FILTER (WHERE status = 'approved') AS approved_count
      FROM execution_approvals
      WHERE tenant_id = $1 AND session_id = $2`,
     [tenantId, sessionId],
   );
-  const total = parseInt(rows[0].total, 10);
+  const activeTotal = parseInt(rows[0].active_total, 10);
   const approved = parseInt(rows[0].approved_count, 10);
-  return total > 0 && total === approved;
+  return activeTotal > 0 && activeTotal === approved;
+}
+
+export async function hasExpiredApprovals(tenantId: string, sessionId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) AS expired_count
+     FROM execution_approvals
+     WHERE tenant_id = $1 AND session_id = $2 AND status = 'expired'`,
+    [tenantId, sessionId],
+  );
+  return parseInt(rows[0].expired_count, 10) > 0;
 }
 
 function rowToApproval(row: Record<string, unknown>): ExecutionApproval {

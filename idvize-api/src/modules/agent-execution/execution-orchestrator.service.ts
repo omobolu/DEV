@@ -181,6 +181,18 @@ class ExecutionOrchestratorService {
         approvalId,
         comment,
       });
+    } else if (await executionApprovalService.hasExpiredApprovals(tenantId, sessionId)) {
+      session.status = 'expired';
+      session.updatedAt = new Date().toISOString();
+      session.errorMessage = 'One or more approvals expired before resolution';
+
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+
+      await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.approval.expired', {
+        approvalId,
+      });
     }
 
     await repo.saveSession(session);

@@ -87,6 +87,10 @@ const SECTION_INTEL = [
   { icon: TrendingUp,    label: 'Business Value', path: '/value' },
 ]
 
+const SECTION_AGENTS = [
+  { icon: Workflow,      label: 'Agent Execution', path: '/execution' },
+]
+
 function SectionLabel({ label }: { label: string }) {
   return (
     <div className="px-3 pt-4 pb-1.5">
@@ -281,6 +285,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* INTELLIGENCE */}
       <SectionLabel label="Intelligence" />
       {SECTION_INTEL.map(item => <NavItem key={item.path} {...item} />)}
+
+      <div className="w-full border-t border-slate-800 my-2" />
+
+      {/* AGENTS */}
+      <SectionLabel label="Agents" />
+      {SECTION_AGENTS.map(item => <NavItem key={item.path} {...item} />)}
 
       <div className="h-3" />
     </>

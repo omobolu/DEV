@@ -27,6 +27,8 @@ import ControlsLibrary from '@/pages/controls/ControlsLibrary'
 import ValueDashboard  from '@/pages/value/ValueDashboard'
 import SystemEventsPage from '@/pages/os/SystemEventsPage'
 import EmailSettings from '@/pages/settings/EmailSettings'
+import ExecutionSessionsList from '@/pages/execution/ExecutionSessionsList'
+import ExecutionSessionPage from '@/pages/execution/ExecutionSessionPage'
 import { CMDBProvider } from '@/context/CMDBContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SESSION_EXPIRED_EVENT } from '@/lib/apiClient'
@@ -106,6 +108,8 @@ export default function App() {
               <Route path="maturity/domains/:domainId" element={<MaturityDomainDetail />} />
               <Route path="value" element={<ValueDashboard />} />
               <Route path="system-events" element={<SystemEventsPage />} />
+              <Route path="execution" element={<ExecutionSessionsList />} />
+              <Route path="execution/:sessionId" element={<ExecutionSessionPage />} />
               <Route path="settings/email" element={<EmailSettings />} />
               <Route path="my-account" element={<StubPage title="My Account" />} />
               <Route path="users" element={<StubPage title="Users" />} />
