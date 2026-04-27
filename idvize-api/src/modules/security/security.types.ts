@@ -223,6 +223,7 @@ export type AuditEventType =
   | 'approval.granted'
   | 'approval.rejected'
   | 'approval.expired'
+  | 'approval.cancelled'
   | 'policy.created'
   | 'policy.updated'
   | 'policy.deleted'

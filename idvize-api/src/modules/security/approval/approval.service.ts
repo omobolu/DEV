@@ -149,7 +149,7 @@ class ApprovalService {
     if (!request || request.status !== 'pending') return;
 
     const now = new Date().toISOString();
-    request.status = 'rejected';
+    request.status = 'cancelled';
     request.approverId = 'system';
     request.approverName = 'System';
     request.approverComment = reason;
@@ -159,7 +159,7 @@ class ApprovalService {
 
     await auditService.log({
       tenantId,
-      eventType: 'approval.rejected',
+      eventType: 'approval.cancelled',
       actorId: 'system',
       actorName: 'System',
       targetId: request.requesterId,
