@@ -70,6 +70,9 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   { permissionId: 'risks.view',              module: 'risks',        action: 'view',                description: 'View IAM risk assessments across applications',                    riskLevel: 'low',  requiresApproval: false },
   // Agents
   { permissionId: 'agents.invoke',           module: 'agents',       action: 'invoke',              description: 'Invoke IAM control agents for guidance and remediation',           riskLevel: 'low',  requiresApproval: false },
+  // Email
+  { permissionId: 'email.configure',         module: 'email',        action: 'configure',           description: 'View and update email SMTP configuration',                         riskLevel: 'high', requiresApproval: false },
+  { permissionId: 'email.send',              module: 'email',        action: 'send',                description: 'Send test emails and agent notification emails',                   riskLevel: 'medium', requiresApproval: false },
 ];
 
 // ── Role → Permission Matrix ───────────────────────────────────────────────────
@@ -92,6 +95,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'tenants.manage',
     'risks.view',
     'agents.invoke',
+    'email.configure', 'email.send',
   ],
   Manager: [
     'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
@@ -107,6 +111,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.reveal', 'secrets.rotate', 'secrets.approve', 'secrets.manage.provider',
     'risks.view',
     'agents.invoke',
+    'email.configure', 'email.send',
   ],
   Architect: [
     // NO: cost.view.salary_detail, approval.grant.high_risk, security.manage.access/scim, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -123,6 +128,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
     'risks.view',
     'agents.invoke',
+    'email.configure', 'email.send',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -138,6 +144,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request', 'secrets.view.metadata',
     'risks.view',
     'agents.invoke',
+    'email.send',
   ],
   Engineer: [
     // NO: cost module, salary data, tasks.view.all, document.publish, approval.grant.*, security.manage.*, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -151,6 +158,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'secrets.request', 'secrets.reference', 'secrets.view.metadata', 'secrets.rotate',
     'risks.view',
     'agents.invoke',
+    'email.send',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage

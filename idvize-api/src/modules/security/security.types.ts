@@ -90,7 +90,10 @@ export type PermissionId =
   // Risk Engine
   | 'risks.view'
   // Agents
-  | 'agents.invoke';
+  | 'agents.invoke'
+  // Email
+  | 'email.configure'
+  | 'email.send';
 
 export interface Permission {
   permissionId: PermissionId;
@@ -216,7 +219,12 @@ export type AuditEventType =
   | 'secret.accessed'
   | 'tenant.created'
   | 'tenant.updated'
-  | 'tenant.suspended';
+  | 'tenant.suspended'
+  | 'email.config.updated'
+  | 'email.sent'
+  | 'email.delivery.failed'
+  | 'email.test.sent'
+  | 'email.agent.notification';
 
 export interface AuditEvent {
   eventId: string;

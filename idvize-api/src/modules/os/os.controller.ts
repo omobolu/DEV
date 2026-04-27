@@ -850,7 +850,6 @@ router.post('/agents/invoke', requirePermission('agents.invoke'), async (req: Re
     res.status(503).json({ success: false, error: 'Agent service temporarily unavailable' });
   }
 });
-
 // ── Gap Engine — mock data ────────────────────────────────────────────────────
 const MOCK_APPS: AppGapInput[] = [
   {
