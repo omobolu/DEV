@@ -72,6 +72,7 @@ class EmailRepository {
         updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_by       TEXT NOT NULL
       );
+      ALTER TABLE email_config ADD COLUMN IF NOT EXISTS allow_self_signed BOOLEAN NOT NULL DEFAULT false;
     `);
   }
 

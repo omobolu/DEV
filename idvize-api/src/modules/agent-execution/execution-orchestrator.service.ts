@@ -133,7 +133,9 @@ class ExecutionOrchestratorService {
     });
 
     // Fire email notification for plan created (best-effort — failure does not block session)
-    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail).catch(() => {});
+    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail).catch(err => {
+      console.warn(`[ExecutionOrchestrator] notifyPlanCreated failed for session ${sessionId}:`, (err as Error).message);
+    });
 
     return session;
   }
@@ -344,7 +346,9 @@ class ExecutionOrchestratorService {
     );
 
     // Fire email notification for execution completed/failed (best-effort)
-    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail).catch(() => {});
+    this.notifyExecutionCompleted(tenantId, session, actorId, actorName, actorEmail).catch(err => {
+      console.warn(`[ExecutionOrchestrator] notifyExecutionCompleted failed for session ${session.sessionId}:`, (err as Error).message);
+    });
 
     return session;
   }
