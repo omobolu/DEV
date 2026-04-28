@@ -356,7 +356,9 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
         },
         users: {
           includeGroups: includeGroups ?? [],
-          includeUsers: ['All'],
+          // Only target all users when no specific groups are provided.
+          // When groups are specified, scope to those groups only.
+          ...((includeGroups && includeGroups.length > 0) ? {} : { includeUsers: ['All'] }),
         },
       },
       grantControls,
