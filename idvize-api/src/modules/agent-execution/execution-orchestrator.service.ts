@@ -351,20 +351,25 @@ class ExecutionOrchestratorService {
     session.updatedAt = new Date().toISOString();
     await repo.saveSession(session);
 
-    // Cleanup: destroy any ephemeral credentials
-    for (const handleId of session.credentialHandles) {
-      credentialEscrowService.destroyCredential(tenantId, handleId);
+    // Cleanup: only destroy credentials and replay tracking on terminal states.
+    // Paused sessions may resume and still need credentials + replay protection.
+    if (session.status !== 'paused') {
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+      toolBrokerService.clearReplayTracking(tenantId, sessionId);
     }
 
-    // Clear replay tracking on completion
-    toolBrokerService.clearReplayTracking(tenantId, sessionId);
-
+    const auditEventType = allSucceeded ? 'agent.execution.completed'
+      : session.status === 'paused' ? 'agent.execution.completed'
+      : 'agent.execution.failed';
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
-      allSucceeded ? 'agent.execution.completed' : 'agent.execution.failed', {
+      auditEventType, {
         completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
         totalSteps: session.plan.steps.length,
         isSimulation,
         dryRun: options?.dryRun ?? false,
+        sessionStatus: session.status,
         errorMessage: session.errorMessage,
       },
     );
