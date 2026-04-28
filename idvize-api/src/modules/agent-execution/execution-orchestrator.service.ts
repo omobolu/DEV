@@ -417,8 +417,8 @@ class ExecutionOrchestratorService {
     // Cleanup replay tracking
     toolBrokerService.clearReplayTracking(tenantId, sessionId);
 
-    // Cleanup rollback tracking
-    rollbackTracker.cleanupSession(tenantId, sessionId);
+    // Mark any externally-created objects as rollback_required before cleanup
+    await this.rollbackSession(tenantId, sessionId, actorId, actorName);
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.cancelled', {
       reason,

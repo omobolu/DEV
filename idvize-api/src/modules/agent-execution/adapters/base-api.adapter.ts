@@ -397,11 +397,18 @@ export abstract class BaseApiAdapter {
 
         const response = await fetch(options.url, fetchOptions);
 
+        // Check Content-Length before reading body to reject oversized responses early
+        const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10);
+        if (contentLength > MAX_RESPONSE_SIZE) {
+          throw new Error(`Response Content-Length (${contentLength}) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`);
+        }
+
         // Keep timeout active during body read to protect against slow-loris
         const text = await response.text();
         clearTimeout(timeout);
-        if (text.length > MAX_RESPONSE_SIZE) {
-          throw new Error(`Response exceeds maximum size of ${MAX_RESPONSE_SIZE} bytes`);
+        const byteLength = Buffer.byteLength(text, 'utf8');
+        if (byteLength > MAX_RESPONSE_SIZE) {
+          throw new Error(`Response body (${byteLength} bytes) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`);
         }
 
         const responseBody = text ? JSON.parse(text) as Record<string, unknown> : {};
