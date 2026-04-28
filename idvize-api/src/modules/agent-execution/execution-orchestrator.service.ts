@@ -362,6 +362,7 @@ class ExecutionOrchestratorService {
         credentialEscrowService.destroyCredential(tenantId, handleId);
       }
       toolBrokerService.clearReplayTracking(tenantId, sessionId);
+      rollbackTracker.cleanupSession(tenantId, sessionId);
     }
 
     const auditEventType = allSucceeded ? 'agent.execution.completed'
@@ -417,8 +418,9 @@ class ExecutionOrchestratorService {
     // Cleanup replay tracking
     toolBrokerService.clearReplayTracking(tenantId, sessionId);
 
-    // Mark any externally-created objects as rollback_required before cleanup
+    // Mark any externally-created objects as rollback_required, then free memory
     await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+    rollbackTracker.cleanupSession(tenantId, sessionId);
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.cancelled', {
       reason,

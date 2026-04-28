@@ -50,7 +50,7 @@ const BLOCKED_HOSTNAMES = new Set([
   'metadata.google.internal',
   'metadata.google.com',
   '169.254.169.254',   // AWS/GCP metadata
-  '[fd00::1]',
+  'fd00::1',
 ]);
 
 function isBlockedHost(hostname: string): boolean {
@@ -400,7 +400,7 @@ export abstract class BaseApiAdapter {
         // Check Content-Length before reading body to reject oversized responses early
         const contentLength = parseInt(response.headers.get('content-length') ?? '0', 10);
         if (contentLength > MAX_RESPONSE_SIZE) {
-          throw new Error(`Response Content-Length (${contentLength}) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`);
+          throw new ApiError(`Response Content-Length (${contentLength}) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`, 413, {});
         }
 
         // Keep timeout active during body read to protect against slow-loris
@@ -408,7 +408,7 @@ export abstract class BaseApiAdapter {
         clearTimeout(timeout);
         const byteLength = Buffer.byteLength(text, 'utf8');
         if (byteLength > MAX_RESPONSE_SIZE) {
-          throw new Error(`Response body (${byteLength} bytes) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`);
+          throw new ApiError(`Response body (${byteLength} bytes) exceeds maximum of ${MAX_RESPONSE_SIZE} bytes`, 413, {});
         }
 
         const responseBody = text ? JSON.parse(text) as Record<string, unknown> : {};
