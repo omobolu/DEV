@@ -729,7 +729,7 @@ class ExecutionOrchestratorService {
       targetType: 'execution_session',
       targetId: sessionId,
       resource: 'agent_execution',
-      outcome: eventType.includes('failed') || eventType.includes('rejected') ? 'failure' : 'success',
+      outcome: eventType.includes('failed') || eventType.includes('rejected') || eventType.includes('rollback') ? 'failure' : 'success',
       metadata,
     });
   }

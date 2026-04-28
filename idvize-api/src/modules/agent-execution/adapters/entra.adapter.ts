@@ -89,9 +89,30 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
     // Idempotency: search for existing app by display name tag
     const existing = await this.findAppByTag(ctx.tenantId, token, ctx.sessionId, displayName);
     if (existing) {
+      // Look up (or create) the service principal so downstream steps can reference it
+      const spSearch = await this.apiCall(ctx.tenantId, {
+        method: 'GET',
+        url: this.buildODataUrl(`${GRAPH_BASE}/servicePrincipals`, `appId eq '${existing.appId}'`, 'id'),
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const spList = spSearch.body.value as Array<{ id: string }>;
+      let servicePrincipalId: string;
+      if (spList.length > 0) {
+        servicePrincipalId = spList[0].id;
+      } else {
+        const spResult = await this.apiCall(ctx.tenantId, {
+          method: 'POST',
+          url: `${GRAPH_BASE}/servicePrincipals`,
+          body: { appId: existing.appId, tags: [`idvize:session:${ctx.sessionId}`] },
+          headers: { Authorization: `Bearer ${token}` },
+          noRetry: true,
+        });
+        servicePrincipalId = spResult.body.id as string;
+      }
       return this.successResult({
         objectId: existing.id,
         appId: existing.appId,
+        servicePrincipalId,
         displayName: existing.displayName,
         reused: true,
       });
