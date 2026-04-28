@@ -241,6 +241,7 @@ export type AuditEventType =
   | 'agent.execution.started'
   | 'agent.execution.completed'
   | 'agent.execution.failed'
+  | 'agent.execution.paused'
   | 'agent.execution.cancelled'
   | 'agent.execution.denied'
   | 'agent.execution.dryrun'

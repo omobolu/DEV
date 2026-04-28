@@ -295,7 +295,7 @@ class ExecutionOrchestratorService {
         actorId,
         actorName,
         actorPermissions,
-        { dryRun: options?.dryRun },
+        { dryRun: options?.dryRun, retryAttempt: step.result?.requiresManualAction === true },
         credentialHandle,
       );
 
@@ -361,7 +361,7 @@ class ExecutionOrchestratorService {
     }
 
     const auditEventType = allSucceeded ? 'agent.execution.completed'
-      : session.status === 'paused' ? 'agent.execution.completed'
+      : session.status === 'paused' ? 'agent.execution.paused'
       : 'agent.execution.failed';
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
       auditEventType, {
