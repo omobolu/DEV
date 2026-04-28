@@ -149,6 +149,15 @@ const HIGH_BLAST_RADIUS_ACTIONS: Set<ActionType> = new Set([
   'servicenow.create_workflow',
 ]);
 
+// ── Single-Deployment Tenant Lock ────────────────────────────────────────────
+// Phase 3 adapters use global env credentials (not tenant-scoped config).
+// To prevent cross-tenant credential sharing, the first tenant to execute
+// against a configured adapter "locks" that system type. Other tenants are
+// blocked until tenant-scoped integration config is implemented.
+// Key: systemType → tenantId that first executed against it.
+
+const adapterTenantLock = new Map<string, string>();
+
 // ── Step Execution Tracking (Replay Protection) ──────────────────────────────
 // Tracks which steps have been executed to prevent duplicate execution.
 // Key: tenantId|sessionId|stepId → last execution timestamp
@@ -303,16 +312,39 @@ class ToolBrokerService {
       return this.failResult(`No adapter registered for system type "${action.target.systemType}"`);
     }
 
-    // Note: adapter.isConfigured() is NOT checked here — adapters gracefully
-    // fall back to stub/simulation mode when credentials are absent (dev/demo).
-    // The adapter itself decides whether to return stub results or fail.
+    // ── 10b. Fail closed in production when provider config is missing ──
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.SEED_MODE === 'production';
+    if (!adapter.isConfigured() && isProduction && !options.dryRun) {
+      return this.failResult(
+        `${action.target.systemType} adapter is not configured (missing credentials). ` +
+        `Production execution requires valid provider configuration.`,
+      );
+    }
+
+    // ── 10c. Single-deployment tenant lock (global env credentials) ─────
+    // Adapters using global env vars are NOT tenant-scoped. Lock each
+    // system type to the first tenant that executes against it.
+    const sysType = action.target.systemType;
+    if (adapter.isConfigured() && sysType !== 'internal' && sysType !== 'app_connector') {
+      const lockedTenant = adapterTenantLock.get(sysType);
+      if (lockedTenant && lockedTenant !== tenantId) {
+        return this.failResult(
+          `${sysType} adapter is locked to a different tenant. ` +
+          `Phase 3 uses global provider credentials and does not support multi-tenant execution. ` +
+          `Contact platform admin to configure tenant-scoped integration credentials.`,
+        );
+      }
+      if (!lockedTenant && !options.dryRun) {
+        adapterTenantLock.set(sysType, tenantId);
+      }
+    }
 
     // ── 11. Execute through adapter ──────────────────────────────────────
     const context: ExecutionContext = {
       tenantId,
       sessionId,
       stepId,
-      dryRun: false,
+      dryRun: options.dryRun ?? false,
       actorId,
       actorName,
     };

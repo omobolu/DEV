@@ -12,6 +12,8 @@
 import { auditService } from '../security/audit/audit.service';
 import type { SystemType } from './agent-execution.types';
 
+export type RollbackStatus = 'pending' | 'rollback_required' | 'rolled_back';
+
 export interface CreatedObject {
   id: string;                      // Internal tracking ID
   tenantId: string;
@@ -23,6 +25,7 @@ export interface CreatedObject {
   displayName?: string;            // Human-readable label
   rollbackAction?: string;         // e.g. 'DELETE /v1.0/applications/{id}'
   rolledBack: boolean;
+  rollbackStatus: RollbackStatus;
   rolledBackAt?: string;
   createdAt: string;
 }
@@ -56,6 +59,7 @@ class RollbackTrackerService {
       displayName,
       rollbackAction,
       rolledBack: false,
+      rollbackStatus: 'pending',
       createdAt: new Date().toISOString(),
     };
 
@@ -90,10 +94,11 @@ class RollbackTrackerService {
   }
 
   /**
-   * Mark an object as rolled back. Called by the adapter after successfully
-   * deleting/reverting the external object.
+   * Mark an object as requiring manual rollback. The actual deletion
+   * of external objects is NOT performed automatically — an operator
+   * must execute the rollback action described in rollbackAction.
    */
-  async markRolledBack(
+  async markRollbackRequired(
     tenantId: string,
     sessionId: string,
     externalObjectId: string,
@@ -104,18 +109,17 @@ class RollbackTrackerService {
     const obj = objects.find(o => o.externalObjectId === externalObjectId);
     if (!obj) return;
 
-    obj.rolledBack = true;
-    obj.rolledBackAt = new Date().toISOString();
+    obj.rollbackStatus = 'rollback_required';
 
     await auditService.log({
       tenantId,
-      eventType: 'agent.rollback.completed',
+      eventType: 'agent.rollback.required',
       actorId,
       actorName,
       targetType: 'external_object',
       targetId: externalObjectId,
       resource: 'agent_execution',
-      outcome: 'success',
+      outcome: 'failure',
       metadata: {
         sessionId,
         stepId: obj.stepId,
@@ -130,7 +134,7 @@ class RollbackTrackerService {
    * Get all objects pending rollback for a session.
    */
   getPendingRollbacks(tenantId: string, sessionId: string): CreatedObject[] {
-    return this.getSessionObjects(tenantId, sessionId).filter(o => !o.rolledBack);
+    return this.getSessionObjects(tenantId, sessionId).filter(o => o.rollbackStatus === 'pending');
   }
 
   /**

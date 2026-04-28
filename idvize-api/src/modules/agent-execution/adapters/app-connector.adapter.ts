@@ -77,12 +77,13 @@ class AppConnectorAdapter implements ToolAdapter {
     }
 
     return {
-      success: true,
+      success: false,
+      requiresManualAction: true,
       output: {
         ssoConfigured: false,
         mode: 'human_assisted',
         note: 'App-side SSO configuration requires human intervention. ' +
-              'The execution plan has been paused for manual app-side setup. ' +
+              'The execution session has been paused for manual app-side setup. ' +
               'Credential has been made available via the credential escrow.',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
@@ -106,7 +107,8 @@ class AppConnectorAdapter implements ToolAdapter {
     }
 
     return {
-      success: true,
+      success: false,
+      requiresManualAction: true,
       output: {
         verified: false,
         mode: 'human_assisted',
@@ -146,12 +148,13 @@ class AppConnectorAdapter implements ToolAdapter {
     }
 
     return {
-      success: true,
+      success: false,
+      requiresManualAction: true,
       output: {
         scimConfigured: false,
         mode: 'human_assisted',
         note: 'SCIM provisioning configuration requires human intervention. ' +
-              'The execution plan has been paused for manual app-side setup.',
+              'The execution session has been paused for manual app-side setup.',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
         credentialProvided: !!credentialHandle,

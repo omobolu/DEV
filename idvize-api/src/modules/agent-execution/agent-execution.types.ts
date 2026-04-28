@@ -106,6 +106,8 @@ export interface StepResult {
   output: Record<string, unknown>; // Sanitized — no credentials
   errorMessage?: string;
   evidenceIds: string[];           // References to Evidence Store
+  /** When true, the step requires human/manual intervention before the session can complete. */
+  requiresManualAction?: boolean;
 }
 
 // ── Tool Actions (Structured Intent) ─────────────────────────────────────────

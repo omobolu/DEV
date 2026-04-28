@@ -33,6 +33,7 @@ import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
   ExecutionSessionStatus,
+  StepStatus,
   AgentType,
   CreatePlanRequest,
   SessionListFilters,
@@ -300,7 +301,7 @@ class ExecutionOrchestratorService {
 
       step.result = result;
       step.completedAt = new Date().toISOString();
-      step.status = result.success ? 'succeeded' : 'failed';
+      step.status = result.success ? 'succeeded' : (result.requiresManualAction ? 'pending' as StepStatus : 'failed');
 
       // Detect stub/simulation results
       if (result.output && (result.output as Record<string, unknown>)._stub === true) {
@@ -310,14 +311,26 @@ class ExecutionOrchestratorService {
       // Record evidence for this step
       const evidence = await evidenceStoreService.record(
         tenantId, sessionId,
-        result.success ? 'api_response' : 'error_log',
+        result.success ? 'api_response' : (result.requiresManualAction ? 'api_response' : 'error_log'),
         `Step ${step.order}: ${step.description}`,
-        result.success ? 'Completed successfully' : `Failed: ${result.errorMessage}`,
+        result.success ? 'Completed successfully'
+          : result.requiresManualAction ? 'Paused — requires manual intervention'
+          : `Failed: ${result.errorMessage}`,
         { stepId: step.stepId, actionType: step.actionType, output: result.output },
         step.stepId,
       );
 
       result.evidenceIds.push(evidence.evidenceId);
+
+      // Manual-action steps pause the session — do NOT rollback or mark as failed
+      if (result.requiresManualAction) {
+        allSucceeded = false;
+        session.status = 'paused';
+        session.errorMessage = `Step ${step.order} requires manual intervention: ${
+          (result.output as Record<string, unknown>).note ?? 'Human action needed'
+        }`;
+        break;
+      }
 
       if (!result.success) {
         allSucceeded = false;
@@ -430,33 +443,37 @@ class ExecutionOrchestratorService {
       })),
     });
 
-    // Rollback in reverse order (most recently created first)
+    // Mark objects as requiring manual rollback (in reverse creation order).
+    // Actual provider DELETE calls are NOT executed automatically —
+    // an operator must perform the rollback actions listed in evidence.
     for (const obj of [...pendingRollbacks].reverse()) {
       try {
-        await rollbackTracker.markRolledBack(tenantId, sessionId, obj.externalObjectId, actorId, actorName);
+        await rollbackTracker.markRollbackRequired(tenantId, sessionId, obj.externalObjectId, actorId, actorName);
 
         await evidenceStoreService.record(
           tenantId, sessionId, 'api_response',
-          `Rollback: ${obj.objectType} (${obj.externalObjectId})`,
-          `Marked for rollback — ${obj.rollbackAction ?? 'manual cleanup required'}`,
+          `Rollback required: ${obj.objectType} (${obj.externalObjectId})`,
+          `Manual rollback required — ${obj.rollbackAction ?? 'contact platform admin for cleanup'}`,
           {
             provider: obj.systemType,
             externalObjectId: obj.externalObjectId,
             objectType: obj.objectType,
             rollbackAction: obj.rollbackAction,
+            rollbackStatus: 'rollback_required',
             timestamp: new Date().toISOString(),
           },
         );
       } catch (err) {
         console.warn(
-          `[ExecutionOrchestrator] Rollback failed for ${obj.objectType} (${obj.externalObjectId}):`,
+          `[ExecutionOrchestrator] Rollback marking failed for ${obj.objectType} (${obj.externalObjectId}):`,
           (err as Error).message,
         );
       }
     }
 
-    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.completed', {
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.required', {
       objectCount: pendingRollbacks.length,
+      note: 'Objects require manual rollback — provider DELETE calls not executed automatically',
     });
   }
 

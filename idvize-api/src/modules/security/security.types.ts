@@ -246,6 +246,7 @@ export type AuditEventType =
   | 'agent.execution.dryrun'
   | 'agent.approval.expired'
   | 'agent.rollback.started'
+  | 'agent.rollback.required'
   | 'agent.rollback.completed'
   // Email
   | 'email.config.updated'
