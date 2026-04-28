@@ -352,8 +352,11 @@ class ToolBrokerService {
     try {
       const result = await adapter.execute(action, credentialHandle, context);
 
-      // Mark step as executed (replay protection)
-      executedSteps.set(sKey, new Date().toISOString());
+      // Mark step as executed (replay protection) — only for success/manual-action.
+      // Failed results should not block retry.
+      if (result.success || result.requiresManualAction) {
+        executedSteps.set(sKey, new Date().toISOString());
+      }
 
       await auditService.log({
         tenantId,

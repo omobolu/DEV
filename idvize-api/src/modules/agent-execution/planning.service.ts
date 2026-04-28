@@ -135,7 +135,11 @@ class PlanningService {
         {
           actionType: 'entra.assign_group_to_app',
           target: { systemType: 'entra', applicationId: ctx.applicationId },
-          inputs: { groupName: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}` },
+          inputs: {
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
+            groupId: '{{step:3:groupId}}',
+            groupName: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
+          },
           validationRules: [],
         },
         false,
@@ -148,6 +152,7 @@ class PlanningService {
           inputs: {
             name: `AP-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
             description: `Access profile for ${ctx.applicationName} SSO`,
+            sourceId: '{{step:5:sourceId}}',
             sourceGroup: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
           },
           validationRules: [
@@ -190,7 +195,10 @@ class PlanningService {
         {
           actionType: 'verification.test_sso_login',
           target: { systemType: 'internal', applicationId: ctx.applicationId },
-          inputs: { testUserEmail: '{{testUserEmail}}' },
+          inputs: {
+            testUserEmail: '{{testUserEmail}}',
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
+          },
           validationRules: [],
         },
         false,

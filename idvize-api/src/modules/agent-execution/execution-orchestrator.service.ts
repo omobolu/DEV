@@ -33,6 +33,7 @@ import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
   ExecutionSessionStatus,
+  ExecutionStep,
   StepStatus,
   AgentType,
   CreatePlanRequest,
@@ -262,6 +263,9 @@ class ExecutionOrchestratorService {
       if (step.requiresCredential && step.credentialHandle) {
         credentialHandle = step.credentialHandle;
       }
+
+      // Resolve step-output references: {{step:N:fieldName}} → value from step N's result
+      this.resolveStepOutputReferences(step, session.plan.steps);
 
       // Check for unresolved placeholders in inputs — pause if found
       const hasPlaceholders = Object.values(step.toolAction.inputs).some(
@@ -686,6 +690,27 @@ class ExecutionOrchestratorService {
       createdAt: now,
       updatedAt: now,
     };
+  }
+
+  /**
+   * Resolve {{step:N:fieldName}} placeholders in step inputs from
+   * previous steps' result outputs. Unresolvable references are left
+   * as-is (the unresolved-placeholder check will catch them).
+   */
+  private resolveStepOutputReferences(step: ExecutionStep, allSteps: ExecutionStep[]): void {
+    const STEP_REF_RE = /^\{\{step:(\d+):(\w+)\}\}$/;
+    for (const [key, value] of Object.entries(step.toolAction.inputs)) {
+      if (typeof value !== 'string') continue;
+      const match = STEP_REF_RE.exec(value);
+      if (!match) continue;
+      const refOrder = parseInt(match[1], 10);
+      const refField = match[2];
+      const refStep = allSteps.find(s => s.order === refOrder);
+      if (refStep?.result?.output && refField in (refStep.result.output as Record<string, unknown>)) {
+        (step.toolAction.inputs as Record<string, unknown>)[key] =
+          (refStep.result.output as Record<string, unknown>)[refField];
+      }
+    }
   }
 
   private async auditSessionEvent(
