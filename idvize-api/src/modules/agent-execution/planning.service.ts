@@ -280,9 +280,9 @@ class PlanningService {
           target: { systemType: 'entra', applicationId: ctx.applicationId },
           inputs: {
             policyName: `CA-MFA-${ctx.applicationName.replace(/\s+/g, '-')}`,
-            grantControls: ['mfa'],
+            grantControls: { operator: 'OR', builtInControls: ['mfa'] },
             targetGroups: '{{targetGroups}}',
-            state: 'reportOnly',
+            state: 'enabledForReportingButNotEnforced',
           },
           validationRules: [
             { field: 'targetGroups', rule: 'required', message: 'Target user groups are required' },

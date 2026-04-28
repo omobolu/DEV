@@ -300,8 +300,8 @@ class ExecutionOrchestratorService {
       );
 
       step.result = result;
-      step.completedAt = new Date().toISOString();
       step.status = result.success ? 'succeeded' : (result.requiresManualAction ? 'pending' as StepStatus : 'failed');
+      step.completedAt = step.status === 'pending' ? undefined : new Date().toISOString();
 
       // Detect stub/simulation results
       if (result.output && (result.output as Record<string, unknown>)._stub === true) {

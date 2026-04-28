@@ -339,7 +339,11 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
       ['enabled', 'disabled', 'enabledForReportingButNotEnforced'] as const);
     const includeApplications = action.inputs.includeApplications as string[] | undefined;
     const includeGroups = action.inputs.includeGroups as string[] | undefined;
-    const grantControls = action.inputs.grantControls as Record<string, unknown> | undefined;
+    const rawGrantControls = action.inputs.grantControls;
+    // Normalize: array → Graph API object format, undefined → default
+    const grantControls: Record<string, unknown> = Array.isArray(rawGrantControls)
+      ? { operator: 'OR', builtInControls: rawGrantControls }
+      : (rawGrantControls as Record<string, unknown>) ?? { operator: 'OR', builtInControls: ['mfa'] };
 
     const token = await this.getToken(ctx.tenantId);
 
@@ -355,10 +359,7 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
           includeUsers: ['All'],
         },
       },
-      grantControls: grantControls ?? {
-        operator: 'OR',
-        builtInControls: ['mfa'],
-      },
+      grantControls,
     };
 
     const result = await this.apiCall(ctx.tenantId, {
