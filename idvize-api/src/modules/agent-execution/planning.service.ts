@@ -97,6 +97,7 @@ class PlanningService {
           actionType: 'entra.configure_saml_sso',
           target: { systemType: 'entra', applicationId: ctx.applicationId },
           inputs: {
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
             entityId: `{{entityId}}`,
             acsUrl: `{{acsUrl}}`,
             nameIdFormat: 'emailAddress',
@@ -152,7 +153,7 @@ class PlanningService {
           inputs: {
             name: `AP-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
             description: `Access profile for ${ctx.applicationName} SSO`,
-            sourceId: '{{step:5:sourceId}}',
+            sourceId: '{{sourceId}}',
             sourceGroup: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
           },
           validationRules: [
@@ -289,11 +290,11 @@ class PlanningService {
           inputs: {
             policyName: `CA-MFA-${ctx.applicationName.replace(/\s+/g, '-')}`,
             grantControls: { operator: 'OR', builtInControls: ['mfa'] },
-            targetGroups: '{{targetGroups}}',
+            includeGroups: '{{includeGroups}}',
             state: 'enabledForReportingButNotEnforced',
           },
           validationRules: [
-            { field: 'targetGroups', rule: 'required', message: 'Target user groups are required' },
+            { field: 'includeGroups', rule: 'required', message: 'Target user groups are required' },
           ],
         },
         false,
