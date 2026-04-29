@@ -352,6 +352,15 @@ class ExecutionOrchestratorService {
       // Skip already-succeeded steps when resuming from paused
       if (step.status === 'succeeded') continue;
 
+      // A manually-rejected step means the session cannot proceed — fail immediately
+      if (step.status === 'failed' && (step.result?.output as Record<string, unknown>)?.manuallyRejected) {
+        allSucceeded = false;
+        session.status = 'failed';
+        session.errorMessage = `Step ${step.order} was rejected by operator: ${step.result?.errorMessage ?? 'no reason given'}`;
+        await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+        break;
+      }
+
       step.status = 'in_progress';
       step.startedAt = new Date().toISOString();
 
