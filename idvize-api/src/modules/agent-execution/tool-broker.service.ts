@@ -71,7 +71,7 @@ function validateInputs(action: ToolAction): string[] {
 
     switch (rule.rule) {
       case 'required':
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
           errors.push(rule.message);
         }
         break;

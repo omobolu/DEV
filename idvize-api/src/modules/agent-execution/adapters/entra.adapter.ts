@@ -366,8 +366,14 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
       ? { operator: 'OR', builtInControls: rawGrantControls }
       : (rawGrantControls as Record<string, unknown>) ?? { operator: 'OR', builtInControls: ['mfa'] };
 
+    // Reject empty includeGroups — must not silently fall back to all users
+    if (Array.isArray(includeGroups) && includeGroups.length === 0) {
+      return this.failResult('includeGroups is empty — cannot create CA policy without target groups');
+    }
+
     const token = await this.getToken(ctx.tenantId);
 
+    const hasGroups = Array.isArray(includeGroups) && includeGroups.length > 0;
     const body: Record<string, unknown> = {
       displayName: `[idvize] ${policyName}`,
       state,
@@ -375,12 +381,9 @@ class EntraAdapter extends BaseApiAdapter implements ToolAdapter {
         applications: {
           includeApplications: includeApplications ?? ['All'],
         },
-        users: {
-          includeGroups: includeGroups ?? [],
-          // Only target all users when no specific groups are provided.
-          // When groups are specified, scope to those groups only.
-          ...((includeGroups && includeGroups.length > 0) ? {} : { includeUsers: ['All'] }),
-        },
+        users: hasGroups
+          ? { includeGroups }
+          : { includeUsers: ['All'] },
       },
       grantControls,
     };

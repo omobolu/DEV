@@ -70,6 +70,14 @@ class ExecutionOrchestratorService {
   ): Promise<ExecutionSession> {
     const sessionId = `exs-${uuidv4()}`;
 
+    // 0. Validate initial context inputs if provided
+    if (request.context) {
+      const validationErrors = this.validateContextInputs(request.context);
+      if (validationErrors.length > 0) {
+        throw new Error(`Context validation failed: ${validationErrors.join('; ')}`);
+      }
+    }
+
     // 1. Generate plan
     const plan = await planningService.generatePlan(
       tenantId,
