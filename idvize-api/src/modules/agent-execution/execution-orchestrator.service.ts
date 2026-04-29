@@ -245,12 +245,38 @@ class ExecutionOrchestratorService {
       throw new Error(`Input validation failed: ${validationErrors.join('; ')}`);
     }
 
-    session.plan.contextData = { ...session.plan.contextData, ...inputs };
+    // Scope-sensitive keys that affect what the approved plan actually touches.
+    // These can only be FILLED IN (from undefined/placeholder) — not overwritten
+    // after they already have a resolved value. Changing them post-approval would
+    // make the approval record no longer match what runs in real systems.
+    const SCOPE_SENSITIVE_KEYS = ['includeGroups', 'sourceId', 'entityId', 'acsUrl', 'testUserEmail'];
+    const existing = session.plan.contextData ?? {};
+    const overwritten: string[] = [];
+    for (const key of SCOPE_SENSITIVE_KEYS) {
+      if (!(key in inputs)) continue;
+      const prev = existing[key];
+      // Allow filling in a missing/placeholder value
+      if (prev === undefined || prev === null) continue;
+      if (typeof prev === 'string' && /^\{\{.+\}\}$/.test(prev)) continue;
+      // Reject overwriting an already-resolved value
+      if (JSON.stringify(prev) !== JSON.stringify(inputs[key])) {
+        overwritten.push(key);
+      }
+    }
+    if (overwritten.length > 0) {
+      throw new Error(
+        `Cannot overwrite scope-sensitive inputs after approval: ${overwritten.join(', ')}. ` +
+        'These values were already set when the plan was approved. Cancel and create a new session to change them.',
+      );
+    }
+
+    session.plan.contextData = { ...existing, ...inputs };
     session.updatedAt = new Date().toISOString();
     await repo.saveSession(session);
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.inputs_updated', {
       inputKeys: Object.keys(inputs),
+      scopeSensitiveKeys: Object.keys(inputs).filter(k => SCOPE_SENSITIVE_KEYS.includes(k)),
     });
 
     return session;

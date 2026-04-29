@@ -59,11 +59,30 @@ const BLOCKED_HOSTNAMES = new Set([
   'fd00::1',
 ]);
 
+/**
+ * Convert IPv4-mapped IPv6 hex form (e.g. ::ffff:7f00:1) to dotted notation
+ * (e.g. ::ffff:127.0.0.1) so existing IPv4 blocklist patterns can match.
+ * Node's URL normalizes ::ffff:127.0.0.1 → ::ffff:7f00:1.
+ */
+function normalizeIPv4MappedIPv6(host: string): string {
+  const match = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(host);
+  if (!match) return host;
+  const hi = parseInt(match[1], 16);
+  const lo = parseInt(match[2], 16);
+  return `::ffff:${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
 function isBlockedHost(hostname: string): boolean {
   // Node's URL.hostname returns bracketed IPv6 like [::1] — strip brackets for matching
   const lower = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (BLOCKED_HOSTNAMES.has(lower)) return true;
-  return BLOCKED_IP_PATTERNS.some(pattern => pattern.test(lower));
+  if (BLOCKED_IP_PATTERNS.some(pattern => pattern.test(lower))) return true;
+  // Also check the normalized dotted form for IPv4-mapped IPv6 hex addresses
+  const normalized = normalizeIPv4MappedIPv6(lower);
+  if (normalized !== lower) {
+    return BLOCKED_IP_PATTERNS.some(pattern => pattern.test(normalized));
+  }
+  return false;
 }
 
 /**
