@@ -195,6 +195,74 @@ router.post('/sessions/:sessionId/execute', requirePermission('agents.execute.re
   }
 });
 
+// ── Input Resolution (for paused sessions) ──────────────────────────────────
+
+router.patch('/sessions/:sessionId/inputs', requirePermission('agents.execute.request'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
+    if (!tenantId || !user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const sessionId = req.params.sessionId as string;
+    const { inputs } = req.body;
+    if (!inputs || typeof inputs !== 'object') {
+      res.status(400).json({ error: 'inputs object is required' });
+      return;
+    }
+
+    const session = await executionOrchestratorService.updateSessionInputs(
+      tenantId, sessionId, inputs as Record<string, unknown>, user.sub, user.name,
+    );
+
+    res.json({ success: true, data: session });
+  } catch (err) {
+    const message = (err as Error).message;
+    if (message.includes('not found')) {
+      res.status(404).json({ error: message });
+    } else {
+      res.status(400).json({ error: message });
+    }
+  }
+});
+
+// ── Manual Step Confirmation ────────────────────────────────────────────────
+
+router.post('/sessions/:sessionId/steps/:stepId/confirm', requirePermission('agents.execute.request'), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string | undefined;
+    const user = (req as any).user as TokenClaims | undefined;
+    if (!tenantId || !user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const sessionId = req.params.sessionId as string;
+    const stepId = req.params.stepId as string;
+    const { confirmed, evidence } = req.body;
+
+    if (typeof confirmed !== 'boolean') {
+      res.status(400).json({ error: 'confirmed (boolean) is required' });
+      return;
+    }
+
+    const session = await executionOrchestratorService.confirmManualStep(
+      tenantId, sessionId, stepId, confirmed, user.sub, user.name, evidence as string | undefined,
+    );
+
+    res.json({ success: true, data: session });
+  } catch (err) {
+    const message = (err as Error).message;
+    if (message.includes('not found')) {
+      res.status(404).json({ error: message });
+    } else {
+      res.status(400).json({ error: message });
+    }
+  }
+});
+
 // ── Cancellation ─────────────────────────────────────────────────────────────
 
 router.post('/sessions/:sessionId/cancel', requirePermission('agents.plan'), async (req: Request, res: Response) => {

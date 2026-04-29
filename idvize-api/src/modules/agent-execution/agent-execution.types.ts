@@ -75,6 +75,7 @@ export interface ExecutionPlan {
   prerequisites: PlanPrerequisite[];
   estimatedDuration: string;      // ISO 8601 duration (e.g. "PT30M")
   rollbackSteps: ExecutionStep[]; // Steps to undo if execution fails
+  contextData?: Record<string, unknown>; // User-provided data for {{placeholder}} resolution
   createdAt: string;
 }
 

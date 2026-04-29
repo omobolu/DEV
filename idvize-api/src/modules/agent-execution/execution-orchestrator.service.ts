@@ -213,6 +213,103 @@ class ExecutionOrchestratorService {
   }
 
   /**
+   * Supply missing context data for a paused session.
+   * Merges provided inputs into the plan's contextData so placeholder resolution
+   * can resolve them on the next execution attempt.
+   */
+  async updateSessionInputs(
+    tenantId: string,
+    sessionId: string,
+    inputs: Record<string, unknown>,
+    actorId: string,
+    actorName: string,
+  ): Promise<ExecutionSession> {
+    const session = await repo.getSession(tenantId, sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== 'paused') {
+      throw new Error(`Session ${sessionId} is in status "${session.status}" — can only update inputs on paused sessions`);
+    }
+    if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
+
+    session.plan.contextData = { ...session.plan.contextData, ...inputs };
+    session.updatedAt = new Date().toISOString();
+    await repo.saveSession(session);
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.inputs_updated', {
+      inputKeys: Object.keys(inputs),
+    });
+
+    return session;
+  }
+
+  /**
+   * Confirm (or reject) a manual-action step that paused the session.
+   * On confirmation, marks the step as succeeded with operator evidence.
+   * On rejection, marks the step as failed.
+   * Either way, does NOT re-execute the step's adapter.
+   */
+  async confirmManualStep(
+    tenantId: string,
+    sessionId: string,
+    stepId: string,
+    confirmed: boolean,
+    actorId: string,
+    actorName: string,
+    evidence?: string,
+  ): Promise<ExecutionSession> {
+    const session = await repo.getSession(tenantId, sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== 'paused') {
+      throw new Error(`Session ${sessionId} is in status "${session.status}" — manual confirmation only applies to paused sessions`);
+    }
+    if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
+
+    const step = session.plan.steps.find(s => s.stepId === stepId);
+    if (!step) throw new Error(`Step ${stepId} not found in session ${sessionId}`);
+    if (!step.result?.requiresManualAction) {
+      throw new Error(`Step ${stepId} is not awaiting manual confirmation`);
+    }
+
+    if (confirmed) {
+      step.status = 'succeeded';
+      step.completedAt = new Date().toISOString();
+      step.result = {
+        success: true,
+        output: { ...step.result.output, manuallyConfirmed: true, confirmedBy: actorName, evidence: evidence ?? '' },
+        evidenceIds: step.result.evidenceIds,
+      };
+    } else {
+      step.status = 'failed';
+      step.completedAt = new Date().toISOString();
+      step.result = {
+        success: false,
+        output: { ...step.result.output, manuallyRejected: true, rejectedBy: actorName },
+        errorMessage: evidence ?? 'Manual step rejected by operator',
+        evidenceIds: step.result.evidenceIds,
+      };
+    }
+
+    session.updatedAt = new Date().toISOString();
+    session.errorMessage = undefined;
+    await repo.saveSession(session);
+
+    await evidenceStoreService.record(
+      tenantId, sessionId, 'api_response',
+      `Step ${step.order}: Manual Confirmation`,
+      confirmed ? `Confirmed by ${actorName}` : `Rejected by ${actorName}`,
+      { stepId, confirmed, confirmedBy: actorName, evidence },
+      stepId,
+    );
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
+      confirmed ? 'agent.execution.step_confirmed' : 'agent.execution.step_rejected',
+      { stepId, confirmed, evidence },
+    );
+
+    return session;
+  }
+
+  /**
    * Phase 3: Execute an approved plan.
    * Steps are executed sequentially through the Tool Broker (executeSecure).
    * Enforces per-step system permissions, replay protection, and rollback on failure.
@@ -266,6 +363,9 @@ class ExecutionOrchestratorService {
 
       // Resolve step-output references: {{step:N:fieldName}} → value from step N's result
       this.resolveStepOutputReferences(step, session.plan.steps);
+
+      // Resolve context placeholders: {{key}} → value from plan.contextData
+      this.resolveContextPlaceholders(step, session.plan.contextData ?? {});
 
       // Check for unresolved placeholders in inputs — pause if found
       const hasPlaceholders = Object.values(step.toolAction.inputs).some(
@@ -711,6 +811,23 @@ class ExecutionOrchestratorService {
       if (refStep?.result?.output && refField in (refStep.result.output as Record<string, unknown>)) {
         (step.toolAction.inputs as Record<string, unknown>)[key] =
           (refStep.result.output as Record<string, unknown>)[refField];
+      }
+    }
+  }
+
+  /**
+   * Resolve {{key}} placeholders in step inputs from plan contextData.
+   * Only resolves simple {{key}} patterns (not {{step:N:field}}).
+   */
+  private resolveContextPlaceholders(step: ExecutionStep, contextData: Record<string, unknown>): void {
+    const CONTEXT_REF_RE = /^\{\{(\w+)\}\}$/;
+    for (const [key, value] of Object.entries(step.toolAction.inputs)) {
+      if (typeof value !== 'string') continue;
+      const match = CONTEXT_REF_RE.exec(value);
+      if (!match) continue;
+      const ctxKey = match[1];
+      if (ctxKey in contextData && contextData[ctxKey] !== undefined) {
+        (step.toolAction.inputs as Record<string, unknown>)[key] = contextData[ctxKey];
       }
     }
   }

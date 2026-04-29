@@ -77,12 +77,17 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
       { status: spResult.status, body: { ssoMode, ssoConfigured } },
     );
 
-    return this.successResult({
+    const output = {
       ssoTestPassed: ssoConfigured,
       ssoMode: ssoMode ?? 'none',
       servicePrincipalId,
       verificationMethod: 'graph_api',
-    }, [evidenceId]);
+    };
+
+    if (!ssoConfigured) {
+      return this.failResult('SSO is not configured on the service principal', [evidenceId], output);
+    }
+    return this.successResult(output, [evidenceId]);
   }
 
   private async testMfaEnforcement(action: ToolAction, ctx: ExecutionContext): Promise<StepResult> {
@@ -115,12 +120,17 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
       { status: policiesResult.status, body: { totalPolicies: policies.length, mfaPolicies: mfaPolicies.length } },
     );
 
-    return this.successResult({
+    const output = {
       mfaEnforced,
       mfaPolicyCount: mfaPolicies.length,
       totalPolicyCount: policies.length,
       verificationMethod: 'graph_api',
-    }, [evidenceId]);
+    };
+
+    if (!mfaEnforced) {
+      return this.failResult('No enabled Conditional Access policy enforces MFA', [evidenceId], output);
+    }
+    return this.successResult(output, [evidenceId]);
   }
 
   private async validateGroupMembership(action: ToolAction, ctx: ExecutionContext): Promise<StepResult> {
@@ -187,14 +197,22 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
 
     const groupMembershipValid = servicePrincipalId ? appAssigned : memberCount > 0;
 
-    return this.successResult({
+    const output = {
       groupMembershipValid,
       groupId,
       displayName: groupResult.body.displayName,
       memberCount,
       appAssigned,
       verificationMethod: 'graph_api',
-    }, [evidenceId]);
+    };
+
+    if (!groupMembershipValid) {
+      return this.failResult(
+        servicePrincipalId ? 'Group is not assigned to the application' : 'Group has no members',
+        [evidenceId], output,
+      );
+    }
+    return this.successResult(output, [evidenceId]);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -217,11 +235,12 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
     };
 
     return {
-      success: true,
+      success: false,
+      requiresManualAction: true,
       output: {
         _stub: true,
         mode: 'human_assisted',
-        _note: notes[action.actionType] ?? 'Verification requires manual testing',
+        note: notes[action.actionType] ?? 'Verification requires manual testing',
         actionType: action.actionType,
         applicationId: action.target.applicationId,
         verificationMethod: 'manual',

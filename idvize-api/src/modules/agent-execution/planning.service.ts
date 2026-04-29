@@ -271,6 +271,7 @@ class PlanningService {
       prerequisites,
       estimatedDuration: 'PT45M',
       rollbackSteps,
+      contextData: ctx.additionalContext ?? {},
       createdAt: new Date().toISOString(),
     };
   }
@@ -361,6 +362,7 @@ class PlanningService {
       prerequisites,
       estimatedDuration: 'PT20M',
       rollbackSteps: [],
+      contextData: ctx.additionalContext ?? {},
       createdAt: new Date().toISOString(),
     };
   }

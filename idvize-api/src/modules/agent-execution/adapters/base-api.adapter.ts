@@ -54,7 +54,8 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 
 function isBlockedHost(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
+  // Node's URL.hostname returns bracketed IPv6 like [::1] — strip brackets for matching
+  const lower = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (BLOCKED_HOSTNAMES.has(lower)) return true;
   return BLOCKED_IP_PATTERNS.some(pattern => pattern.test(lower));
 }
@@ -518,8 +519,8 @@ export abstract class BaseApiAdapter {
     return { success: true, output, evidenceIds };
   }
 
-  protected failResult(errorMessage: string, evidenceIds: string[] = []): StepResult {
-    return { success: false, output: {}, errorMessage, evidenceIds };
+  protected failResult(errorMessage: string, evidenceIds: string[] = [], output: Record<string, unknown> = {}): StepResult {
+    return { success: false, output, errorMessage, evidenceIds };
   }
 
   /**
