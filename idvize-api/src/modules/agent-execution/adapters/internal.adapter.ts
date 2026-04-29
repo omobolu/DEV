@@ -108,7 +108,7 @@ class InternalAdapter extends BaseApiAdapter implements ToolAdapter {
     }>) ?? [];
 
     const mfaPolicies = policies.filter(p =>
-      p.state === 'enabled' &&
+      (p.state === 'enabled' || p.state === 'enabledForReportingButNotEnforced') &&
       p.grantControls?.builtInControls?.includes('mfa'),
     );
 

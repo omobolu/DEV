@@ -231,6 +231,12 @@ class ExecutionOrchestratorService {
     }
     if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
 
+    // Validate inputs against known schema constraints
+    const validationErrors = this.validateContextInputs(inputs);
+    if (validationErrors.length > 0) {
+      throw new Error(`Input validation failed: ${validationErrors.join('; ')}`);
+    }
+
     session.plan.contextData = { ...session.plan.contextData, ...inputs };
     session.updatedAt = new Date().toISOString();
     await repo.saveSession(session);
@@ -287,10 +293,14 @@ class ExecutionOrchestratorService {
         errorMessage: evidence ?? 'Manual step rejected by operator',
         evidenceIds: step.result.evidenceIds,
       };
+
+      // Rejection means the session cannot proceed — fail and rollback immediately
+      session.status = 'failed';
+      session.errorMessage = `Step ${step.order} rejected by ${actorName}: ${evidence ?? 'no reason given'}`;
     }
 
     session.updatedAt = new Date().toISOString();
-    session.errorMessage = undefined;
+    if (confirmed) session.errorMessage = undefined;
     await repo.saveSession(session);
 
     await evidenceStoreService.record(
@@ -305,6 +315,16 @@ class ExecutionOrchestratorService {
       confirmed ? 'agent.execution.step_confirmed' : 'agent.execution.step_rejected',
       { stepId, confirmed, evidence },
     );
+
+    // Trigger rollback and cleanup for rejected steps
+    if (!confirmed) {
+      await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+      toolBrokerService.clearReplayTracking(tenantId, sessionId);
+      rollbackTracker.cleanupSession(tenantId, sessionId);
+    }
 
     return session;
   }
@@ -349,8 +369,14 @@ class ExecutionOrchestratorService {
     let isSimulation = false;
 
     for (const step of session.plan.steps) {
-      // Skip already-succeeded steps when resuming from paused
-      if (step.status === 'succeeded') continue;
+      // Skip already-succeeded steps when resuming from paused,
+      // but preserve simulation flag from prior stub results
+      if (step.status === 'succeeded') {
+        if (step.result?.output && (step.result.output as Record<string, unknown>)._stub === true) {
+          isSimulation = true;
+        }
+        continue;
+      }
 
       // A manually-rejected step means the session cannot proceed — fail immediately
       if (step.status === 'failed' && (step.result?.output as Record<string, unknown>)?.manuallyRejected) {
@@ -777,6 +803,52 @@ class ExecutionOrchestratorService {
       }
     }
     return missing;
+  }
+
+  /**
+   * Validate context inputs against known schema constraints.
+   * Prevents empty arrays from passing generic 'required' checks and
+   * causing unintended scope expansion (e.g. empty includeGroups → all users).
+   */
+  private validateContextInputs(inputs: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+
+    if ('includeGroups' in inputs) {
+      const val = inputs.includeGroups;
+      if (!Array.isArray(val) || val.length === 0) {
+        errors.push('includeGroups must be a non-empty array of group IDs');
+      } else if (val.some((g: unknown) => typeof g !== 'string' || (g as string).trim() === '')) {
+        errors.push('includeGroups must contain only non-empty string group IDs');
+      }
+    }
+
+    if ('entityId' in inputs) {
+      if (typeof inputs.entityId !== 'string' || inputs.entityId.trim() === '') {
+        errors.push('entityId must be a non-empty string');
+      }
+    }
+
+    if ('acsUrl' in inputs) {
+      const val = inputs.acsUrl;
+      if (typeof val !== 'string' || !val.startsWith('https://')) {
+        errors.push('acsUrl must be a valid HTTPS URL');
+      }
+    }
+
+    if ('sourceId' in inputs) {
+      if (typeof inputs.sourceId !== 'string' || inputs.sourceId.trim() === '') {
+        errors.push('sourceId must be a non-empty string');
+      }
+    }
+
+    if ('testUserEmail' in inputs) {
+      const val = inputs.testUserEmail;
+      if (typeof val !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        errors.push('testUserEmail must be a valid email address');
+      }
+    }
+
+    return errors;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────

@@ -43,6 +43,12 @@ const BLOCKED_IP_PATTERNS = [
   /^fe80:/i,                             // IPv6 link-local
   /^::1$/,                               // IPv6 loopback
   /^fd/i,                                // IPv6 unique local
+  /^::ffff:127\./i,                      // IPv4-mapped IPv6 loopback
+  /^::ffff:10\./i,                       // IPv4-mapped RFC 1918
+  /^::ffff:172\.(1[6-9]|2\d|3[01])\./i, // IPv4-mapped RFC 1918
+  /^::ffff:192\.168\./i,                 // IPv4-mapped RFC 1918
+  /^::ffff:169\.254\./i,                 // IPv4-mapped link-local
+  /^::ffff:0\./i,                        // IPv4-mapped "this" network
 ];
 
 const BLOCKED_HOSTNAMES = new Set([
