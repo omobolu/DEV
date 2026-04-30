@@ -82,7 +82,9 @@ router.post('/configure', requireAuth, tenantContext, requirePermission('integra
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {
-    res.status(500).json({ success: false, error: e instanceof Error ? e.message : 'Save failed', timestamp: new Date().toISOString() });
+    const msg = e instanceof Error ? e.message : 'Save failed';
+    const isValidation = msg.includes('is required') || msg.includes('must not contain') || msg.includes('blocked') || msg.includes('HTTPS required') || msg.includes('Invalid URL');
+    res.status(isValidation ? 400 : 500).json({ success: false, error: msg, timestamp: new Date().toISOString() });
   }
 });
 
