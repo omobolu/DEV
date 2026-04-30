@@ -615,6 +615,8 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
 
   useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show loading spinner when appId changes
+    setLoading(true)
     apiFetch(`/controls/app/${appId}`)
       .then(r => r.json())
       .then(j => {

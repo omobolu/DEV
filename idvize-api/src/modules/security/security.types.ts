@@ -52,6 +52,7 @@ export interface Role {
 export type PermissionId =
   | 'cost.view.summary'
   | 'cost.view.salary_detail'
+  | 'cost.manage.people'
   | 'cost.view.vendor_analysis'
   | 'cost.view.optimization'
   | 'applications.view.all'

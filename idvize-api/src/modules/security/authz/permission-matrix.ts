@@ -22,6 +22,7 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   // Cost
   { permissionId: 'cost.view.summary',        module: 'cost',         action: 'view.summary',        description: 'View cost dashboard totals and program-level breakdown', riskLevel: 'low',    requiresApproval: false },
   { permissionId: 'cost.view.salary_detail',  module: 'cost',         action: 'view.salary_detail',  description: 'View individual salary and compensation data',            riskLevel: 'high',   requiresApproval: true,  dataClassification: 'restricted' },
+  { permissionId: 'cost.manage.people',      module: 'cost',         action: 'manage.people',       description: 'Create and update people cost records',                    riskLevel: 'high',   requiresApproval: true,  dataClassification: 'restricted' },
   { permissionId: 'cost.view.vendor_analysis',module: 'cost',         action: 'view.vendor_analysis',description: 'View vendor impact scores and detailed vendor analysis',   riskLevel: 'medium', requiresApproval: false, dataClassification: 'confidential' },
   { permissionId: 'cost.view.optimization',   module: 'cost',         action: 'view.optimization',   description: 'View cost optimization recommendations',                   riskLevel: 'medium', requiresApproval: false },
   // Applications
@@ -96,7 +97,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   PlatformAdmin: [
     // All Manager permissions + tenant management. This is a super-admin role
     // for the SaaS platform operator, NOT a per-tenant role.
-    'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
+    'cost.view.summary', 'cost.view.salary_detail', 'cost.manage.people', 'cost.view.vendor_analysis', 'cost.view.optimization',
     'applications.view.all', 'applications.view.assigned', 'applications.manage',
     'controls.view', 'controls.evaluate',
     'build.view', 'build.execute.guided', 'build.execute.automated',
@@ -115,7 +116,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'iga.approve', 'iga.execute', 'os.remediate',
   ],
   Manager: [
-    'cost.view.summary', 'cost.view.salary_detail', 'cost.view.vendor_analysis', 'cost.view.optimization',
+    'cost.view.summary', 'cost.view.salary_detail', 'cost.manage.people', 'cost.view.vendor_analysis', 'cost.view.optimization',
     'applications.view.all', 'applications.view.assigned', 'applications.manage',
     'controls.view', 'controls.evaluate',
     'build.view', 'build.execute.guided', 'build.execute.automated',
@@ -150,7 +151,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.configure', 'email.send',
     'agents.use', 'agents.plan', 'agents.execute.request',
-    'iga.approve', 'os.remediate',
+    'iga.approve', 'iga.execute', 'os.remediate',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -183,7 +184,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.send',
     'agents.use', 'agents.plan',
-    'iga.approve', 'iga.execute', 'os.remediate',
+    'iga.execute', 'os.remediate',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage

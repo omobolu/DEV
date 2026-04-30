@@ -109,6 +109,8 @@ export default function MaturityDomainDetail() {
   useEffect(() => {
     if (!domainId) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show loading spinner when domainId changes
+    setLoading(true)
     apiFetch(`/maturity/domains/${domainId}`)
       .then(r => r.json())
       .then(j => {

@@ -122,7 +122,7 @@ router.get('/vendors', requirePermission('vendors.view'), (req: Request, res: Re
 // ── People ────────────────────────────────────────────────────────────────────
 
 // POST /cost/people — add a person cost record
-router.post('/people', requirePermission('cost.view.salary_detail'), (req: Request, res: Response) => {
+router.post('/people', requirePermission('cost.manage.people'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { name, role, employmentType, annualCost } = req.body;
   if (!name || !role || !employmentType || !annualCost) {
