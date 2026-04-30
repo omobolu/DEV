@@ -5,12 +5,16 @@ import { buildStateMachine } from './state-machine/build.state-machine';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
+import { authzService } from '../security/authz/authz.service';
+import { auditService } from '../security/audit/audit.service';
 
 const router = Router();
 
 router.use(requireAuth, tenantContext);
 
 // POST /build/start — start a new build job
+// Static middleware checks build.execute.guided; automated builds get an additional
+// build.execute.automated check inside the handler.
 router.post('/start', requirePermission('build.execute.guided'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { appId, controlGap, buildType, platform, mode, assignedTo, automated } = req.body as StartBuildRequest & { automated?: boolean };
@@ -21,6 +25,23 @@ router.post('/start', requirePermission('build.execute.guided'), async (req: Req
   }
 
   if (automated) {
+    const decision = authzService.check(req.user!.sub, req.user!.tenantId, 'build.execute.automated');
+    await auditService.log({
+      eventType: decision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub,
+      actorName: req.user!.name,
+      permissionId: 'build.execute.automated',
+      resource: req.path,
+      outcome: decision.allowed ? 'success' : 'failure',
+      reason: decision.reason,
+      requestId: req.requestId,
+      tenantId: req.user!.tenantId,
+      metadata: { method: req.method, path: req.path, matchedPolicy: decision.matchedPolicy },
+    });
+    if (!decision.allowed) {
+      res.status(403).json({ success: false, error: `Access denied: ${decision.reason}`, permissionRequired: 'build.execute.automated', timestamp: new Date().toISOString() });
+      return;
+    }
     const job = await buildService.runAutomated(tenantId, { appId, controlGap, buildType, platform, mode: 'automated', assignedTo });
     res.status(201).json({ success: true, data: job, timestamp: new Date().toISOString() });
     return;
