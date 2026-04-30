@@ -4,13 +4,14 @@ import { StartBuildRequest, BuildState } from './build.types';
 import { buildStateMachine } from './state-machine/build.state-machine';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
 router.use(requireAuth, tenantContext);
 
 // POST /build/start — start a new build job
-router.post('/start', async (req: Request, res: Response) => {
+router.post('/start', requirePermission('build.execute.guided'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { appId, controlGap, buildType, platform, mode, assignedTo, automated } = req.body as StartBuildRequest & { automated?: boolean };
 
@@ -49,7 +50,7 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/advance — advance to next logical state
-router.post('/:id/advance', (req: Request, res: Response) => {
+router.post('/:id/advance', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { actor } = req.body as { actor?: string };
   const job = buildService.advance(tenantId, req.params.id as string, actor ?? 'user');
@@ -57,7 +58,7 @@ router.post('/:id/advance', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/transition — explicit state transition
-router.post('/:id/transition', (req: Request, res: Response) => {
+router.post('/:id/transition', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { targetState, actor, reason } = req.body as { targetState: BuildState; actor?: string; reason?: string };
   if (!targetState) {

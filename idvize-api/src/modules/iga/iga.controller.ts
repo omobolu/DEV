@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { igaService } from './iga.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 import { asyncHandler } from '../../lib/asyncHandler';
 
 const router = Router();
@@ -76,7 +77,7 @@ router.post('/snow/tickets/:id/agent/plan', asyncHandler(async (req: Request, re
 }));
 
 // POST /iga/snow/tickets/:id/agent/approve — approve agent plan
-router.post('/snow/tickets/:id/agent/approve', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/agent/approve', requirePermission('iga.approve'), asyncHandler(async (req: Request, res: Response) => {
   try {
     const ticket = igaService.approveAgentPlan(req.tenantId!, String(req.params.id));
     if (!ticket) {
@@ -90,7 +91,7 @@ router.post('/snow/tickets/:id/agent/approve', asyncHandler(async (req: Request,
 }));
 
 // POST /iga/snow/tickets/:id/agent/execute — execute agent plan
-router.post('/snow/tickets/:id/agent/execute', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/agent/execute', requirePermission('iga.execute'), asyncHandler(async (req: Request, res: Response) => {
   try {
     const ticket = await igaService.executeAgentPlan(req.tenantId!, String(req.params.id));
     if (!ticket) {

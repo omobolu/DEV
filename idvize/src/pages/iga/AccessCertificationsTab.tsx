@@ -39,10 +39,10 @@ interface Campaign {
 /*  Constants                                                         */
 /* ------------------------------------------------------------------ */
 
-const TYPE_VARIANT: Record<string, 'info' | 'warning' | 'success' | 'neutral'> = {
+const TYPE_VARIANT: Record<string, 'info' | 'warning' | 'success' | 'neutral' | 'danger'> = {
   'user-access': 'info',
   'role-based': 'warning',
-  'privileged': 'danger' as any,
+  'privileged': 'danger',
   'application': 'success',
   'sod': 'neutral',
 }
@@ -96,8 +96,8 @@ export default function AccessCertificationsTab() {
       const json = await res.json()
       if (!json.success) throw new Error(json.error ?? 'Failed to load campaigns')
       setCampaigns(json.data)
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load campaigns')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load campaigns')
     } finally {
       setLoading(false)
     }
@@ -113,8 +113,8 @@ export default function AccessCertificationsTab() {
       const json = await res.json()
       if (!json.success) throw new Error(json.error ?? 'Failed to load campaign')
       setSelected(json.data)
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load campaign detail')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load campaign detail')
     } finally {
       setDetailLoading(false)
     }

@@ -36,8 +36,8 @@ export interface CostAiAnalysis {
  * produce natural language analysis and novel recommendations.
  */
 export class CostIntelligenceAgent {
-  private lastReport: CostIntelligenceReport | null = null;
-  private lastRunAt: string | null = null;
+  private lastReportByTenant = new Map<string, CostIntelligenceReport>();
+  private lastRunAtByTenant = new Map<string, string>();
 
   /**
    * Run a full cost intelligence analysis.
@@ -87,23 +87,24 @@ export class CostIntelligenceAgent {
       generatedBy: 'cost-intelligence-agent',
     };
 
-    this.lastReport = report;
-    this.lastRunAt = report.generatedAt;
+    this.lastReportByTenant.set(tenantId, report);
+    this.lastRunAtByTenant.set(tenantId, report.generatedAt);
 
     console.log(`[CostIntelligenceAgent] Report ${report.reportId} complete.`);
     return report;
   }
 
-  getLastReport(): CostIntelligenceReport | null {
-    return this.lastReport;
+  getLastReport(tenantId: string): CostIntelligenceReport | null {
+    return this.lastReportByTenant.get(tenantId) ?? null;
   }
 
   getStatus(tenantId: string) {
+    const report = this.lastReportByTenant.get(tenantId) ?? null;
     return {
       agent: 'CostIntelligenceAgent',
-      lastRunAt: this.lastRunAt,
-      hasReport: this.lastReport !== null,
-      reportId: this.lastReport?.reportId ?? null,
+      lastRunAt: this.lastRunAtByTenant.get(tenantId) ?? null,
+      hasReport: report !== null,
+      reportId: report?.reportId ?? null,
       dataSnapshot: {
         vendors: vendorRepository.count(tenantId),
         contracts: contractRepository.count(tenantId),

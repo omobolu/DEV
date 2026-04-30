@@ -5,7 +5,7 @@
  * Not Applicable, and supports per-control notes.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Shield, ShieldCheck, ShieldAlert, UserCheck, Layers,
   CheckCircle, XCircle, MinusCircle, HelpCircle,
@@ -613,20 +613,19 @@ export default function FullControlsPanel({ appId }: { appId: string }) {
   const [search, setSearch]     = useState('')
   const [statusFilter, setStatusFilter] = useState<CtrlStatus | 'ALL'>('ALL')
 
-  const load = useCallback(() => {
-    setLoading(true)
+  useEffect(() => {
+    let cancelled = false
     apiFetch(`/controls/app/${appId}`)
       .then(r => r.json())
       .then(j => {
-        if (j.success) {
+        if (!cancelled && j.success) {
           setControls(j.data.controls)
           setSummary(j.data.summary)
         }
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [appId])
-
-  useEffect(() => { load() }, [load])
 
   const updateControl = (updated: AppControl) => {
     setControls(prev => prev.map(c => c.controlId === updated.controlId ? updated : c))

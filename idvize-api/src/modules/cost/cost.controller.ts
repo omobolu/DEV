@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { costService } from './cost.service';
 import { costIntelligenceAgent } from '../../agents/cost-intelligence.agent';
+import { Vendor, PersonCost } from './cost.types';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
@@ -12,26 +14,26 @@ router.use(requireAuth, tenantContext, (req, _res, next) => { costService.ensure
 // ── Agent ─────────────────────────────────────────────────────────────────────
 
 // POST /cost/analyze — run full Cost Intelligence Agent analysis
-router.post('/analyze', async (req: Request, res: Response) => {
+router.post('/analyze', requirePermission('cost.view.summary'), async (req: Request, res: Response) => {
   const report = await costService.runCostAnalysis(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
 
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
-router.post('/analyze/ai', async (req: Request, res: Response) => {
+router.post('/analyze/ai', requirePermission('cost.view.summary'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
   const result = await costIntelligenceAgent.runWithAI(req.tenantId!);
   res.json({ success: true, data: result, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/agent/status — agent status + last run metadata
-router.get('/agent/status', (req: Request, res: Response) => {
+router.get('/agent/status', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
   res.json({ success: true, data: costService.getAgentStatus(req.tenantId!), timestamp: new Date().toISOString() });
 });
 
 // GET /cost/report — last full report (without re-running)
-router.get('/report', (_req: Request, res: Response) => {
-  const report = costService.getLastReport();
+router.get('/report', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
+  const report = costService.getLastReport(req.tenantId!);
   if (!report) {
     res.status(404).json({ success: false, error: 'No report generated yet. POST /cost/analyze first.', timestamp: new Date().toISOString() });
     return;
@@ -42,26 +44,24 @@ router.get('/report', (_req: Request, res: Response) => {
 // ── Core Endpoints ────────────────────────────────────────────────────────────
 
 // GET /cost/summary — cost breakdown (people + tech + partners)
-router.get('/summary', (req: Request, res: Response) => {
-  costService.getCostSummary(req.tenantId!);
-  const { costAggregationEngine } = require('./engines/cost-aggregation.engine');
-  const summary = costAggregationEngine.compute();
+router.get('/summary', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
+  const summary = costService.getCostSummary(req.tenantId!);
   res.json({ success: true, data: summary, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/vendor-analysis — all vendor impact reports
-router.get('/vendor-analysis', (req: Request, res: Response) => {
+router.get('/vendor-analysis', requirePermission('cost.view.vendor_analysis'), (req: Request, res: Response) => {
   const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
   const type = req.query.type as string | undefined;
-  let impacts = vendorImpactEngine.analyzeAll();
-  if (type) impacts = impacts.filter((i: any) => i.vendorType === type);
+  let impacts = vendorImpactEngine.analyzeAll(req.tenantId!);
+  if (type) impacts = impacts.filter((i: { vendorType: string }) => i.vendorType === type);
   res.json({ success: true, data: { total: impacts.length, vendors: impacts }, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/vendor-analysis/:vendorId — single vendor impact
-router.get('/vendor-analysis/:vendorId', (req: Request, res: Response) => {
+router.get('/vendor-analysis/:vendorId', requirePermission('cost.view.vendor_analysis'), (req: Request, res: Response) => {
   const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
-  const impact = vendorImpactEngine.analyzeVendor(req.params.vendorId as string);
+  const impact = vendorImpactEngine.analyzeVendor(req.tenantId!, req.params.vendorId as string);
   if (!impact) {
     res.status(404).json({ success: false, error: 'Vendor not found', timestamp: new Date().toISOString() });
     return;
@@ -70,7 +70,7 @@ router.get('/vendor-analysis/:vendorId', (req: Request, res: Response) => {
 });
 
 // GET /cost/optimization — optimization opportunities
-router.get('/optimization', (req: Request, res: Response) => {
+router.get('/optimization', requirePermission('cost.view.optimization'), (req: Request, res: Response) => {
   const report = costService.getOptimizationReport(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
@@ -78,7 +78,7 @@ router.get('/optimization', (req: Request, res: Response) => {
 // ── Contracts ─────────────────────────────────────────────────────────────────
 
 // POST /contracts/upload — ingest a contract or SOW
-router.post('/contracts', (req: Request, res: Response) => {
+router.post('/contracts', requirePermission('vendors.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { vendorId, annualCost, description } = req.body;
   if (!vendorId || !annualCost || !description) {
@@ -90,7 +90,7 @@ router.post('/contracts', (req: Request, res: Response) => {
 });
 
 // GET /cost/contracts — list all contracts
-router.get('/contracts', (req: Request, res: Response) => {
+router.get('/contracts', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { vendorId } = req.query;
   const contracts = costService.listContracts(tenantId, vendorId as string | undefined);
@@ -100,7 +100,7 @@ router.get('/contracts', (req: Request, res: Response) => {
 // ── Vendors ───────────────────────────────────────────────────────────────────
 
 // POST /cost/vendors — create/update vendor
-router.post('/vendors', (req: Request, res: Response) => {
+router.post('/vendors', requirePermission('vendors.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { name, type } = req.body;
   if (!name || !type) {
@@ -112,9 +112,9 @@ router.post('/vendors', (req: Request, res: Response) => {
 });
 
 // GET /cost/vendors — list vendors (optional ?type= filter)
-router.get('/vendors', (req: Request, res: Response) => {
+router.get('/vendors', requirePermission('vendors.view'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const type = req.query.type as any;
+  const type = req.query.type as Vendor['type'] | undefined;
   const vendors = costService.listVendors(tenantId, type);
   res.json({ success: true, data: { total: vendors.length, vendors }, timestamp: new Date().toISOString() });
 });
@@ -122,7 +122,7 @@ router.get('/vendors', (req: Request, res: Response) => {
 // ── People ────────────────────────────────────────────────────────────────────
 
 // POST /cost/people — add a person cost record
-router.post('/people', (req: Request, res: Response) => {
+router.post('/people', requirePermission('cost.view.salary_detail'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { name, role, employmentType, annualCost } = req.body;
   if (!name || !role || !employmentType || !annualCost) {
@@ -134,9 +134,9 @@ router.post('/people', (req: Request, res: Response) => {
 });
 
 // GET /cost/people — list people cost records
-router.get('/people', (req: Request, res: Response) => {
+router.get('/people', requirePermission('cost.view.salary_detail'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const type = req.query.type as any;
+  const type = req.query.type as PersonCost['employmentType'] | undefined;
   const people = costService.listPeople(tenantId, type);
   res.json({ success: true, data: { total: people.length, people }, timestamp: new Date().toISOString() });
 });

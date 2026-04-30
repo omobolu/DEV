@@ -10,6 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { auditService } from '../security/audit/audit.service';
+import { validateBaseUrl } from '../agent-execution/adapters/base-api.adapter';
 
 export interface PlatformCredentials {
   entra?:     { tenantId: string; clientId: string; clientSecret: string };
@@ -211,6 +212,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'All three SailPoint fields are required', testedAt: now };
       }
       try {
+        validateBaseUrl(c.baseUrl.trim());
         const res = await fetch(`${c.baseUrl.trim()}/oauth/token`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -232,6 +234,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'All three CyberArk fields are required', testedAt: now };
       }
       try {
+        validateBaseUrl(c.baseUrl.trim());
         const res = await fetch(`${c.baseUrl.trim()}/PasswordVault/API/Auth/CyberArk/Logon`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -253,6 +256,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'Okta domain and API token are required', testedAt: now };
       }
       try {
+        validateBaseUrl(`https://${c.domain.trim()}`);
         const res = await fetch(`https://${c.domain.trim()}/api/v1/org`, {
           headers: { Authorization: `SSWS ${c.apiToken.trim()}`, Accept: 'application/json' },
           signal:  AbortSignal.timeout(10000),

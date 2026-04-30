@@ -21,30 +21,31 @@ interface VerticalBarChartProps {
   showLegend?: boolean
 }
 
+function CustomTooltip({ active, payload, label, ct }: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; color: string }>
+  label?: string
+  ct: { tooltipBg: string; tooltipBorder: string }
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+         className="px-3 py-2 rounded-lg text-sm space-y-1">
+      <p className="text-muted text-xs mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+          <span className="text-secondary">{p.name}:</span>
+          <span className="text-heading font-semibold">{p.value.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function VerticalBarChart({ data, xKey, series, height = 280, colorByValue, showLegend = true }: VerticalBarChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
-
-  const CustomTooltip = ({ active, payload, label }: {
-    active?: boolean
-    payload?: Array<{ name: string; value: number; color: string }>
-    label?: string
-  }) => {
-    if (!active || !payload?.length) return null
-    return (
-      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
-           className="px-3 py-2 rounded-lg text-sm space-y-1">
-        <p className="text-muted text-xs mb-1">{label}</p>
-        {payload.map((p, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-            <span className="text-secondary">{p.name}:</span>
-            <span className="text-heading font-semibold">{p.value.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -52,7 +53,7 @@ export default function VerticalBarChart({ data, xKey, series, height = 280, col
         <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} opacity={0.5} vertical={false} />
         <XAxis dataKey={xKey} tick={{ fill: ct.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: ct.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+        <Tooltip content={<CustomTooltip ct={ct} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
         {showLegend && series.length > 1 && (
           <Legend
             iconType="circle"

@@ -13,6 +13,7 @@ function autoSuggest(header: string): CMDBFieldKey | null {
   return CMDB_HEADER_ALIASES[key] ?? null
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildInitialMappings(headers: string[]): FieldMapping[] {
   return headers.map(h => ({ sourceHeader: h, targetField: autoSuggest(h) }))
 }

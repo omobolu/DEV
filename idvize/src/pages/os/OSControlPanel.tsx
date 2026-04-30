@@ -183,11 +183,12 @@ function ControlDrillDownPanel({ controlId, onClose }: { controlId: string; onCl
   const [activeTab, setActiveTab] = useState<'gap' | 'implemented' | 'undetected' | 'na'>('gap')
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
     apiFetch(`/controls/app-coverage/${controlId}`)
       .then(r => r.json())
-      .then(j => { if (j.success) setData(j.data) })
-      .finally(() => setLoading(false))
+      .then(j => { if (!cancelled && j.success) setData(j.data) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [controlId])
 
   const PILLAR_COLOR: Record<string, string> = {

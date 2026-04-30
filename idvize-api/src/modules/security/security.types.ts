@@ -101,6 +101,11 @@ export type PermissionId =
   | 'agents.execute.iga'
   | 'agents.execute.servicenow'
   | 'agents.admin'
+  // IGA
+  | 'iga.approve'
+  | 'iga.execute'
+  // OS
+  | 'os.remediate'
   // Email
   | 'email.configure'
   | 'email.send';

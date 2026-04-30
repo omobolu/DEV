@@ -4,6 +4,9 @@ import { sailpointAdapter } from './adapters/sailpoint.adapter';
 import { cyberarkAdapter } from './adapters/cyberark.adapter';
 import { oktaAdapter } from './adapters/okta.adapter';
 import { integrationConfigService, PlatformKey } from './integration.config.service';
+import { requireAuth } from '../../middleware/requireAuth';
+import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
@@ -67,7 +70,7 @@ router.get('/config', (_req: Request, res: Response) => {
 });
 
 // POST /integrations/configure — save credentials for one or more platforms
-router.post('/configure', async (req: Request, res: Response) => {
+router.post('/configure', requireAuth, tenantContext, requirePermission('integrations.manage'), async (req: Request, res: Response) => {
   try {
     const actorId   = req.user?.sub  ?? 'anonymous';
     const actorName = req.user?.name ?? 'Anonymous';
@@ -86,7 +89,7 @@ router.post('/configure', async (req: Request, res: Response) => {
 // POST /integrations/test/:platform — test live connection using credentials in request body
 // The body must contain the platform credentials to test — we NEVER use previously saved values
 // so that entering wrong credentials always fails, even if correct ones are already saved.
-router.post('/test/:platform', async (req: Request, res: Response) => {
+router.post('/test/:platform', requireAuth, tenantContext, requirePermission('integrations.manage'), async (req: Request, res: Response) => {
   const platform  = String(req.params.platform) as PlatformKey;
   const actorId   = req.user?.sub  ?? 'anonymous';
   const actorName = req.user?.name ?? 'Anonymous';

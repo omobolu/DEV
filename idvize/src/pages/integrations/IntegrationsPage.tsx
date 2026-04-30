@@ -57,7 +57,12 @@ export default function IntegrationsPage() {
   const [testResult, setTestResult] = useState<{ status: Status; message: string } | null>(null)
   const [saveMsg, setSaveMsg]     = useState<string | null>(null)
 
-  const headers = { 'Content-Type': 'application/json', 'x-api-key': API_KEY }
+  const token = localStorage.getItem('idvize_token')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-api-key': API_KEY,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
 
   const loadConfig = useCallback(async () => {
     try {
