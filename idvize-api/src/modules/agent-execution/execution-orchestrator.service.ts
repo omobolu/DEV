@@ -26,12 +26,15 @@ import { executionApprovalService } from './approval.service';
 import { toolBrokerService } from './tool-broker.service';
 import { evidenceStoreService } from './evidence-store.service';
 import { credentialEscrowService } from './credential-escrow.service';
+import { rollbackTracker } from './rollback-tracker.service';
 import { auditService } from '../security/audit/audit.service';
 import { emailService } from '../email/email.service';
 import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
   ExecutionSessionStatus,
+  ExecutionStep,
+  StepStatus,
   AgentType,
   CreatePlanRequest,
   SessionListFilters,
@@ -66,6 +69,14 @@ class ExecutionOrchestratorService {
     actorEmail?: string,
   ): Promise<ExecutionSession> {
     const sessionId = `exs-${uuidv4()}`;
+
+    // 0. Validate initial context inputs if provided
+    if (request.context) {
+      const validationErrors = this.validateContextInputs(request.context);
+      if (validationErrors.length > 0) {
+        throw new Error(`Context validation failed: ${validationErrors.join('; ')}`);
+      }
+    }
 
     // 1. Generate plan
     const plan = await planningService.generatePlan(
@@ -210,11 +221,152 @@ class ExecutionOrchestratorService {
   }
 
   /**
+   * Supply missing context data for a paused session.
+   * Merges provided inputs into the plan's contextData so placeholder resolution
+   * can resolve them on the next execution attempt.
+   */
+  async updateSessionInputs(
+    tenantId: string,
+    sessionId: string,
+    inputs: Record<string, unknown>,
+    actorId: string,
+    actorName: string,
+  ): Promise<ExecutionSession> {
+    const session = await repo.getSession(tenantId, sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== 'paused') {
+      throw new Error(`Session ${sessionId} is in status "${session.status}" — can only update inputs on paused sessions`);
+    }
+    if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
+
+    // Validate inputs against known schema constraints
+    const validationErrors = this.validateContextInputs(inputs);
+    if (validationErrors.length > 0) {
+      throw new Error(`Input validation failed: ${validationErrors.join('; ')}`);
+    }
+
+    // Scope-sensitive keys that affect what the approved plan actually touches.
+    // These can only be FILLED IN (from undefined/placeholder) — not overwritten
+    // after they already have a resolved value. Changing them post-approval would
+    // make the approval record no longer match what runs in real systems.
+    const SCOPE_SENSITIVE_KEYS = ['includeGroups', 'sourceId', 'entityId', 'acsUrl', 'testUserEmail'];
+    const existing = session.plan.contextData ?? {};
+    const overwritten: string[] = [];
+    for (const key of SCOPE_SENSITIVE_KEYS) {
+      if (!(key in inputs)) continue;
+      const prev = existing[key];
+      // Allow filling in a missing/placeholder value
+      if (prev === undefined || prev === null) continue;
+      if (typeof prev === 'string' && /^\{\{.+\}\}$/.test(prev)) continue;
+      // Reject overwriting an already-resolved value
+      if (JSON.stringify(prev) !== JSON.stringify(inputs[key])) {
+        overwritten.push(key);
+      }
+    }
+    if (overwritten.length > 0) {
+      throw new Error(
+        `Cannot overwrite scope-sensitive inputs after approval: ${overwritten.join(', ')}. ` +
+        'These values were already set when the plan was approved. Cancel and create a new session to change them.',
+      );
+    }
+
+    session.plan.contextData = { ...existing, ...inputs };
+    session.updatedAt = new Date().toISOString();
+    await repo.saveSession(session);
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.inputs_updated', {
+      inputKeys: Object.keys(inputs),
+      scopeSensitiveKeys: Object.keys(inputs).filter(k => SCOPE_SENSITIVE_KEYS.includes(k)),
+    });
+
+    return session;
+  }
+
+  /**
+   * Confirm (or reject) a manual-action step that paused the session.
+   * On confirmation, marks the step as succeeded with operator evidence.
+   * On rejection, marks the step as failed.
+   * Either way, does NOT re-execute the step's adapter.
+   */
+  async confirmManualStep(
+    tenantId: string,
+    sessionId: string,
+    stepId: string,
+    confirmed: boolean,
+    actorId: string,
+    actorName: string,
+    evidence?: string,
+  ): Promise<ExecutionSession> {
+    const session = await repo.getSession(tenantId, sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== 'paused') {
+      throw new Error(`Session ${sessionId} is in status "${session.status}" — manual confirmation only applies to paused sessions`);
+    }
+    if (!session.plan) throw new Error(`Session ${sessionId} has no plan`);
+
+    const step = session.plan.steps.find(s => s.stepId === stepId);
+    if (!step) throw new Error(`Step ${stepId} not found in session ${sessionId}`);
+    if (!step.result?.requiresManualAction) {
+      throw new Error(`Step ${stepId} is not awaiting manual confirmation`);
+    }
+
+    if (confirmed) {
+      step.status = 'succeeded';
+      step.completedAt = new Date().toISOString();
+      step.result = {
+        success: true,
+        output: { ...step.result.output, manuallyConfirmed: true, confirmedBy: actorName, evidence: evidence ?? '' },
+        evidenceIds: step.result.evidenceIds,
+      };
+    } else {
+      step.status = 'failed';
+      step.completedAt = new Date().toISOString();
+      step.result = {
+        success: false,
+        output: { ...step.result.output, manuallyRejected: true, rejectedBy: actorName },
+        errorMessage: evidence ?? 'Manual step rejected by operator',
+        evidenceIds: step.result.evidenceIds,
+      };
+
+      // Rejection means the session cannot proceed — fail and rollback immediately
+      session.status = 'failed';
+      session.errorMessage = `Step ${step.order} rejected by ${actorName}: ${evidence ?? 'no reason given'}`;
+    }
+
+    session.updatedAt = new Date().toISOString();
+    if (confirmed) session.errorMessage = undefined;
+    await repo.saveSession(session);
+
+    await evidenceStoreService.record(
+      tenantId, sessionId, 'api_response',
+      `Step ${step.order}: Manual Confirmation`,
+      confirmed ? `Confirmed by ${actorName}` : `Rejected by ${actorName}`,
+      { stepId, confirmed, confirmedBy: actorName, evidence },
+      stepId,
+    );
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
+      confirmed ? 'agent.execution.step_confirmed' : 'agent.execution.step_rejected',
+      { stepId, confirmed, evidence },
+    );
+
+    // Trigger rollback and cleanup for rejected steps
+    if (!confirmed) {
+      await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+      toolBrokerService.clearReplayTracking(tenantId, sessionId);
+      rollbackTracker.cleanupSession(tenantId, sessionId);
+    }
+
+    return session;
+  }
+
+  /**
    * Phase 3: Execute an approved plan.
-   * Steps are executed sequentially through the Tool Broker.
-   * Enforces per-step system permissions.
-   *
-   * v1: Stub adapters produce simulation results (not real execution).
+   * Steps are executed sequentially through the Tool Broker (executeSecure).
+   * Enforces per-step system permissions, replay protection, and rollback on failure.
    */
   async executeSession(
     tenantId: string,
@@ -223,6 +375,7 @@ class ExecutionOrchestratorService {
     actorName: string,
     actorPermissions: PermissionId[],
     actorEmail?: string,
+    options?: { dryRun?: boolean },
   ): Promise<ExecutionSession> {
     const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -243,14 +396,30 @@ class ExecutionOrchestratorService {
 
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.started', {
       stepsCount: session.plan.steps.length,
+      dryRun: options?.dryRun ?? false,
     });
 
     let allSucceeded = true;
     let isSimulation = false;
 
     for (const step of session.plan.steps) {
-      // Skip already-succeeded steps when resuming from paused
-      if (step.status === 'succeeded') continue;
+      // Skip already-succeeded steps when resuming from paused,
+      // but preserve simulation flag from prior stub results
+      if (step.status === 'succeeded') {
+        if (step.result?.output && (step.result.output as Record<string, unknown>)._stub === true) {
+          isSimulation = true;
+        }
+        continue;
+      }
+
+      // A manually-rejected step means the session cannot proceed — fail immediately
+      if (step.status === 'failed' && (step.result?.output as Record<string, unknown>)?.manuallyRejected) {
+        allSucceeded = false;
+        session.status = 'failed';
+        session.errorMessage = `Step ${step.order} was rejected by operator: ${step.result?.errorMessage ?? 'no reason given'}`;
+        await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+        break;
+      }
 
       step.status = 'in_progress';
       step.startedAt = new Date().toISOString();
@@ -260,6 +429,12 @@ class ExecutionOrchestratorService {
       if (step.requiresCredential && step.credentialHandle) {
         credentialHandle = step.credentialHandle;
       }
+
+      // Resolve step-output references: {{step:N:fieldName}} → value from step N's result
+      this.resolveStepOutputReferences(step, session.plan.steps);
+
+      // Resolve context placeholders: {{key}} → value from plan.contextData
+      this.resolveContextPlaceholders(step, session.plan.contextData ?? {});
 
       // Check for unresolved placeholders in inputs — pause if found
       const hasPlaceholders = Object.values(step.toolAction.inputs).some(
@@ -284,18 +459,22 @@ class ExecutionOrchestratorService {
         return session;
       }
 
-      // Execute step through Tool Broker
-      const result = await toolBrokerService.execute(
+      // Execute step through Tool Broker (secure path with full enforcement)
+      const result = await toolBrokerService.executeSecure(
         tenantId,
+        sessionId,
+        step.stepId,
         step.toolAction,
         actorId,
         actorName,
+        actorPermissions,
+        { dryRun: options?.dryRun, retryAttempt: step.result?.requiresManualAction === true },
         credentialHandle,
       );
 
       step.result = result;
-      step.completedAt = new Date().toISOString();
-      step.status = result.success ? 'succeeded' : 'failed';
+      step.status = result.success ? 'succeeded' : (result.requiresManualAction ? 'pending' as StepStatus : 'failed');
+      step.completedAt = step.status === 'pending' ? undefined : new Date().toISOString();
 
       // Detect stub/simulation results
       if (result.output && (result.output as Record<string, unknown>)._stub === true) {
@@ -305,25 +484,39 @@ class ExecutionOrchestratorService {
       // Record evidence for this step
       const evidence = await evidenceStoreService.record(
         tenantId, sessionId,
-        result.success ? 'api_response' : 'error_log',
+        result.success ? 'api_response' : (result.requiresManualAction ? 'api_response' : 'error_log'),
         `Step ${step.order}: ${step.description}`,
-        result.success ? 'Completed successfully' : `Failed: ${result.errorMessage}`,
+        result.success ? 'Completed successfully'
+          : result.requiresManualAction ? 'Paused — requires manual intervention'
+          : `Failed: ${result.errorMessage}`,
         { stepId: step.stepId, actionType: step.actionType, output: result.output },
         step.stepId,
       );
 
       result.evidenceIds.push(evidence.evidenceId);
 
+      // Manual-action steps pause the session — do NOT rollback or mark as failed
+      if (result.requiresManualAction) {
+        allSucceeded = false;
+        session.status = 'paused';
+        session.errorMessage = `Step ${step.order} requires manual intervention: ${
+          (result.output as Record<string, unknown>).note ?? 'Human action needed'
+        }`;
+        break;
+      }
+
       if (!result.success) {
         allSucceeded = false;
         session.status = 'failed';
         session.errorMessage = `Step ${step.order} failed: ${result.errorMessage}`;
+
+        // Attempt rollback of objects created by this session
+        await this.rollbackSession(tenantId, sessionId, actorId, actorName);
         break;
       }
     }
 
     if (allSucceeded) {
-      // Stub adapters produce simulation status, not completed
       session.status = isSimulation ? 'completed_simulation' as ExecutionSessionStatus : 'completed';
       session.completedAt = new Date().toISOString();
     }
@@ -331,16 +524,26 @@ class ExecutionOrchestratorService {
     session.updatedAt = new Date().toISOString();
     await repo.saveSession(session);
 
-    // Cleanup: destroy any ephemeral credentials
-    for (const handleId of session.credentialHandles) {
-      credentialEscrowService.destroyCredential(tenantId, handleId);
+    // Cleanup: only destroy credentials and replay tracking on terminal states.
+    // Paused sessions may resume and still need credentials + replay protection.
+    if (session.status !== 'paused') {
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+      toolBrokerService.clearReplayTracking(tenantId, sessionId);
+      rollbackTracker.cleanupSession(tenantId, sessionId);
     }
 
+    const auditEventType = allSucceeded ? 'agent.execution.completed'
+      : session.status === 'paused' ? 'agent.execution.paused'
+      : 'agent.execution.failed';
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName,
-      allSucceeded ? 'agent.execution.completed' : 'agent.execution.failed', {
+      auditEventType, {
         completedSteps: session.plan.steps.filter(s => s.status === 'succeeded').length,
         totalSteps: session.plan.steps.length,
         isSimulation,
+        dryRun: options?.dryRun ?? false,
+        sessionStatus: session.status,
         errorMessage: session.errorMessage,
       },
     );
@@ -381,11 +584,77 @@ class ExecutionOrchestratorService {
       credentialEscrowService.destroyCredential(tenantId, handleId);
     }
 
+    // Cleanup replay tracking
+    toolBrokerService.clearReplayTracking(tenantId, sessionId);
+
+    // Mark any externally-created objects as rollback_required, then free memory
+    await this.rollbackSession(tenantId, sessionId, actorId, actorName);
+    rollbackTracker.cleanupSession(tenantId, sessionId);
+
     await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.execution.cancelled', {
       reason,
     });
 
     return session;
+  }
+
+  // ── Rollback ───────────────────────────────────────────────────────────
+
+  /**
+   * Rollback all objects created by a failed session.
+   * Only touches objects tracked by the rollback tracker for this session.
+   * Each rollback action is audit-logged.
+   */
+  private async rollbackSession(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    actorName: string,
+  ): Promise<void> {
+    const pendingRollbacks = rollbackTracker.getPendingRollbacks(tenantId, sessionId);
+    if (pendingRollbacks.length === 0) return;
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.started', {
+      objectCount: pendingRollbacks.length,
+      objects: pendingRollbacks.map(o => ({
+        externalObjectId: o.externalObjectId,
+        objectType: o.objectType,
+        systemType: o.systemType,
+      })),
+    });
+
+    // Mark objects as requiring manual rollback (in reverse creation order).
+    // Actual provider DELETE calls are NOT executed automatically —
+    // an operator must perform the rollback actions listed in evidence.
+    for (const obj of [...pendingRollbacks].reverse()) {
+      try {
+        await rollbackTracker.markRollbackRequired(tenantId, sessionId, obj.externalObjectId, actorId, actorName);
+
+        await evidenceStoreService.record(
+          tenantId, sessionId, 'api_response',
+          `Rollback required: ${obj.objectType} (${obj.externalObjectId})`,
+          `Manual rollback required — ${obj.rollbackAction ?? 'contact platform admin for cleanup'}`,
+          {
+            provider: obj.systemType,
+            externalObjectId: obj.externalObjectId,
+            objectType: obj.objectType,
+            rollbackAction: obj.rollbackAction,
+            rollbackStatus: 'rollback_required',
+            timestamp: new Date().toISOString(),
+          },
+        );
+      } catch (err) {
+        console.warn(
+          `[ExecutionOrchestrator] Rollback marking failed for ${obj.objectType} (${obj.externalObjectId}):`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    await this.auditSessionEvent(tenantId, sessionId, actorId, actorName, 'agent.rollback.required', {
+      objectCount: pendingRollbacks.length,
+      note: 'Objects require manual rollback — provider DELETE calls not executed automatically',
+    });
   }
 
   // ── Credential Handoff ─────────────────────────────────────────────────
@@ -570,6 +839,52 @@ class ExecutionOrchestratorService {
     return missing;
   }
 
+  /**
+   * Validate context inputs against known schema constraints.
+   * Prevents empty arrays from passing generic 'required' checks and
+   * causing unintended scope expansion (e.g. empty includeGroups → all users).
+   */
+  private validateContextInputs(inputs: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+
+    if ('includeGroups' in inputs) {
+      const val = inputs.includeGroups;
+      if (!Array.isArray(val) || val.length === 0) {
+        errors.push('includeGroups must be a non-empty array of group IDs');
+      } else if (val.some((g: unknown) => typeof g !== 'string' || (g as string).trim() === '')) {
+        errors.push('includeGroups must contain only non-empty string group IDs');
+      }
+    }
+
+    if ('entityId' in inputs) {
+      if (typeof inputs.entityId !== 'string' || inputs.entityId.trim() === '') {
+        errors.push('entityId must be a non-empty string');
+      }
+    }
+
+    if ('acsUrl' in inputs) {
+      const val = inputs.acsUrl;
+      if (typeof val !== 'string' || !val.startsWith('https://')) {
+        errors.push('acsUrl must be a valid HTTPS URL');
+      }
+    }
+
+    if ('sourceId' in inputs) {
+      if (typeof inputs.sourceId !== 'string' || inputs.sourceId.trim() === '') {
+        errors.push('sourceId must be a non-empty string');
+      }
+    }
+
+    if ('testUserEmail' in inputs) {
+      const val = inputs.testUserEmail;
+      if (typeof val !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        errors.push('testUserEmail must be a valid email address');
+      }
+    }
+
+    return errors;
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────
 
   private buildSession(
@@ -594,6 +909,44 @@ class ExecutionOrchestratorService {
     };
   }
 
+  /**
+   * Resolve {{step:N:fieldName}} placeholders in step inputs from
+   * previous steps' result outputs. Unresolvable references are left
+   * as-is (the unresolved-placeholder check will catch them).
+   */
+  private resolveStepOutputReferences(step: ExecutionStep, allSteps: ExecutionStep[]): void {
+    const STEP_REF_RE = /^\{\{step:(\d+):(\w+)\}\}$/;
+    for (const [key, value] of Object.entries(step.toolAction.inputs)) {
+      if (typeof value !== 'string') continue;
+      const match = STEP_REF_RE.exec(value);
+      if (!match) continue;
+      const refOrder = parseInt(match[1], 10);
+      const refField = match[2];
+      const refStep = allSteps.find(s => s.order === refOrder);
+      if (refStep?.result?.output && refField in (refStep.result.output as Record<string, unknown>)) {
+        (step.toolAction.inputs as Record<string, unknown>)[key] =
+          (refStep.result.output as Record<string, unknown>)[refField];
+      }
+    }
+  }
+
+  /**
+   * Resolve {{key}} placeholders in step inputs from plan contextData.
+   * Only resolves simple {{key}} patterns (not {{step:N:field}}).
+   */
+  private resolveContextPlaceholders(step: ExecutionStep, contextData: Record<string, unknown>): void {
+    const CONTEXT_REF_RE = /^\{\{(\w+)\}\}$/;
+    for (const [key, value] of Object.entries(step.toolAction.inputs)) {
+      if (typeof value !== 'string') continue;
+      const match = CONTEXT_REF_RE.exec(value);
+      if (!match) continue;
+      const ctxKey = match[1];
+      if (ctxKey in contextData && contextData[ctxKey] !== undefined) {
+        (step.toolAction.inputs as Record<string, unknown>)[key] = contextData[ctxKey];
+      }
+    }
+  }
+
   private async auditSessionEvent(
     tenantId: string,
     sessionId: string,
@@ -610,7 +963,7 @@ class ExecutionOrchestratorService {
       targetType: 'execution_session',
       targetId: sessionId,
       resource: 'agent_execution',
-      outcome: eventType.includes('failed') || eventType.includes('rejected') ? 'failure' : 'success',
+      outcome: eventType.includes('failed') || eventType.includes('rejected') || eventType.includes('rollback') ? 'failure' : 'success',
       metadata,
     });
   }

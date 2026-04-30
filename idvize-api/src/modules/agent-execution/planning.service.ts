@@ -97,6 +97,7 @@ class PlanningService {
           actionType: 'entra.configure_saml_sso',
           target: { systemType: 'entra', applicationId: ctx.applicationId },
           inputs: {
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
             entityId: `{{entityId}}`,
             acsUrl: `{{acsUrl}}`,
             nameIdFormat: 'emailAddress',
@@ -135,7 +136,11 @@ class PlanningService {
         {
           actionType: 'entra.assign_group_to_app',
           target: { systemType: 'entra', applicationId: ctx.applicationId },
-          inputs: { groupName: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}` },
+          inputs: {
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
+            groupId: '{{step:3:groupId}}',
+            groupName: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
+          },
           validationRules: [],
         },
         false,
@@ -148,6 +153,7 @@ class PlanningService {
           inputs: {
             name: `AP-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
             description: `Access profile for ${ctx.applicationName} SSO`,
+            sourceId: '{{sourceId}}',
             sourceGroup: `SG-SSO-${ctx.applicationName.replace(/\s+/g, '-')}`,
           },
           validationRules: [
@@ -190,7 +196,10 @@ class PlanningService {
         {
           actionType: 'verification.test_sso_login',
           target: { systemType: 'internal', applicationId: ctx.applicationId },
-          inputs: { testUserEmail: '{{testUserEmail}}' },
+          inputs: {
+            testUserEmail: '{{testUserEmail}}',
+            servicePrincipalId: '{{step:1:servicePrincipalId}}',
+          },
           validationRules: [],
         },
         false,
@@ -262,6 +271,7 @@ class PlanningService {
       prerequisites,
       estimatedDuration: 'PT45M',
       rollbackSteps,
+      contextData: ctx.additionalContext ?? {},
       createdAt: new Date().toISOString(),
     };
   }
@@ -280,12 +290,12 @@ class PlanningService {
           target: { systemType: 'entra', applicationId: ctx.applicationId },
           inputs: {
             policyName: `CA-MFA-${ctx.applicationName.replace(/\s+/g, '-')}`,
-            grantControls: ['mfa'],
-            targetGroups: '{{targetGroups}}',
-            state: 'reportOnly',
+            grantControls: { operator: 'OR', builtInControls: ['mfa'] },
+            includeGroups: '{{includeGroups}}',
+            state: 'enabledForReportingButNotEnforced',
           },
           validationRules: [
-            { field: 'targetGroups', rule: 'required', message: 'Target user groups are required' },
+            { field: 'includeGroups', rule: 'required', message: 'Target user groups are required' },
           ],
         },
         false,
@@ -352,6 +362,7 @@ class PlanningService {
       prerequisites,
       estimatedDuration: 'PT20M',
       rollbackSteps: [],
+      contextData: ctx.additionalContext ?? {},
       createdAt: new Date().toISOString(),
     };
   }
