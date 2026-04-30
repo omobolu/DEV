@@ -639,11 +639,11 @@ function LaunchAgentModal({
 
           {state.kind === 'session' && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-900/15 border border-green-800/40">
-                <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-a-green/10 border border-a-green/30">
+                <CheckCircle2 size={18} className="text-a-green flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-green-300">Execution Session Created</p>
-                  <p className="text-xs text-muted mt-0.5 font-mono">{state.session.sessionId}</p>
+                  <p className="text-sm font-semibold text-a-green">Execution Session Created</p>
+                  <p className="text-xs text-body mt-0.5 font-mono">{state.session.sessionId}</p>
                 </div>
               </div>
               {state.session.plan && (
@@ -663,9 +663,9 @@ function LaunchAgentModal({
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-900/15 border border-yellow-800/40">
-                <Clock size={14} className="text-yellow-400 flex-shrink-0" />
-                <p className="text-xs text-yellow-300">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-a-amber/10 border border-a-amber/30">
+                <Clock size={14} className="text-a-amber flex-shrink-0" />
+                <p className="text-xs text-a-amber font-medium">
                   This session requires human approval before execution can begin.
                 </p>
               </div>
@@ -677,11 +677,11 @@ function LaunchAgentModal({
           )}
 
           {state.kind === 'error' && (
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-red-900/15 border border-red-800/40">
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-a-red/10 border border-a-red/30">
               <AlertCircle size={18} className="text-a-red flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-a-red">Dispatch failed</p>
-                <p className="text-xs text-muted mt-1">{state.message}</p>
+                <p className="text-xs text-body mt-1">{state.message}</p>
               </div>
             </div>
           )}

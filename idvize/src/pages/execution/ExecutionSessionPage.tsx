@@ -258,9 +258,9 @@ export default function ExecutionSessionPage() {
         <button onClick={() => navigate('/execution')} className="flex items-center gap-1.5 text-xs text-muted hover:text-body transition-colors">
           <ArrowLeft size={14} /> Back to Sessions
         </button>
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-900/15 border border-red-800/40">
-          <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
-          <p className="text-sm text-red-300">{error ?? 'Session not found'}</p>
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-a-red/10 border border-a-red/30">
+          <AlertTriangle size={16} className="text-a-red flex-shrink-0" />
+          <p className="text-sm text-a-red font-medium">{error ?? 'Session not found'}</p>
         </div>
       </div>
     )
@@ -340,9 +340,9 @@ export default function ExecutionSessionPage() {
 
         {/* Error message */}
         {session.errorMessage && (
-          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-900/15 border border-red-800/40">
-            <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-red-300">{session.errorMessage}</p>
+          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-a-red/10 border border-a-red/30">
+            <AlertCircle size={14} className="text-a-red flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-a-red font-medium">{session.errorMessage}</p>
           </div>
         )}
 
@@ -472,16 +472,16 @@ function PlanTab({ plan }: { plan: ExecutionPlan }) {
       {plan.prerequisites.length > 0 && (
         <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-heading mb-2 flex items-center gap-2">
-            <Lock size={14} className="text-yellow-400" />
+            <Lock size={14} className="text-a-amber" />
             Prerequisites
           </h3>
           <div className="space-y-2">
             {plan.prerequisites.map(pr => (
               <div key={pr.prerequisiteId} className="flex items-start gap-2 text-xs">
                 {pr.status === 'fulfilled' ? (
-                  <CheckCircle2 size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 size={14} className="text-a-green flex-shrink-0 mt-0.5" />
                 ) : (
-                  <Clock size={14} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <Clock size={14} className="text-a-amber flex-shrink-0 mt-0.5" />
                 )}
                 <div>
                   <p className="text-body">{pr.description}</p>
@@ -577,7 +577,7 @@ function ApprovalsTab({ approvals, sessionStatus, onApprove, actionLoading }: {
                     <button
                       onClick={() => onApprove(approval.approvalId, 'approved')}
                       disabled={isLoading}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold bg-green-600/20 text-green-400 border border-green-500/40 rounded-lg hover:bg-green-600/30 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold bg-a-green/15 text-a-green border border-a-green/40 rounded-lg hover:bg-a-green/25 transition-colors disabled:opacity-50"
                     >
                       {isLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                       Approve
@@ -592,7 +592,7 @@ function ApprovalsTab({ approvals, sessionStatus, onApprove, actionLoading }: {
                         onApprove(approval.approvalId, 'rejected', comment.trim() || undefined)
                       }}
                       disabled={isLoading}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400 border border-red-500/30 rounded-lg hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-a-red border border-a-red/40 rounded-lg hover:bg-a-red/15 transition-colors disabled:opacity-50"
                     >
                       <XCircle size={12} />
                       Reject
@@ -614,7 +614,7 @@ function ApprovalsTab({ approvals, sessionStatus, onApprove, actionLoading }: {
                   />
                   <button
                     onClick={() => onApprove(approval.approvalId, 'rejected', rejectComment[approval.approvalId]?.trim() || undefined)}
-                    className="px-3 py-1.5 text-xs font-medium bg-red-600/20 text-red-400 border border-red-500/40 rounded-lg hover:bg-red-600/30"
+                    className="px-3 py-1.5 text-xs font-semibold bg-a-red/15 text-a-red border border-a-red/40 rounded-lg hover:bg-a-red/25"
                   >
                     <Send size={12} />
                   </button>
@@ -647,7 +647,7 @@ function ExecutionTab({ steps, rollbackSteps, sessionStatus }: {
   return (
     <div className="space-y-4">
       {isActive && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-900/15 border border-blue-800/40 text-xs text-blue-300">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-a-cyan/10 border border-a-cyan/30 text-xs text-a-cyan font-medium">
           <Loader2 size={14} className="animate-spin" />
           Execution in progress — this page auto-refreshes every 5 seconds.
         </div>
@@ -670,7 +670,7 @@ function ExecutionTab({ steps, rollbackSteps, sessionStatus }: {
       {rollbackSteps.length > 0 && (
         <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-heading mb-3 flex items-center gap-2">
-            <AlertTriangle size={14} className="text-yellow-400" />
+            <AlertTriangle size={14} className="text-a-amber" />
             Rollback Steps
           </h3>
           <div className="space-y-1">
@@ -713,7 +713,7 @@ function StepRow({ step, compact, expanded, onToggle }: {
             <span className="font-mono">{step.targetSystem.systemName}</span>
             <span className="font-mono opacity-60">{step.actionType}</span>
             {step.requiresCredential && (
-              <span className="flex items-center gap-0.5 text-yellow-400">
+              <span className="flex items-center gap-0.5 text-a-amber font-semibold">
                 <Lock size={9} /> credential required
               </span>
             )}
@@ -728,15 +728,15 @@ function StepRow({ step, compact, expanded, onToggle }: {
         <div className="ml-8 mb-2 p-3 rounded-lg bg-surface-900 border border-surface-700 text-xs">
           <div className="flex items-center gap-2 mb-2">
             {step.result.success ? (
-              <span className="text-green-400 font-semibold">Succeeded</span>
+              <span className="text-a-green font-semibold">Succeeded</span>
             ) : (
-              <span className="text-red-400 font-semibold">Failed</span>
+              <span className="text-a-red font-semibold">Failed</span>
             )}
             {step.startedAt && <span className="text-muted">{fmtDateTime(step.startedAt)}</span>}
             {step.completedAt && <span className="text-muted">→ {fmtDateTime(step.completedAt)}</span>}
           </div>
           {step.result.errorMessage && (
-            <p className="text-red-300 mb-2">{step.result.errorMessage}</p>
+            <p className="text-a-red font-medium mb-2">{step.result.errorMessage}</p>
           )}
           {Object.keys(step.result.output).length > 0 && (
             <pre className="text-[10px] text-muted font-mono bg-surface-950 rounded p-2 overflow-x-auto max-h-40">
