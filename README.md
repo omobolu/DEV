@@ -1,6 +1,6 @@
 # IDVIZE IAM OS — The IAM Operating System
 
-> **Branch:** `develop` | **Version:** 2.1.0 | **Status:** Active Development
+> **Branch:** `develop` | **Version:** 3.0.0 | **Status:** Active Development
 > **URL:** http://localhost:5173 (frontend) · http://localhost:3001 (API)
 
 IDVIZE is an **IAM Operating System** — the management layer that sits above all enterprise IAM platforms and below business applications. From a single control plane, a CISO or IAM leader can **Monitor** every application and identity for IAM control coverage, **Operate** on identified gaps with one-click remediation, and **Control** the drivers, policies, and modules that govern the IAM program.
@@ -22,22 +22,23 @@ Audit Events                  ─→ Access intelligence      ─→ User Contro
 
 ## Table of Contents
 
-1. [Enterprise Foundation (New)](#enterprise-foundation)
-2. [Feature Status](#feature-status)
-3. [Architecture Overview](#architecture-overview)
-4. [Technology Stack](#technology-stack)
-5. [Prerequisites & Quick Start](#prerequisites--quick-start)
-6. [Repository Structure](#repository-structure)
-7. [API Reference](#api-reference)
-8. [IAM OS Kernel](#iam-os-kernel)
-9. [Controls Library](#controls-library)
-10. [All Modules](#all-modules)
-11. [IAM Program Maturity Model](#iam-program-maturity-model)
-12. [AI Agent Layer](#ai-agent-layer)
-13. [Authentication & Authorisation](#authentication--authorisation)
-14. [Demo Users](#demo-users)
-15. [What's Left](#whats-left)
-16. [Known Limitations](#known-limitations)
+1. [Enterprise Foundation](#enterprise-foundation)
+2. [Agent Execution Framework (New)](#agent-execution-framework)
+3. [Feature Status](#feature-status)
+4. [Architecture Overview](#architecture-overview)
+5. [Technology Stack](#technology-stack)
+6. [Prerequisites & Quick Start](#prerequisites--quick-start)
+7. [Repository Structure](#repository-structure)
+8. [API Reference](#api-reference)
+9. [IAM OS Kernel](#iam-os-kernel)
+10. [Controls Library](#controls-library)
+11. [All Modules](#all-modules)
+12. [IAM Program Maturity Model](#iam-program-maturity-model)
+13. [AI Agent Layer](#ai-agent-layer)
+14. [Authentication & Authorisation](#authentication--authorisation)
+15. [Demo Users](#demo-users)
+16. [What's Left](#whats-left)
+17. [Known Limitations](#known-limitations)
 
 ---
 
@@ -85,6 +86,99 @@ The current Node.js/Express backend is **temporary**. The target backend is **Go
 | All other modules | In-memory | Go services with PostgreSQL repositories |
 
 The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL types, JSONB for flexible fields, designed for `pgx` or `database/sql`.
+
+---
+
+## Agent Execution Framework
+
+The **Agent Execution Framework** (Phases 1–3) adds autonomous IAM remediation — the system can detect a missing control (e.g. SSO not configured, MFA not enforced) and execute a multi-step plan to fix it across Microsoft Entra ID, SailPoint IdentityNow, ServiceNow, and app-side connectors.
+
+### What Was Built
+
+#### Phase 1 — Execution Foundation (PR #22)
+| Area | What It Does |
+|---|---|
+| **Execution Sessions** | Full lifecycle: `planning → pending_approval → approved → executing → completed/failed/cancelled` |
+| **Plan Generation** | SSO and MFA agents generate multi-step execution plans with system targets, blast radius, prerequisites, and rollback steps |
+| **Approval Workflow** | Multi-gate approval (security_review → platform_admin → app_owner) with configurable thresholds and expiry |
+| **Tool Broker** | Central choke point for all external API calls — enforces session status, tenant match, action allowlist, permissions, dry-run mode |
+| **Stub Adapters** | Entra, SailPoint, ServiceNow, App Connector, Verification adapters with structured inputs/outputs |
+
+#### Phase 2 — Execution UI + Email Notifications (PRs #27, #28)
+| Area | What It Does |
+|---|---|
+| **Execution UI** | Session list, plan review, approval workflow, step-by-step progress, evidence viewer |
+| **Email Notifications** | Plan created, approval requested, execution completed notifications with SMTP config |
+| **Sequential Approval** | Multi-gate approvals execute in order; each gate blocks until resolved |
+| **13 HIGH Security Fixes** | RBAC on all endpoints, immutable approval binding, stale approval rejection, SMTP fail-closed, approval domain isolation |
+
+#### Phase 3 — Real API Integrations (PR #29)
+| Area | What It Does |
+|---|---|
+| **Entra ID Adapter** | Real Microsoft Graph API: create enterprise apps, configure SAML SSO/OIDC, create security groups, assign groups to apps, create Conditional Access policies, configure MFA authentication methods |
+| **SailPoint Adapter** | Real IdentityNow v3 API: create sources, access profiles, roles, trigger aggregation, create certification campaigns |
+| **ServiceNow Adapter** | Real Table/Catalog API: create catalog items, request mappings, Flow Designer workflows |
+| **App Connector** | Human-assisted mode with credential escrow for app-side SSO/SCIM configuration |
+| **Verification Adapter** | Automated verification via Graph API: test SSO login, verify MFA enforcement, validate group membership |
+| **Base API Infrastructure** | OAuth2 token cache (tenant-scoped), retry with exponential backoff, circuit breaker (tenant/provider scoped), evidence capture with redaction |
+| **SSRF Protection** | Block private IPs, localhost, metadata endpoints, IPv6 loopback, IPv4-mapped IPv6 (dotted and hex forms), require HTTPS |
+| **Rollback Tracker** | Session-scoped rollback tracking by external object ID, honest `rollback_required` status |
+| **Tenant Lock** | Single-deployment enforcement — first tenant locks each external system |
+
+### Security Architecture (12 Domains)
+
+| Domain | Implementation |
+|---|---|
+| **Tenant Isolation** | tenantId from JWT only, tenant-scoped token cache keys, tenant-scoped evidence/rollback/errors |
+| **Authorization** | Tool Broker enforces: approved session, tenant match, action allowlist, per-system permissions, dry-run mode, replay protection |
+| **OAuth & Secrets** | Credentials from env only, token cache in memory with TTL + jitter, no token persistence, errors never include tokens |
+| **Input Validation** | Strict field validation, URL sanitization, `encodeURIComponent` for path interpolation, reject unknown fields |
+| **SSRF Prevention** | Block private IPs/IPv6/metadata, HTTPS-only, trusted config for base URLs |
+| **Evidence Capture** | Sanitized request/response summaries, redaction of auth headers/tokens/secrets/certs |
+| **External API Safety** | Centralized timeout, max response size, retry only for transient failures, tenant/provider-scoped circuit breakers |
+| **Idempotency** | Search by session tag before creating, store created object IDs, avoid duplicates on retry |
+| **Rollback** | Session-scoped, by stored object ID only (never by name), ownership validation |
+| **Scope Immutability** | Post-approval inputs can only fill missing placeholders — cannot overwrite already-resolved scope-sensitive values |
+| **Simulation Detection** | `completed_simulation` status when any step used stub adapters, preserved across pause/resume |
+| **Fail Closed** | Missing provider credentials in production → rejection (not silent simulation) |
+
+### Agent Execution API
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `POST` | `/agent-execution/sessions` | `agents.execute.request` | Create execution session with plan |
+| `GET` | `/agent-execution/sessions` | `agents.use` | List sessions (sanitized) |
+| `GET` | `/agent-execution/sessions/:id` | `agents.use` | Session detail + plan + evidence |
+| `POST` | `/agent-execution/sessions/:id/approve` | `agents.execute.approve` | Approve execution plan |
+| `POST` | `/agent-execution/sessions/:id/execute` | `agents.execute.request` | Execute approved plan |
+| `POST` | `/agent-execution/sessions/:id/cancel` | `agents.execute.request` | Cancel session + rollback |
+| `PATCH` | `/agent-execution/sessions/:id/inputs` | `agents.execute.request` | Supply missing placeholder inputs |
+| `POST` | `/agent-execution/sessions/:id/steps/:stepId/confirm` | `agents.execute.request` | Confirm/reject manual step |
+
+### Execution Flow
+
+```
+User selects "Remediate SSO" on an application
+    │
+    ▼
+Planning Service generates multi-step plan
+    │  (Entra enterprise app → SAML SSO → security group → group assignment
+    │   → SailPoint access profile → ServiceNow catalog → app-side SSO → verify)
+    ▼
+Plan enters approval workflow (security_review → platform_admin → app_owner)
+    │
+    ▼
+Tool Broker executes each step through the appropriate adapter
+    │  (tenant isolation, replay protection, evidence capture, SSRF blocking)
+    │
+    ├── Step succeeds → record evidence, advance to next step
+    ├── Step needs manual action → pause session, wait for operator confirmation
+    ├── Step fails → rollback all created objects, fail session
+    └── All steps succeed → verification adapter confirms controls are active
+    │
+    ▼
+Session completes with full evidence trail and audit log
+```
 
 ---
 
@@ -227,6 +321,27 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Maturity UI | `/maturity` | Full report with domain cards |
 | Domain detail UI | `/maturity/domains/:domainId` | Evidence and recommendations |
 
+#### Module 8 — Agent Execution Framework
+| Feature | Route / Endpoint | Notes |
+|---|---|---|
+| Create execution session | `POST /agent-execution/sessions` | Plan generation for SSO or MFA remediation |
+| Session list | `GET /agent-execution/sessions` | Sanitized for `agents.use` role |
+| Session detail | `GET /agent-execution/sessions/:id` | Full plan, steps, evidence, rollback state |
+| Approve plan | `POST /agent-execution/sessions/:id/approve` | Multi-gate approval workflow |
+| Execute plan | `POST /agent-execution/sessions/:id/execute` | Runs through Tool Broker |
+| Cancel + rollback | `POST /agent-execution/sessions/:id/cancel` | Marks objects `rollback_required`, cancels session |
+| Supply inputs | `PATCH /agent-execution/sessions/:id/inputs` | Fill placeholder values; scope-sensitive keys immutable after approval |
+| Confirm manual step | `POST /agent-execution/sessions/:id/steps/:stepId/confirm` | Accept or reject human-assisted steps |
+| Entra ID adapter | — | Graph API: enterprise apps, SAML/OIDC, groups, CA policies, MFA |
+| SailPoint adapter | — | IdentityNow v3: sources, access profiles, roles, aggregation, campaigns |
+| ServiceNow adapter | — | Table/Catalog API: catalog items, request mappings, workflows |
+| App Connector | — | Human-assisted SSO/SCIM config with credential escrow |
+| Verification adapter | — | Automated SSO/MFA/group verification via Graph API |
+| Tool Broker | — | 10-step security enforcement: session, tenant, permission, allowlist, replay, blast radius |
+| Rollback tracker | — | Session-scoped external object tracking with `rollback_required` status |
+| Evidence store | — | Sanitized API evidence with token/secret redaction |
+| Credential escrow | — | One-time-use credential handles, destroyed after use/failure/expiry |
+
 #### Frontend UI (All Pages)
 | Page | Route | Status |
 |---|---|---|
@@ -248,10 +363,38 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 | Maturity | `/maturity` | ✅ Full programme maturity report |
 | Maturity Domain | `/maturity/domains/:domainId` | ✅ Evidence drill-down |
 | System Events | `/system-events` | ✅ Live IAM event stream from PostgreSQL, search + severity filters |
+| Agent Execution | `/agent-execution` | ✅ Session list, plan review, approval workflow, step progress, evidence viewer |
 
 ---
 
-### ✅ Recently Completed (Enterprise Foundation PR)
+### ✅ Recently Completed
+
+#### Agent Execution Framework — Phases 1–3 (PRs #22, #27, #28, #29)
+
+| Item | Status | Notes |
+|---|---|---|
+| Execution session lifecycle | Done | planning → pending_approval → approved → executing → completed/failed/cancelled |
+| SSO + MFA plan generation | Done | Multi-step plans with system targets, blast radius, prerequisites |
+| Multi-gate approval workflow | Done | Sequential security_review → platform_admin → app_owner gates |
+| Tool Broker security enforcement | Done | 10-step enforcement: session, tenant, permission, allowlist, replay, blast radius, dry-run |
+| Real Entra ID adapter (Graph API) | Done | Enterprise apps, SAML SSO, OIDC, security groups, CA policies, MFA |
+| Real SailPoint adapter (v3 API) | Done | Sources, access profiles, roles, aggregation, certification campaigns |
+| Real ServiceNow adapter (Table API) | Done | Catalog items, request mappings, Flow Designer workflows |
+| Human-assisted App Connector | Done | Credential escrow, one-time-use handles, destroyed after use |
+| Verification adapter | Done | Automated SSO/MFA/group verification via Graph API |
+| SSRF protection | Done | Private IPs, IPv6, IPv4-mapped IPv6 (dotted + hex), metadata endpoints |
+| Evidence capture with redaction | Done | Sanitized summaries, redaction of auth/tokens/secrets/certs |
+| Rollback tracker | Done | Session-scoped by object ID, `rollback_required` status, ownership validation |
+| Scope-sensitive input immutability | Done | Post-approval scope keys cannot be overwritten |
+| Simulation detection | Done | `completed_simulation` when any step used stubs, preserved across pause/resume |
+| Fail-closed production mode | Done | Missing provider credentials → rejection, not silent simulation |
+| Tenant lock (single-deployment) | Done | First tenant locks each external system |
+| Execution UI | Done | Session list, plan review, approval, step progress, evidence |
+| Email notifications | Done | Plan created, approval requested, execution completed |
+| 13 HIGH security fixes (Phase 2) | Done | RBAC, approval isolation, SMTP fail-closed |
+| 8 HIGH + 34 Devin Review fixes (Phase 3) | Done | 4 Codex rounds + 19 Devin Review rounds |
+
+#### Enterprise Foundation (PR #10)
 
 | Item | Status | Notes |
 |---|---|---|
@@ -266,31 +409,39 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 
 ### 🔲 Pending — Not Yet Implemented
 
-#### Go Backend Migration (Next PR)
+#### Phase 4 — E2E Testing & Real Provider Validation
+| Item | Priority | Notes |
+|---|---|---|
+| E2E tests with real Entra tenant | High | Requires test tenant with Graph API credentials |
+| E2E tests with real SailPoint sandbox | High | Requires IdentityNow sandbox with client credentials |
+| E2E tests with real ServiceNow instance | High | Requires PDI or sub-production instance |
+| Automated test suite for security edge cases | High | Scope immutability, IPv6 normalization, empty array rejection, approval domain isolation |
+| Provider rollback execution | Medium | Currently marks `rollback_required` — Phase 4 should call provider DELETE APIs |
+| Tenant-scoped provider credentials | Medium | Currently global env vars — move to per-tenant encrypted config for multi-tenant SaaS |
+
+#### Additional Platform Adapters
+| Item | Priority | Notes |
+|---|---|---|
+| Live CyberArk PAM adapter | High | Integration module test-connection only; no execution adapter |
+| Live Okta adapter | High | Integration module test-connection only; no execution adapter |
+| Real CMDB integration (ServiceNow) | Medium | CMDB currently uses seeded mock data; ServiceNow adapter only handles catalog/workflow |
+| PAM session management adapter | Medium | PAM controls detected but not remediable through execution framework |
+
+#### Go Backend Migration
 | Item | Priority | Notes |
 |---|---|---|
 | Go API server | High | Replace Node.js/Express with Go. PostgreSQL schema is already Go-compatible (snake_case, JSONB) |
-| Migrate all modules to Go | High | Application CRUD, controls, build, cost, integrations, maturity, documents |
+| Migrate all modules to Go | High | Application CRUD, controls, build, cost, integrations, maturity, documents, agent-execution |
 | PostgreSQL for all entities | High | Applications, controls, assessments still in-memory in Node.js |
-| Session persistence | Medium | Builds, credentials, approvals reset on restart (not yet in PostgreSQL) |
-
-#### Live Platform Adapters
-| Item | Priority | Notes |
-|---|---|---|
-| Live Entra ID adapter (full) | High | Only test-connection performs a real OAuth2 call; all data reads are mock |
-| Live SailPoint IdentityNow adapter | High | Mock only |
-| Live CyberArk PAM adapter | High | Mock only |
-| Live Okta adapter | High | Mock only |
-| Real CMDB integration (ServiceNow, etc.) | Medium | CMDB currently uses seeded mock data |
+| Session persistence | Medium | Execution sessions, builds, credentials, approvals reset on restart (not yet in PostgreSQL) |
 
 #### Security & Authentication
 | Item | Priority | Notes |
 |---|---|---|
-| OIDC integration (Entra ID / Okta) | High | Auth currently local only; prepare for federated login |
+| OIDC integration (Entra ID / Okta) | High | Auth currently local JWT only; prepare for federated login |
 | Refresh token support | High | Current JWTs are 8-hour, no refresh |
-| RBAC enforcement | Medium | Role field exists in user model; enforcement not yet wired |
-| Full SAML 2.0 SP implementation | Medium | Adapter scaffolded but not functional |
-| MFA enforcement (login) | Medium | Evaluated per app but not enforced at login UI |
+| Full SAML 2.0 SP implementation | Medium | Entra adapter configures SAML for apps; platform itself doesn't act as SP |
+| MFA enforcement (login) | Medium | MFA evaluated and enforced per target app via CA policies but not at IDVIZE login UI itself |
 
 #### Infrastructure & DevOps
 | Item | Priority | Notes |
@@ -303,6 +454,7 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 #### Reporting & Analytics
 | Item | Priority | Notes |
 |---|---|---|
+| Execution history dashboard | Medium | Session completion rates, average execution time, failure trends |
 | Maturity trend charting (historical) | Medium | History endpoint exists; no UI chart |
 | PDF export for maturity reports | Medium | UI report exists; no export |
 | IAM programme roadmap view | Medium | Gap list exists; no timeline/roadmap view |
@@ -338,6 +490,16 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
 │  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘  │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────────┐ │
+│  │          Agent Execution Framework (Module 8)               │ │
+│  │  Planning → Approval → Tool Broker → Adapters → Verify     │ │
+│  │  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌──────────────┐  │ │
+│  │  │ Entra   │ │ SailPoint │ │ServiceNow│ │App Connector │  │ │
+│  │  │ Adapter │ │  Adapter  │ │ Adapter  │ │  (human)     │  │ │
+│  │  └─────────┘ └───────────┘ └──────────┘ └──────────────┘  │ │
+│  │  Evidence Store · Rollback Tracker · Credential Escrow     │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐ │
 │  │               AI Agent Layer (Claude / Anthropic)           │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └───────────────────────────┬──────────────────────────────────────┘
@@ -347,11 +509,16 @@ The PostgreSQL schema is **Go-compatible** — snake_case columns, standard SQL 
                │  tenants · users             │
                │  audit_logs · applications   │
                └────────────┬─────────────────┘
-                            │ OAuth2 / REST / SCIM (mock in dev)
+                            │ OAuth2 / REST / SCIM
           ┌─────────────────┼─────────────────┐
      ┌────▼────┐      ┌─────▼──────┐    ┌─────▼──────┐  ┌──────┐
      │Entra ID │      │ SailPoint  │    │  CyberArk  │  │ Okta │
+     │(Graph)  │      │(IdentityNow│    │  (mock)    │  │(mock)│
      └─────────┘      └────────────┘    └────────────┘  └──────┘
+          │                │                                 │
+     ┌────▼────────────────▼─────────────────────────────────▼───┐
+     │              ServiceNow (Table / Catalog API)             │
+     └───────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -447,6 +614,14 @@ DEV/
 │   │   │   │   ├── vault/      # Secret vault abstraction
 │   │   │   │   ├── approval/   # Approval workflows
 │   │   │   │   └── masking/    # Field-level data masking
+│   │   │   ├── agent-execution/  # Module 8 — Agent Execution Framework
+│   │   │   │   ├── adapters/        # Entra, SailPoint, ServiceNow, App Connector, Verification
+│   │   │   │   ├── execution-orchestrator.service.ts
+│   │   │   │   ├── planning.service.ts
+│   │   │   │   ├── tool-broker.service.ts
+│   │   │   │   ├── rollback-tracker.service.ts
+│   │   │   │   ├── evidence-store.service.ts
+│   │   │   │   └── credential-escrow.service.ts
 │   │   │   ├── document/    # Document registry & workflow
 │   │   │   ├── maturity/    # IAM Program Maturity engine
 │   │   │   └── os/          # IAM OS Kernel (Coverage Intelligence Engine)
@@ -622,6 +797,19 @@ Content-Type: application/json
 | `POST` | `/maturity/recalculate` | Fresh assessment + Claude narrative |
 | `GET` | `/maturity/history` | Past assessment runs |
 
+### Agent Execution (`/agent-execution`)
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `POST` | `/agent-execution/sessions` | `agents.execute.request` | Create execution session — generates SSO or MFA remediation plan |
+| `GET` | `/agent-execution/sessions` | `agents.use` | List sessions (plan internals and credential handles stripped) |
+| `GET` | `/agent-execution/sessions/:id` | `agents.use` | Session detail with full plan, steps, evidence, rollback state |
+| `POST` | `/agent-execution/sessions/:id/approve` | `agents.execute.approve` | Approve execution plan (multi-gate: security → platform → app owner) |
+| `POST` | `/agent-execution/sessions/:id/execute` | `agents.execute.request` | Execute approved plan through Tool Broker |
+| `POST` | `/agent-execution/sessions/:id/cancel` | `agents.execute.request` | Cancel session, mark created objects `rollback_required` |
+| `PATCH` | `/agent-execution/sessions/:id/inputs` | `agents.execute.request` | Supply missing placeholder inputs (scope-sensitive keys immutable after approval) |
+| `POST` | `/agent-execution/sessions/:id/steps/:stepId/confirm` | `agents.execute.request` | Confirm or reject a human-assisted manual step |
+
 ---
 
 ## IAM OS Kernel
@@ -762,27 +950,45 @@ All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own dat
 
 ## What's Left
 
-### Next PR: Go Backend Foundation (`feature/go-backend-foundation-devin-YYYYMMDD-HHMM`)
+### Phase 4 — E2E Testing & Real Provider Validation (Next)
 
-| Task | Description |
-|---|---|
-| Go API server | Replace Node.js/Express with Go. Reuse existing PostgreSQL schema. |
-| Migrate auth to Go | `golang-jwt/jwt` + `bcrypt` for login, JWT issuance |
-| Migrate all modules | Application CRUD, controls, build, cost, integrations, maturity, documents |
-| Full PostgreSQL persistence | Move applications, controls, assessments from in-memory to PG |
-| RBAC enforcement | Wire role-based access control using the existing `roles` JSONB field |
-| OIDC preparation | Entra ID / Okta federated login support |
+| Task | Priority | Description |
+|---|---|---|
+| E2E tests with real Entra tenant | High | Full SSO + MFA plan execution against a test Azure AD tenant with Graph API credentials |
+| E2E tests with real SailPoint sandbox | High | Source creation, access profiles, roles, aggregation against IdentityNow sandbox |
+| E2E tests with real ServiceNow instance | High | Catalog item + workflow creation against PDI or sub-production instance |
+| Automated security edge-case tests | High | Scope immutability, IPv6 normalization, empty array rejection, approval domain isolation, SSRF blocking |
+| Provider rollback execution | Medium | Currently marks objects `rollback_required` — need to call actual provider DELETE/cleanup APIs |
+| Tenant-scoped provider credentials | Medium | Move from global env vars to per-tenant encrypted config for multi-tenant SaaS |
+
+### Additional Platform Adapters
+
+| Task | Priority | Description |
+|---|---|---|
+| CyberArk PAM execution adapter | High | Integration module has test-connection; execution adapter needed for PAM remediation |
+| Okta execution adapter | High | Integration module has test-connection; execution adapter needed for AM remediation |
+| CMDB integration (ServiceNow) | Medium | CMDB uses seeded data; ServiceNow adapter currently handles catalog/workflow only |
+| PAM session management | Medium | PAM controls detected but not remediable through execution framework |
+
+### Go Backend Migration
+
+| Task | Priority | Description |
+|---|---|---|
+| Go API server | High | Replace Node.js/Express with Go. PostgreSQL schema is already Go-compatible (snake_case, JSONB) |
+| Migrate all modules to Go | High | Application CRUD, controls, build, cost, integrations, maturity, documents, agent-execution |
+| Full PostgreSQL persistence | High | Applications, controls, assessments, execution sessions still in-memory in Node.js |
+| OIDC preparation | High | Entra ID / Okta federated login support |
 
 ### Other Pending Work
 
 | Task | Priority |
 |---|---|
-| Live platform adapters (Entra, SailPoint, CyberArk, Okta) | High |
 | Refresh token support | High |
-| Docker Compose setup | Medium |
 | Unit and integration test suite | High |
 | CI/CD pipeline (GitHub Actions) | Medium |
-| Frontend code-splitting | Low |
+| Docker Compose setup | Medium |
+| Execution history dashboard (completion rates, failure trends) | Medium |
+| Frontend code-splitting (~882 KB bundle) | Low |
 
 ---
 
@@ -790,16 +996,16 @@ All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own dat
 
 | Area | Limitation |
 |---|---|
-| **Partial persistence** | Tenants, users, and audit logs are in PostgreSQL. Applications, controls, builds, credentials, and other modules remain in-memory and reset on restart. |
+| **Partial persistence** | Tenants, users, and audit logs are in PostgreSQL. Applications, controls, builds, execution sessions, and other modules remain in-memory and reset on restart. |
 | **Node.js backend (temporary)** | The Express backend is a temporary implementation. Target is Go/Golang. |
-| **Platform adapters** | All four adapters (Entra, SailPoint, CyberArk, Okta) return mock data unless live credentials are provided. Only the Entra test-connection performs a real OAuth2 call. |
+| **Execution adapters** | Entra, SailPoint, and ServiceNow adapters make real API calls when credentials are configured. CyberArk and Okta still use mock data. Without credentials, adapters run in simulation mode (dev/demo) or reject execution (production). |
+| **Rollback** | Rollback tracker marks external objects as `rollback_required` but does not yet call provider DELETE APIs. Rollback must be completed manually or by re-running cleanup. |
+| **Single-deployment tenant lock** | Agent execution uses global env vars for provider credentials. Only one tenant can execute against each external system. Multi-tenant SaaS requires per-tenant encrypted credential config. |
 | **Identity plane** | Cross-platform identity reconciliation uses representative mock records. Real reconciliation requires live adapters. |
 | **JWT** | No refresh tokens. 8-hour TTL requires re-login. |
 | **API key** | Single static key in `.env`. |
-| **SAML** | Adapter scaffolded but not functional. |
-| **RBAC** | Role field exists in user model but enforcement is not yet wired. |
 | **Bundle size** | Single JS chunk (~882 KB). No code-splitting applied. |
-| **Tests** | No unit or integration test suite. |
+| **Tests** | No unit or integration test suite. Security edge cases verified through Codex code review only. |
 
 ---
 
@@ -807,7 +1013,20 @@ All passwords are bcrypt-hashed in PostgreSQL. Each tenant sees only its own dat
 
 **Remote:** https://github.com/omobolu/DEV
 **Active branch:** `develop`
-**Enterprise Foundation PR:** https://github.com/omobolu/DEV/pull/10
+
+### Key PRs
+
+| PR | Description |
+|---|---|
+| [#10](https://github.com/omobolu/DEV/pull/10) | Enterprise Foundation — PostgreSQL, bcrypt, multi-tenancy |
+| [#12](https://github.com/omobolu/DEV/pull/12) | Top IAM Risk Engine — Control-Assessment Risk Classification |
+| [#16](https://github.com/omobolu/DEV/pull/16) | Control Detail View — Per-Application Control Assessment |
+| [#19](https://github.com/omobolu/DEV/pull/19) | Agent Framework v1 — MFA and SSO Control Agents |
+| [#20](https://github.com/omobolu/DEV/pull/20) | Email Service — SMTP Config, Templated Emails |
+| [#22](https://github.com/omobolu/DEV/pull/22) | Phase 1 — Controlled Execution Agent Framework Foundation |
+| [#27](https://github.com/omobolu/DEV/pull/27) | Phase 2 — Execution UI + Post-Merge Bug Fixes |
+| [#28](https://github.com/omobolu/DEV/pull/28) | Phase 2-3 — Agent Email, CMDB Settings, Sequential Approval |
+| [#29](https://github.com/omobolu/DEV/pull/29) | Phase 3 — Real API Integrations with 12-Domain Security |
 
 ---
 
