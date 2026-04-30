@@ -91,7 +91,7 @@ router.post('/:id/transition', requirePermission('build.execute.guided'), (req: 
 });
 
 // POST /build/:id/data — submit collected technical data
-router.post('/:id/data', (req: Request, res: Response) => {
+router.post('/:id/data', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { data, actor } = req.body as { data: Record<string, string | boolean>; actor?: string };
   if (!data || typeof data !== 'object') {
@@ -103,7 +103,7 @@ router.post('/:id/data', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/artifacts — (re)generate build artifacts
-router.post('/:id/artifacts', (req: Request, res: Response) => {
+router.post('/:id/artifacts', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const job = buildService.generateArtifacts(tenantId, req.params.id as string);
   res.json({ success: true, data: { artifacts: job.artifacts, total: job.artifacts.length }, timestamp: new Date().toISOString() });

@@ -92,8 +92,48 @@ class IntegrationConfigService {
     fs.writeFileSync(this.envPath, content, 'utf-8');
   }
 
+  /** Validate credential values before saving — schema + SSRF checks */
+  private validateCredentials(creds: PlatformCredentials): void {
+    if (creds.sailpoint) {
+      const url = creds.sailpoint.baseUrl?.trim();
+      if (!url) throw new Error('SailPoint baseUrl is required');
+      validateBaseUrl(url);
+      if (!creds.sailpoint.clientId?.trim()) throw new Error('SailPoint clientId is required');
+      if (!creds.sailpoint.clientSecret?.trim()) throw new Error('SailPoint clientSecret is required');
+    }
+    if (creds.cyberark) {
+      const url = creds.cyberark.baseUrl?.trim();
+      if (!url) throw new Error('CyberArk baseUrl is required');
+      validateBaseUrl(url);
+      if (!creds.cyberark.username?.trim()) throw new Error('CyberArk username is required');
+      if (!creds.cyberark.password?.trim()) throw new Error('CyberArk password is required');
+    }
+    if (creds.okta) {
+      const domain = creds.okta.domain?.trim();
+      if (!domain) throw new Error('Okta domain is required');
+      validateBaseUrl(`https://${domain}`);
+      if (!creds.okta.apiToken?.trim()) throw new Error('Okta apiToken is required');
+    }
+    if (creds.entra) {
+      if (!creds.entra.tenantId?.trim()) throw new Error('Entra tenantId is required');
+      if (!creds.entra.clientId?.trim()) throw new Error('Entra clientId is required');
+      if (!creds.entra.clientSecret?.trim()) throw new Error('Entra clientSecret is required');
+    }
+    // Reject values containing newlines (prevent .env injection)
+    const allValues = [
+      creds.entra?.tenantId, creds.entra?.clientId, creds.entra?.clientSecret,
+      creds.sailpoint?.baseUrl, creds.sailpoint?.clientId, creds.sailpoint?.clientSecret,
+      creds.cyberark?.baseUrl, creds.cyberark?.username, creds.cyberark?.password,
+      creds.okta?.domain, creds.okta?.apiToken,
+    ].filter(Boolean) as string[];
+    for (const v of allValues) {
+      if (/[\r\n]/.test(v)) throw new Error('Credential values must not contain newlines');
+    }
+  }
+
   /** Save credentials: apply to runtime env + persist to .env + audit log */
   async save(creds: PlatformCredentials, actorId = 'system', actorName = 'System'): Promise<void> {
+    this.validateCredentials(creds);
     const platforms = Object.keys(creds) as PlatformKey[];
     this.applyToEnv(creds);
     this.persistToEnv(creds);

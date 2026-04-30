@@ -14,13 +14,13 @@ router.use(requireAuth, tenantContext, (req, _res, next) => { costService.ensure
 // ── Agent ─────────────────────────────────────────────────────────────────────
 
 // POST /cost/analyze — run full Cost Intelligence Agent analysis
-router.post('/analyze', requirePermission('cost.view.summary'), async (req: Request, res: Response) => {
+router.post('/analyze', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   const report = await costService.runCostAnalysis(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
 
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
-router.post('/analyze/ai', requirePermission('cost.view.summary'), async (req: Request, res: Response) => {
+router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
   const result = await costIntelligenceAgent.runWithAI(req.tenantId!);
   res.json({ success: true, data: result, timestamp: new Date().toISOString() });
@@ -32,7 +32,7 @@ router.get('/agent/status', requirePermission('cost.view.summary'), (req: Reques
 });
 
 // GET /cost/report — last full report (without re-running)
-router.get('/report', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
+router.get('/report', requirePermission('cost.view.vendor_analysis'), (req: Request, res: Response) => {
   const report = costService.getLastReport(req.tenantId!);
   if (!report) {
     res.status(404).json({ success: false, error: 'No report generated yet. POST /cost/analyze first.', timestamp: new Date().toISOString() });

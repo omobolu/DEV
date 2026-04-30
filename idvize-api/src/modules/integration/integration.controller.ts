@@ -11,7 +11,7 @@ import { requirePermission } from '../../middleware/requirePermission';
 const router = Router();
 
 // GET /integrations/status — all platform integration statuses
-router.get('/status', (_req: Request, res: Response) => {
+router.get('/status', requireAuth, tenantContext, requirePermission('integrations.view'), (_req: Request, res: Response) => {
   const statuses = [
     entraAdapter.getIntegrationStatus(),
     sailpointAdapter.getIntegrationStatus(),
@@ -22,31 +22,31 @@ router.get('/status', (_req: Request, res: Response) => {
 });
 
 // GET /integrations/entra/apps
-router.get('/entra/apps', async (_req: Request, res: Response) => {
+router.get('/entra/apps', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const apps = await entraAdapter.listEnterpriseApps();
   res.json({ success: true, data: apps, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/sailpoint/sources
-router.get('/sailpoint/sources', async (_req: Request, res: Response) => {
+router.get('/sailpoint/sources', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const sources = await sailpointAdapter.listSources();
   res.json({ success: true, data: sources, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/cyberark/safes
-router.get('/cyberark/safes', async (_req: Request, res: Response) => {
+router.get('/cyberark/safes', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const safes = await cyberarkAdapter.listSafes();
   res.json({ success: true, data: safes, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/okta/apps
-router.get('/okta/apps', async (_req: Request, res: Response) => {
+router.get('/okta/apps', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const apps = await oktaAdapter.listApps();
   res.json({ success: true, data: apps, timestamp: new Date().toISOString() });
 });
 
 // POST /integrations/correlate/:appName — correlate app across all platforms
-router.post('/correlate/:appName', async (req: Request, res: Response) => {
+router.post('/correlate/:appName', requireAuth, tenantContext, requirePermission('integrations.view'), async (req: Request, res: Response) => {
   const appName = decodeURIComponent(req.params.appName as string);
   const [entra, sailpoint, cyberark, okta] = await Promise.all([
     entraAdapter.correlateApp(appName),
@@ -58,7 +58,7 @@ router.post('/correlate/:appName', async (req: Request, res: Response) => {
 });
 
 // GET /integrations/config — current config (masked secrets) + statuses
-router.get('/config', (_req: Request, res: Response) => {
+router.get('/config', requireAuth, tenantContext, requirePermission('integrations.view'), (_req: Request, res: Response) => {
   res.json({
     success: true,
     data: {

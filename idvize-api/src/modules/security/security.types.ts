@@ -103,6 +103,7 @@ export type PermissionId =
   | 'agents.execute.servicenow'
   | 'agents.admin'
   // IGA
+  | 'iga.manage'
   | 'iga.approve'
   | 'iga.execute'
   // OS

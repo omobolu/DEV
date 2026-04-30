@@ -85,6 +85,7 @@ export const PERMISSION_CATALOGUE: Permission[] = [
   { permissionId: 'agents.execute.servicenow', module: 'agents',     action: 'execute.servicenow',  description: 'Execute ServiceNow tool actions',                                  riskLevel: 'high',   requiresApproval: true },
   { permissionId: 'agents.admin',            module: 'agents',       action: 'admin',               description: 'Full agent administration including adapter configuration',         riskLevel: 'high',   requiresApproval: true },
   // IGA workflow
+  { permissionId: 'iga.manage',               module: 'iga',          action: 'manage',              description: 'Accept, investigate, plan, and provide feedback on IGA tickets',    riskLevel: 'medium', requiresApproval: false },
   { permissionId: 'iga.approve',              module: 'iga',          action: 'approve',             description: 'Approve IGA agent plans for ServiceNow tickets',                   riskLevel: 'high',   requiresApproval: false },
   { permissionId: 'iga.execute',              module: 'iga',          action: 'execute',             description: 'Execute approved IGA agent plans',                                 riskLevel: 'high',   requiresApproval: false },
   // OS remediation
@@ -113,7 +114,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.configure', 'email.send',
     'agents.use', 'agents.plan', 'agents.execute.request', 'agents.execute.approve', 'agents.execute.sso', 'agents.execute.iga', 'agents.execute.servicenow', 'agents.admin',
-    'iga.approve', 'iga.execute', 'os.remediate',
+    'iga.manage', 'iga.approve', 'iga.execute', 'os.remediate',
   ],
   Manager: [
     'cost.view.summary', 'cost.view.salary_detail', 'cost.manage.people', 'cost.view.vendor_analysis', 'cost.view.optimization',
@@ -132,7 +133,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.configure', 'email.send',
     'agents.use', 'agents.plan', 'agents.execute.request', 'agents.execute.approve', 'agents.execute.sso', 'agents.execute.iga', 'agents.execute.servicenow', 'agents.admin',
-    'iga.approve', 'iga.execute', 'os.remediate',
+    'iga.manage', 'iga.approve', 'iga.execute', 'os.remediate',
   ],
   Architect: [
     // NO: cost.view.salary_detail, approval.grant.high_risk, security.manage.access/scim, secrets.reveal, secrets.approve, secrets.manage.provider
@@ -151,7 +152,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.configure', 'email.send',
     'agents.use', 'agents.plan', 'agents.execute.request',
-    'iga.approve', 'iga.execute', 'os.remediate',
+    'iga.manage', 'iga.approve', 'iga.execute', 'os.remediate',
   ],
   BusinessAnalyst: [
     // NO: cost.view.salary_detail, controls.evaluate, build.execute.*, integrations.manage, approval.grant.*, secrets.reference, secrets.reveal, secrets.rotate, secrets.approve
@@ -184,7 +185,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'agents.invoke',
     'email.send',
     'agents.use', 'agents.plan',
-    'iga.execute', 'os.remediate',
+    'iga.manage', 'iga.execute', 'os.remediate',
   ],
   Developer: [
     // NO: cost module, salary data, tasks.view.all, document.review/publish, approval.grant.*, security.*, integrations.manage, secrets.*reference/reveal/rotate/approve/manage
