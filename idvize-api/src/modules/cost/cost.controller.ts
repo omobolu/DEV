@@ -66,7 +66,12 @@ router.post('/analyze', requirePermission('cost.view.vendor_analysis'), async (r
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
 router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
-  const result = await costIntelligenceAgent.runWithAI(req.tenantId!);
+  const hasOpt = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.optimization').allowed;
+  const hasSal = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.salary_detail').allowed;
+  const result = await costIntelligenceAgent.runWithAI(req.tenantId!, {
+    optimization: !hasOpt,
+    staffAug: !hasSal,
+  });
   const scoped = await scopeReport(result as unknown as Record<string, unknown>, req);
   res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });

@@ -83,7 +83,7 @@ router.post('/configure', requireAuth, tenantContext, requirePermission('integra
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Save failed';
-    const isValidation = msg.includes('is required') || msg.includes('must not contain') || msg.includes('blocked') || msg.includes('HTTPS required') || msg.includes('Invalid URL') || msg.includes('Unsupported protocol') || msg.includes('resolves to blocked');
+    const isValidation = msg.includes('is required') || msg.includes('must not contain') || msg.includes('blocked') || msg.includes('HTTPS required') || msg.includes('Invalid URL') || msg.includes('Unsupported protocol') || msg.includes('resolves to blocked') || msg.includes('could not be resolved');
     res.status(isValidation ? 400 : 500).json({ success: false, error: msg, timestamp: new Date().toISOString() });
   }
 });

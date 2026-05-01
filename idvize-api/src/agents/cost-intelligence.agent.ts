@@ -227,7 +227,7 @@ export class CostIntelligenceAgent {
    * AI-enhanced analysis — runs the deterministic report first, then calls
    * Claude with tool access to reason over the data and produce a narrative.
    */
-  async runWithAI(tenantId: string): Promise<CostAiAnalysis> {
+  async runWithAI(tenantId: string, excludeSections?: { optimization?: boolean; staffAug?: boolean }): Promise<CostAiAnalysis> {
     console.log('[CostIntelligenceAgent] Starting AI-enhanced cost analysis...');
 
     // Always run the deterministic analysis first so Claude has real data
@@ -244,29 +244,29 @@ export class CostIntelligenceAgent {
         description: 'Get all vendor impact analyses including risk scores, efficiency, and recommendations.',
         input_schema: { type: 'object' as const, properties: {}, required: [] },
       },
-      {
+      ...(!excludeSections?.optimization ? [{
         name: 'get_optimization_opportunities',
         description: 'Get all identified cost optimization opportunities with estimated savings.',
-        input_schema: { type: 'object' as const, properties: {}, required: [] },
-      },
+        input_schema: { type: 'object' as const, properties: {}, required: [] as string[] },
+      }] : []),
       {
         name: 'get_risk_assessment',
         description: 'Get the overall risk assessment including top risks and severity.',
         input_schema: { type: 'object' as const, properties: {}, required: [] },
       },
-      {
+      ...(!excludeSections?.staffAug ? [{
         name: 'get_staff_aug_analysis',
         description: 'Get staff augmentation analysis comparing contractor costs to FTE benchmarks.',
-        input_schema: { type: 'object' as const, properties: {}, required: [] },
-      },
+        input_schema: { type: 'object' as const, properties: {}, required: [] as string[] },
+      }] : []),
     ];
 
     const toolHandlers: Record<string, () => unknown> = {
       get_cost_summary: () => baseReport.summary,
       get_vendor_impacts: () => baseReport.vendorAnalysis,
-      get_optimization_opportunities: () => baseReport.optimizationReport,
       get_risk_assessment: () => baseReport.riskAssessment,
-      get_staff_aug_analysis: () => baseReport.staffAugAnalysis,
+      ...(!excludeSections?.optimization ? { get_optimization_opportunities: () => baseReport.optimizationReport } : {}),
+      ...(!excludeSections?.staffAug ? { get_staff_aug_analysis: () => baseReport.staffAugAnalysis } : {}),
     };
 
     const systemPrompt = `You are an expert IAM (Identity and Access Management) financial analyst and vendor strategist.
@@ -275,15 +275,26 @@ analysis that identifies patterns, highlights risks, and recommends novel action
 would miss. Focus on: vendor concentration risk, hidden cost drivers, build-vs-buy decisions, and specific optimization
 moves with estimated ROI. Be direct, quantitative where possible, and prioritise by business impact.`;
 
-    const userPrompt = `Analyse the current IAM cost intelligence data for our platform.
-Use the available tools to inspect the cost summary, vendor impacts, optimization opportunities, risk assessment,
-and staff augmentation data. Then produce a structured executive narrative covering:
+    const availableData = ['cost summary', 'vendor impacts', 'risk assessment'];
+    if (!excludeSections?.optimization) availableData.push('optimization opportunities');
+    if (!excludeSections?.staffAug) availableData.push('staff augmentation data');
 
-1. **Financial Health Overview** — total spend, biggest cost buckets, year-on-year trajectory signals
-2. **Vendor & Partner Risk** — concentration risks, underperforming vendors, dependency red flags
-3. **Staff Augmentation Assessment** — contractor vs FTE cost premium, key reliance risks
-4. **Top 5 Optimization Moves** — specific, actionable recommendations with estimated savings or risk reduction
-5. **Strategic Recommendations** — 2–3 longer-horizon recommendations for the IAM investment strategy
+    const sections = [
+      '1. **Financial Health Overview** — total spend, biggest cost buckets, year-on-year trajectory signals',
+      '2. **Vendor & Partner Risk** — concentration risks, underperforming vendors, dependency red flags',
+    ];
+    if (!excludeSections?.staffAug) {
+      sections.push('3. **Staff Augmentation Assessment** — contractor vs FTE cost premium, key reliance risks');
+    }
+    if (!excludeSections?.optimization) {
+      sections.push(`${sections.length + 1}. **Top Optimization Moves** — specific, actionable recommendations with estimated savings or risk reduction`);
+    }
+    sections.push(`${sections.length + 1}. **Strategic Recommendations** — 2–3 longer-horizon recommendations for the IAM investment strategy`);
+
+    const userPrompt = `Analyse the current IAM cost intelligence data for our platform.
+Use the available tools to inspect the ${availableData.join(', ')}. Then produce a structured executive narrative covering:
+
+${sections.join('\n')}
 
 Be specific about vendor names, dollar amounts, and risk scores from the data.`;
 

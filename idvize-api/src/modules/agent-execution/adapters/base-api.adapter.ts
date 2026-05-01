@@ -138,7 +138,8 @@ export async function validateBaseUrlWithDns(url: string, allowHttp = false): Pr
     }
   } catch (e) {
     if (e instanceof Error && e.message.includes('resolves to blocked IP')) throw e;
-    // DNS lookup failure — allow the request; the connection will fail on its own
+    // DNS lookup failure — fail closed: reject URLs that cannot be resolved
+    throw new Error(`URL hostname "${hostname}" could not be resolved — cannot verify it is safe`);
   }
 }
 
