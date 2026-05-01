@@ -269,11 +269,13 @@ export class CostIntelligenceAgent {
       ...(!excludeSections?.staffAug ? { get_staff_aug_analysis: () => baseReport.staffAugAnalysis } : {}),
     };
 
+    const focusAreas = ['vendor concentration risk', 'hidden cost drivers', 'build-vs-buy decisions'];
+    if (!excludeSections?.optimization) focusAreas.push('specific optimization moves with estimated ROI');
+
     const systemPrompt = `You are an expert IAM (Identity and Access Management) financial analyst and vendor strategist.
 You have access to real IAM platform cost data through tool calls. Your job is to produce a concise, executive-level
 analysis that identifies patterns, highlights risks, and recommends novel actions that a typical deterministic system
-would miss. Focus on: vendor concentration risk, hidden cost drivers, build-vs-buy decisions, and specific optimization
-moves with estimated ROI. Be direct, quantitative where possible, and prioritise by business impact.`;
+would miss. Focus on: ${focusAreas.join(', ')}. Be direct, quantitative where possible, and prioritise by business impact.`;
 
     const availableData = ['cost summary', 'vendor impacts', 'risk assessment'];
     if (!excludeSections?.optimization) availableData.push('optimization opportunities');

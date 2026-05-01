@@ -422,7 +422,7 @@ export abstract class BaseApiAdapter {
    * Returns the parsed response or throws on non-retryable failure.
    */
   protected async apiCall(tenantId: string, options: ApiCallOptions): Promise<ApiCallResult> {
-    validateBaseUrl(options.url, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
+    await validateBaseUrlWithDns(options.url, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
 
     checkCircuit(tenantId, this.systemType);
 
