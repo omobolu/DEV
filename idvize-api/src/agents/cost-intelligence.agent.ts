@@ -308,8 +308,12 @@ Be specific about vendor names, dollar amounts, and risk scores from the data.`;
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const fallbackParts = [`${baseReport.vendorAnalysis.length} vendors analysed`];
+      if (!excludeSections?.optimization) {
+        fallbackParts.push(`${baseReport.optimizationReport.opportunities.length} optimization opportunities identified`);
+      }
       aiResult = {
-        narrative: `AI analysis unavailable: ${msg}\n\nDeterministic report generated successfully — ${baseReport.vendorAnalysis.length} vendors analysed, ${baseReport.optimizationReport.opportunities.length} optimization opportunities identified.`,
+        narrative: `AI analysis unavailable: ${msg}\n\nDeterministic report generated successfully — ${fallbackParts.join(', ')}.`,
         inputTokens: 0,
         outputTokens: 0,
         modelUsed: 'none',
