@@ -66,11 +66,27 @@ router.post('/analyze', requirePermission('cost.view.vendor_analysis'), async (r
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
 router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
-  const hasOpt = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.optimization').allowed;
-  const hasSal = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.salary_detail').allowed;
+  const optDecision = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.optimization');
+  const salDecision = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.salary_detail');
+  await Promise.all([
+    auditService.log({
+      eventType: optDecision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub, actorName: req.user!.name, permissionId: 'cost.view.optimization',
+      resource: req.path, outcome: optDecision.allowed ? 'success' : 'failure',
+      reason: optDecision.reason, requestId: req.requestId, tenantId: req.user!.tenantId,
+      metadata: { scope: 'ai-tool-access', field: 'optimization', matchedPolicy: optDecision.matchedPolicy },
+    }),
+    auditService.log({
+      eventType: salDecision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub, actorName: req.user!.name, permissionId: 'cost.view.salary_detail',
+      resource: req.path, outcome: salDecision.allowed ? 'success' : 'failure',
+      reason: salDecision.reason, requestId: req.requestId, tenantId: req.user!.tenantId,
+      metadata: { scope: 'ai-tool-access', field: 'staffAugAnalysis', matchedPolicy: salDecision.matchedPolicy },
+    }),
+  ]);
   const result = await costIntelligenceAgent.runWithAI(req.tenantId!, {
-    optimization: !hasOpt,
-    staffAug: !hasSal,
+    optimization: !optDecision.allowed,
+    staffAug: !salDecision.allowed,
   });
   const scoped = await scopeReport(result as unknown as Record<string, unknown>, req);
   res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
