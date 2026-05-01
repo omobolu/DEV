@@ -18,6 +18,7 @@
  *   - No retry for 400, 401, 403, or mutation conflicts
  */
 
+import * as dns from 'dns';
 import { evidenceStoreService } from '../evidence-store.service';
 import type { SystemType, StepResult } from '../agent-execution.types';
 
@@ -110,6 +111,34 @@ export function validateBaseUrl(url: string, allowHttp = false): void {
 
   if (isBlockedHost(parsed.hostname)) {
     throw new Error('URL targets a blocked host (localhost, private IP, or cloud metadata endpoint)');
+  }
+}
+
+/**
+ * Async SSRF validation: resolves the hostname via DNS and checks the
+ * resulting IP against the blocklist. Use this for user-supplied URLs
+ * (integration config save/test) where DNS rebinding is a concern.
+ */
+export async function validateBaseUrlWithDns(url: string, allowHttp = false): Promise<void> {
+  validateBaseUrl(url, allowHttp);
+
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return; }
+
+  // Skip DNS check for IP literals (already checked by validateBaseUrl)
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  if (/^[\d.:a-f]+$/i.test(hostname)) return;
+
+  try {
+    const result = await dns.promises.lookup(hostname, { all: true });
+    for (const entry of result) {
+      if (isBlockedHost(entry.address)) {
+        throw new Error(`URL hostname "${hostname}" resolves to blocked IP ${entry.address}`);
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('resolves to blocked IP')) throw e;
+    // DNS lookup failure — allow the request; the connection will fail on its own
   }
 }
 

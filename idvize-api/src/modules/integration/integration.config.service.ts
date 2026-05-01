@@ -10,7 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { auditService } from '../security/audit/audit.service';
-import { validateBaseUrl } from '../agent-execution/adapters/base-api.adapter';
+import { validateBaseUrl, validateBaseUrlWithDns } from '../agent-execution/adapters/base-api.adapter';
 
 export interface PlatformCredentials {
   entra?:     { tenantId: string; clientId: string; clientSecret: string };
@@ -92,26 +92,26 @@ class IntegrationConfigService {
     fs.writeFileSync(this.envPath, content, 'utf-8');
   }
 
-  /** Validate credential values before saving — schema + SSRF checks */
-  private validateCredentials(creds: PlatformCredentials): void {
+  /** Validate credential values before saving — schema + SSRF checks (with DNS resolution) */
+  private async validateCredentials(creds: PlatformCredentials): Promise<void> {
     if (creds.sailpoint) {
       const url = creds.sailpoint.baseUrl?.trim();
       if (!url) throw new Error('SailPoint baseUrl is required');
-      validateBaseUrl(url);
+      await validateBaseUrlWithDns(url);
       if (!creds.sailpoint.clientId?.trim()) throw new Error('SailPoint clientId is required');
       if (!creds.sailpoint.clientSecret?.trim()) throw new Error('SailPoint clientSecret is required');
     }
     if (creds.cyberark) {
       const url = creds.cyberark.baseUrl?.trim();
       if (!url) throw new Error('CyberArk baseUrl is required');
-      validateBaseUrl(url);
+      await validateBaseUrlWithDns(url);
       if (!creds.cyberark.username?.trim()) throw new Error('CyberArk username is required');
       if (!creds.cyberark.password?.trim()) throw new Error('CyberArk password is required');
     }
     if (creds.okta) {
       const domain = creds.okta.domain?.trim();
       if (!domain) throw new Error('Okta domain is required');
-      validateBaseUrl(`https://${domain}`);
+      await validateBaseUrlWithDns(`https://${domain}`);
       if (!creds.okta.apiToken?.trim()) throw new Error('Okta apiToken is required');
     }
     if (creds.entra) {
@@ -133,7 +133,7 @@ class IntegrationConfigService {
 
   /** Save credentials: apply to runtime env + persist to .env + audit log */
   async save(creds: PlatformCredentials, actorId = 'system', actorName = 'System'): Promise<void> {
-    this.validateCredentials(creds);
+    await this.validateCredentials(creds);
     const platforms = Object.keys(creds) as PlatformKey[];
     this.applyToEnv(creds);
     this.persistToEnv(creds);
@@ -252,7 +252,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'All three SailPoint fields are required', testedAt: now };
       }
       try {
-        validateBaseUrl(c.baseUrl.trim());
+        await validateBaseUrlWithDns(c.baseUrl.trim());
         const res = await fetch(`${c.baseUrl.trim()}/oauth/token`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -274,7 +274,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'All three CyberArk fields are required', testedAt: now };
       }
       try {
-        validateBaseUrl(c.baseUrl.trim());
+        await validateBaseUrlWithDns(c.baseUrl.trim());
         const res = await fetch(`${c.baseUrl.trim()}/PasswordVault/API/Auth/CyberArk/Logon`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -296,7 +296,7 @@ class IntegrationConfigService {
         return { platform, status: 'not_configured', message: 'Okta domain and API token are required', testedAt: now };
       }
       try {
-        validateBaseUrl(`https://${c.domain.trim()}`);
+        await validateBaseUrlWithDns(`https://${c.domain.trim()}`);
         const res = await fetch(`https://${c.domain.trim()}/api/v1/org`, {
           headers: { Authorization: `SSWS ${c.apiToken.trim()}`, Accept: 'application/json' },
           signal:  AbortSignal.timeout(10000),

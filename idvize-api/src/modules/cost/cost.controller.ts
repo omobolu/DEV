@@ -5,6 +5,17 @@ import { Vendor, PersonCost } from './cost.types';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
+import { authzService } from '../security/authz/authz.service';
+
+/** Strip report fields the caller lacks permission to see */
+function scopeReport(report: Record<string, unknown>, userId: string, tenantId: string): Record<string, unknown> {
+  const hasOptimization = authzService.check(userId, tenantId, 'cost.view.optimization').allowed;
+  const hasSalary = authzService.check(userId, tenantId, 'cost.view.salary_detail').allowed;
+  const scoped = { ...report };
+  if (!hasOptimization) delete scoped.optimizationReport;
+  if (!hasSalary) delete scoped.staffAugAnalysis;
+  return scoped;
+}
 
 const router = Router();
 
@@ -16,14 +27,16 @@ router.use(requireAuth, tenantContext, (req, _res, next) => { costService.ensure
 // POST /cost/analyze — run full Cost Intelligence Agent analysis
 router.post('/analyze', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   const report = await costService.runCostAnalysis(req.tenantId!);
-  res.json({ success: true, data: report, timestamp: new Date().toISOString() });
+  const scoped = scopeReport(report as unknown as Record<string, unknown>, req.user!.sub, req.user!.tenantId);
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
 router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
   const result = await costIntelligenceAgent.runWithAI(req.tenantId!);
-  res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+  const scoped = scopeReport(result as unknown as Record<string, unknown>, req.user!.sub, req.user!.tenantId);
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/agent/status — agent status + last run metadata
@@ -38,7 +51,8 @@ router.get('/report', requirePermission('cost.view.vendor_analysis'), (req: Requ
     res.status(404).json({ success: false, error: 'No report generated yet. POST /cost/analyze first.', timestamp: new Date().toISOString() });
     return;
   }
-  res.json({ success: true, data: report, timestamp: new Date().toISOString() });
+  const scoped = scopeReport(report as unknown as Record<string, unknown>, req.user!.sub, req.user!.tenantId);
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // ── Core Endpoints ────────────────────────────────────────────────────────────
