@@ -8,41 +8,57 @@ import { requirePermission } from '../../middleware/requirePermission';
 import { authzService } from '../security/authz/authz.service';
 import { auditService } from '../security/audit/audit.service';
 
-/** Strip report fields the caller lacks permission to see (with audit logging) */
-async function scopeReport(report: Record<string, unknown>, req: Request): Promise<Record<string, unknown>> {
-  const userId = req.user!.sub;
-  const tenantId = req.user!.tenantId;
-  const actorName = req.user!.name;
+interface PrecomputedDecisions {
+  optAllowed: boolean;
+  salAllowed: boolean;
+}
 
-  const optDecision = authzService.check(userId, tenantId, 'cost.view.optimization');
-  const salDecision = authzService.check(userId, tenantId, 'cost.view.salary_detail');
+/** Strip report fields the caller lacks permission to see (with audit logging).
+ *  When precomputed decisions are provided (e.g. already audit-logged upstream), skip redundant checks. */
+async function scopeReport(report: Record<string, unknown>, req: Request, precomputed?: PrecomputedDecisions): Promise<Record<string, unknown>> {
+  let optAllowed: boolean;
+  let salAllowed: boolean;
 
-  await Promise.all([
-    auditService.log({
-      eventType: optDecision.allowed ? 'authz.allow' : 'authz.deny',
-      actorId: userId, actorName, permissionId: 'cost.view.optimization',
-      resource: req.path, outcome: optDecision.allowed ? 'success' : 'failure',
-      reason: optDecision.reason, requestId: req.requestId, tenantId,
-      metadata: { scope: 'field-level', field: 'optimizationReport', matchedPolicy: optDecision.matchedPolicy },
-    }),
-    auditService.log({
-      eventType: salDecision.allowed ? 'authz.allow' : 'authz.deny',
-      actorId: userId, actorName, permissionId: 'cost.view.salary_detail',
-      resource: req.path, outcome: salDecision.allowed ? 'success' : 'failure',
-      reason: salDecision.reason, requestId: req.requestId, tenantId,
-      metadata: { scope: 'field-level', field: 'staffAugAnalysis', matchedPolicy: salDecision.matchedPolicy },
-    }),
-  ]);
+  if (precomputed) {
+    optAllowed = precomputed.optAllowed;
+    salAllowed = precomputed.salAllowed;
+  } else {
+    const userId = req.user!.sub;
+    const tenantId = req.user!.tenantId;
+    const actorName = req.user!.name;
+
+    const optDecision = authzService.check(userId, tenantId, 'cost.view.optimization');
+    const salDecision = authzService.check(userId, tenantId, 'cost.view.salary_detail');
+    optAllowed = optDecision.allowed;
+    salAllowed = salDecision.allowed;
+
+    await Promise.all([
+      auditService.log({
+        eventType: optDecision.allowed ? 'authz.allow' : 'authz.deny',
+        actorId: userId, actorName, permissionId: 'cost.view.optimization',
+        resource: req.path, outcome: optDecision.allowed ? 'success' : 'failure',
+        reason: optDecision.reason, requestId: req.requestId, tenantId,
+        metadata: { scope: 'field-level', field: 'optimizationReport', matchedPolicy: optDecision.matchedPolicy },
+      }),
+      auditService.log({
+        eventType: salDecision.allowed ? 'authz.allow' : 'authz.deny',
+        actorId: userId, actorName, permissionId: 'cost.view.salary_detail',
+        resource: req.path, outcome: salDecision.allowed ? 'success' : 'failure',
+        reason: salDecision.reason, requestId: req.requestId, tenantId,
+        metadata: { scope: 'field-level', field: 'staffAugAnalysis', matchedPolicy: salDecision.matchedPolicy },
+      }),
+    ]);
+  }
 
   const scoped = { ...report };
-  if (!optDecision.allowed) delete scoped.optimizationReport;
-  if (!salDecision.allowed) delete scoped.staffAugAnalysis;
+  if (!optAllowed) delete scoped.optimizationReport;
+  if (!salAllowed) delete scoped.staffAugAnalysis;
 
   // Also strip from nested baseReport (CostAiAnalysis wraps the report)
   if (scoped.baseReport && typeof scoped.baseReport === 'object') {
     const scopedBase = { ...(scoped.baseReport as Record<string, unknown>) };
-    if (!optDecision.allowed) delete scopedBase.optimizationReport;
-    if (!salDecision.allowed) delete scopedBase.staffAugAnalysis;
+    if (!optAllowed) delete scopedBase.optimizationReport;
+    if (!salAllowed) delete scopedBase.staffAugAnalysis;
     scoped.baseReport = scopedBase;
   }
 
@@ -88,7 +104,10 @@ router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async
     optimization: !optDecision.allowed,
     staffAug: !salDecision.allowed,
   });
-  const scoped = await scopeReport(result as unknown as Record<string, unknown>, req);
+  const scoped = await scopeReport(result as unknown as Record<string, unknown>, req, {
+    optAllowed: optDecision.allowed,
+    salAllowed: salDecision.allowed,
+  });
   res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
