@@ -37,6 +37,15 @@ async function scopeReport(report: Record<string, unknown>, req: Request): Promi
   const scoped = { ...report };
   if (!optDecision.allowed) delete scoped.optimizationReport;
   if (!salDecision.allowed) delete scoped.staffAugAnalysis;
+
+  // Also strip from nested baseReport (CostAiAnalysis wraps the report)
+  if (scoped.baseReport && typeof scoped.baseReport === 'object') {
+    const scopedBase = { ...(scoped.baseReport as Record<string, unknown>) };
+    if (!optDecision.allowed) delete scopedBase.optimizationReport;
+    if (!salDecision.allowed) delete scopedBase.staffAugAnalysis;
+    scoped.baseReport = scopedBase;
+  }
+
   return scoped;
 }
 
