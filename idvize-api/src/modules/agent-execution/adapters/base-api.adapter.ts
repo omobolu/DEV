@@ -127,7 +127,7 @@ export async function validateBaseUrlWithDns(url: string, allowHttp = false): Pr
 
   // Skip DNS check for IP literals (already checked by validateBaseUrl)
   const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
-  if (/^[\d.:a-f]+$/i.test(hostname)) return;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || (hostname.includes(':') && /^[0-9a-f:]+$/i.test(hostname))) return;
 
   try {
     const result = await dns.promises.lookup(hostname, { all: true });
