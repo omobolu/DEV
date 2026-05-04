@@ -362,6 +362,7 @@ export abstract class BaseApiAdapter {
       params.set('scope', config.scope);
     }
 
+    validateBaseUrl(config.tokenUrl, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
