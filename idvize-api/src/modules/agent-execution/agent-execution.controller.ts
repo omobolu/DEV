@@ -23,6 +23,7 @@ import { executionOrchestratorService } from './execution-orchestrator.service';
 import { toolBrokerService } from './tool-broker.service';
 import { credentialEscrowService } from './credential-escrow.service';
 import { evidenceStoreService } from './evidence-store.service';
+import { emailActionTokenService } from '../email/email-action-token.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/requirePermission';
@@ -31,7 +32,54 @@ import type { TokenClaims } from '../security/security.types';
 
 const router = Router();
 
-// All routes require authentication and tenant context
+// ── Email Action (public — no JWT, token-validated) ──────────────────────────
+
+router.get('/email-action', async (req: Request, res: Response) => {
+  const token = req.query.token as string | undefined;
+  if (!token) {
+    res.status(400).send(actionResultPage('Invalid Request', 'No action token provided.', false));
+    return;
+  }
+
+  try {
+    const payload = await emailActionTokenService.validateToken(token);
+    const { tenantId, sessionId, approvalId, decision } = payload;
+
+    await executionOrchestratorService.resolveApprovalViaEmail(
+      tenantId, sessionId, approvalId, decision,
+    );
+
+    const label = decision === 'approved' ? 'Approved' : 'Rejected';
+    res.send(actionResultPage(
+      `Plan ${label}`,
+      `The remediation plan has been ${decision}. You can close this window.`,
+      decision === 'approved',
+    ));
+  } catch (err) {
+    const message = (err as Error).message;
+    res.status(400).send(actionResultPage('Action Failed', message, false));
+  }
+});
+
+function actionResultPage(title: string, message: string, success: boolean): string {
+  const bg = success ? '#f0fdf4' : '#fef2f2';
+  const border = success ? '#16a34a' : '#dc2626';
+  const color = success ? '#166534' : '#991b1b';
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>IDVIZE — ${title}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>body{margin:0;padding:0;background:#f4f6f9;font-family:Inter,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;max-width:480px;width:100%;overflow:hidden;}
+.header{background:#1e293b;padding:20px 24px;color:#818cf8;font-weight:700;font-size:18px;}
+.body{padding:24px;}
+.alert{background:${bg};border-left:4px solid ${border};padding:12px 16px;border-radius:4px;margin:0 0 16px;}
+.alert-title{color:${color};font-size:14px;font-weight:600;}
+.alert-msg{color:${color};font-size:13px;margin:4px 0 0;}</style></head>
+<body><div class="card"><div class="header">idvize <span style="color:#94a3b8;font-size:11px;margin-left:8px;">IAM Operating System</span></div>
+<div class="body"><div class="alert"><div class="alert-title">${title}</div><p class="alert-msg">${message}</p></div></div></div></body></html>`;
+}
+
+// All routes below require authentication and tenant context
 router.use(requireAuth, tenantContext);
 
 // ── Capabilities & Status ────────────────────────────────────────────────────

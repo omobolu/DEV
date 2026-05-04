@@ -264,7 +264,8 @@ export type AuditEventType =
   | 'email.sent'
   | 'email.delivery.failed'
   | 'email.test.sent'
-  | 'email.agent.notification';
+  | 'email.agent.notification'
+  | 'email.stakeholder.notification';
 
 export interface AuditEvent {
   eventId: string;

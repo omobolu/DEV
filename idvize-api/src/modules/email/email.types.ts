@@ -67,7 +67,8 @@ export type EmailTemplateId =
   | 'sso-group-targeting'
   | 'sso-group-creation'
   | 'sso-remediation-plan'
-  | 'agent-execution-result';
+  | 'agent-execution-result'
+  | 'approval-granted-notification';
 
 export interface EmailTemplate {
   templateId: EmailTemplateId;
