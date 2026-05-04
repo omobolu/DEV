@@ -291,8 +291,8 @@ export default function SNOWTicketsTab() {
       const json = await res.json()
       if (!json.success) throw new Error(json.error ?? 'Failed to load tickets')
       setTickets(json.data)
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load tickets')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tickets')
     } finally {
       setLoading(false)
     }
@@ -308,8 +308,8 @@ export default function SNOWTicketsTab() {
       const json = await res.json()
       if (!json.success) throw new Error(json.error ?? 'Failed to load ticket')
       setSelected(json.data)
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load ticket detail')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load ticket detail')
     } finally {
       setDetailLoading(false)
     }
@@ -332,8 +332,8 @@ export default function SNOWTicketsTab() {
       if (!json.success) throw new Error(json.error ?? 'Action failed')
       // Refresh detail
       await fetchDetail(selected.id)
-    } catch (err: any) {
-      setError(err.message ?? 'Action failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action failed')
     } finally {
       setActionLoading(null)
     }

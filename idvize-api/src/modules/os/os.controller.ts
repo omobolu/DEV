@@ -995,7 +995,7 @@ router.post('/gaps/evaluate', (req: Request, res: Response) => {
 //   (1) Approval  — represents email notification to app owner + IAM team
 //   (2) Build job — AI agent configuration task queued until form is submitted
 // Returns: approvalId, buildId, sentTo, nextSteps, missingControls
-router.post('/gaps/:gapId/action', async (req: Request, res: Response) => {
+router.post('/gaps/:gapId/action', requirePermission('os.remediate'), async (req: Request, res: Response) => {
   const { gapId } = req.params;
   const { action } = req.body as { action: string };
   const actor = (req as any).user as { userId: string; name: string } | undefined;

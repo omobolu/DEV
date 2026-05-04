@@ -14,30 +14,32 @@ interface ComboChartProps {
   rightAxisLabel?: string
 }
 
+function CustomTooltip({ active, payload, label, ct }: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; color: string }>
+  label?: string
+  ct: { tooltipBg: string; tooltipBorder: string }
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+         className="px-3 py-2 rounded-lg text-sm space-y-1">
+      <p className="text-muted text-xs mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+          <span className="text-secondary">{p.name}:</span>
+          <span className="text-heading font-semibold">{p.value.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function ComboChart({ data, xKey, bars, line, height = 280, rightAxisLabel }: ComboChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
 
-  const CustomTooltip = ({ active, payload, label }: {
-    active?: boolean
-    payload?: Array<{ name: string; value: number; color: string }>
-    label?: string
-  }) => {
-    if (!active || !payload?.length) return null
-    return (
-      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
-           className="px-3 py-2 rounded-lg text-sm space-y-1">
-        <p className="text-muted text-xs mb-1">{label}</p>
-        {payload.map((p, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-secondary">{p.name}:</span>
-            <span className="text-heading font-semibold">{p.value.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
   const hasRightAxis = !!line.yAxisId
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -55,7 +57,7 @@ export default function ComboChart({ data, xKey, bars, line, height = 280, right
             label={rightAxisLabel ? { value: rightAxisLabel, angle: 90, position: 'insideRight', fill: ct.axis, fontSize: 10 } : undefined}
           />
         )}
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip ct={ct} />} />
         <Legend
           iconType="circle"
           iconSize={8}

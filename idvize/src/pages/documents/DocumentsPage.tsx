@@ -187,7 +187,7 @@ export default function DocumentsPage() {
       const statsJson = await statsRes.json()
       if (docsJson.success) setDocs(docsJson.data)
       if (statsJson.success) setStats(statsJson.data)
-    } catch (_) {
+    } catch {
       // silently fail — likely no token yet
     } finally {
       setLoading(false)

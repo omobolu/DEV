@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { igaService } from './iga.service';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 import { asyncHandler } from '../../lib/asyncHandler';
 
 const router = Router();
@@ -28,7 +29,7 @@ router.get('/snow/tickets/:id', asyncHandler(async (req: Request, res: Response)
 }));
 
 // POST /iga/snow/tickets/:id/accept — accept a ticket
-router.post('/snow/tickets/:id/accept', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/accept', requirePermission('iga.manage'), asyncHandler(async (req: Request, res: Response) => {
   const acceptedBy = (req as any).user?.email ?? 'anonymous@idvize.io';
   try {
     const ticket = igaService.acceptTicket(req.tenantId!, String(req.params.id), acceptedBy);
@@ -43,7 +44,7 @@ router.post('/snow/tickets/:id/accept', asyncHandler(async (req: Request, res: R
 }));
 
 // POST /iga/snow/tickets/:id/investigate — run investigation
-router.post('/snow/tickets/:id/investigate', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/investigate', requirePermission('iga.manage'), asyncHandler(async (req: Request, res: Response) => {
   try {
     const ticket = igaService.investigateTicket(req.tenantId!, String(req.params.id));
     if (!ticket) {
@@ -57,7 +58,7 @@ router.post('/snow/tickets/:id/investigate', asyncHandler(async (req: Request, r
 }));
 
 // POST /iga/snow/tickets/:id/agent/plan — generate agent plan
-router.post('/snow/tickets/:id/agent/plan', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/agent/plan', requirePermission('iga.manage'), asyncHandler(async (req: Request, res: Response) => {
   const { instructions } = req.body;
   if (!instructions || typeof instructions !== 'string') {
     res.status(400).json({ success: false, error: 'instructions (string) is required', timestamp: new Date().toISOString() });
@@ -76,7 +77,7 @@ router.post('/snow/tickets/:id/agent/plan', asyncHandler(async (req: Request, re
 }));
 
 // POST /iga/snow/tickets/:id/agent/approve — approve agent plan
-router.post('/snow/tickets/:id/agent/approve', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/agent/approve', requirePermission('iga.approve'), asyncHandler(async (req: Request, res: Response) => {
   try {
     const ticket = igaService.approveAgentPlan(req.tenantId!, String(req.params.id));
     if (!ticket) {
@@ -90,7 +91,7 @@ router.post('/snow/tickets/:id/agent/approve', asyncHandler(async (req: Request,
 }));
 
 // POST /iga/snow/tickets/:id/agent/execute — execute agent plan
-router.post('/snow/tickets/:id/agent/execute', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/agent/execute', requirePermission('iga.execute'), asyncHandler(async (req: Request, res: Response) => {
   try {
     const ticket = await igaService.executeAgentPlan(req.tenantId!, String(req.params.id));
     if (!ticket) {
@@ -104,7 +105,7 @@ router.post('/snow/tickets/:id/agent/execute', asyncHandler(async (req: Request,
 }));
 
 // POST /iga/snow/tickets/:id/feedback — submit feedback
-router.post('/snow/tickets/:id/feedback', asyncHandler(async (req: Request, res: Response) => {
+router.post('/snow/tickets/:id/feedback', requirePermission('iga.manage'), asyncHandler(async (req: Request, res: Response) => {
   const { feedback } = req.body;
   if (!feedback || typeof feedback !== 'string') {
     res.status(400).json({ success: false, error: 'feedback (string) is required', timestamp: new Date().toISOString() });

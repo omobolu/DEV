@@ -128,8 +128,8 @@ export class CostService {
     return costIntelligenceAgent.getStatus(tenantId);
   }
 
-  getLastReport() {
-    return costIntelligenceAgent.getLastReport();
+  getLastReport(tenantId: string) {
+    return costIntelligenceAgent.getLastReport(tenantId);
   }
 }
 

@@ -52,6 +52,7 @@ export interface Role {
 export type PermissionId =
   | 'cost.view.summary'
   | 'cost.view.salary_detail'
+  | 'cost.manage.people'
   | 'cost.view.vendor_analysis'
   | 'cost.view.optimization'
   | 'applications.view.all'
@@ -101,6 +102,12 @@ export type PermissionId =
   | 'agents.execute.iga'
   | 'agents.execute.servicenow'
   | 'agents.admin'
+  // IGA
+  | 'iga.manage'
+  | 'iga.approve'
+  | 'iga.execute'
+  // OS
+  | 'os.remediate'
   // Email
   | 'email.configure'
   | 'email.send';

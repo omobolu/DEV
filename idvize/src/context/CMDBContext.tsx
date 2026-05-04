@@ -111,6 +111,7 @@ export function CMDBProvider({ children }: { children: ReactNode }) {
   return <CMDBContext.Provider value={value}>{children}</CMDBContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCMDB(): CMDBContextValue {
   const ctx = useContext(CMDBContext)
   if (!ctx) throw new Error('useCMDB must be used within <CMDBProvider>')

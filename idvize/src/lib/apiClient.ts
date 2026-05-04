@@ -86,9 +86,9 @@ export async function apiJson<T = unknown>(path: string, init?: RequestInit): Pr
   const res = await apiFetch(path, init)
   const json = await res.json()
   if (!json.success) {
-    const err = new Error(json.error ?? 'Request failed')
-    ;(err as any).code = json.code
-    ;(err as any).details = json.details
+    const err = new Error(json.error ?? 'Request failed') as Error & { code?: string; details?: unknown }
+    err.code = json.code
+    err.details = json.details
     throw err
   }
   return json.data as T

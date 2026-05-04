@@ -4,11 +4,14 @@ import { sailpointAdapter } from './adapters/sailpoint.adapter';
 import { cyberarkAdapter } from './adapters/cyberark.adapter';
 import { oktaAdapter } from './adapters/okta.adapter';
 import { integrationConfigService, PlatformKey } from './integration.config.service';
+import { requireAuth } from '../../middleware/requireAuth';
+import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
 
 const router = Router();
 
 // GET /integrations/status — all platform integration statuses
-router.get('/status', (_req: Request, res: Response) => {
+router.get('/status', requireAuth, tenantContext, requirePermission('integrations.view'), (_req: Request, res: Response) => {
   const statuses = [
     entraAdapter.getIntegrationStatus(),
     sailpointAdapter.getIntegrationStatus(),
@@ -19,31 +22,31 @@ router.get('/status', (_req: Request, res: Response) => {
 });
 
 // GET /integrations/entra/apps
-router.get('/entra/apps', async (_req: Request, res: Response) => {
+router.get('/entra/apps', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const apps = await entraAdapter.listEnterpriseApps();
   res.json({ success: true, data: apps, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/sailpoint/sources
-router.get('/sailpoint/sources', async (_req: Request, res: Response) => {
+router.get('/sailpoint/sources', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const sources = await sailpointAdapter.listSources();
   res.json({ success: true, data: sources, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/cyberark/safes
-router.get('/cyberark/safes', async (_req: Request, res: Response) => {
+router.get('/cyberark/safes', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const safes = await cyberarkAdapter.listSafes();
   res.json({ success: true, data: safes, timestamp: new Date().toISOString() });
 });
 
 // GET /integrations/okta/apps
-router.get('/okta/apps', async (_req: Request, res: Response) => {
+router.get('/okta/apps', requireAuth, tenantContext, requirePermission('integrations.view'), async (_req: Request, res: Response) => {
   const apps = await oktaAdapter.listApps();
   res.json({ success: true, data: apps, timestamp: new Date().toISOString() });
 });
 
 // POST /integrations/correlate/:appName — correlate app across all platforms
-router.post('/correlate/:appName', async (req: Request, res: Response) => {
+router.post('/correlate/:appName', requireAuth, tenantContext, requirePermission('integrations.view'), async (req: Request, res: Response) => {
   const appName = decodeURIComponent(req.params.appName as string);
   const [entra, sailpoint, cyberark, okta] = await Promise.all([
     entraAdapter.correlateApp(appName),
@@ -55,7 +58,7 @@ router.post('/correlate/:appName', async (req: Request, res: Response) => {
 });
 
 // GET /integrations/config — current config (masked secrets) + statuses
-router.get('/config', (_req: Request, res: Response) => {
+router.get('/config', requireAuth, tenantContext, requirePermission('integrations.view'), (_req: Request, res: Response) => {
   res.json({
     success: true,
     data: {
@@ -67,7 +70,7 @@ router.get('/config', (_req: Request, res: Response) => {
 });
 
 // POST /integrations/configure — save credentials for one or more platforms
-router.post('/configure', async (req: Request, res: Response) => {
+router.post('/configure', requireAuth, tenantContext, requirePermission('integrations.manage'), async (req: Request, res: Response) => {
   try {
     const actorId   = req.user?.sub  ?? 'anonymous';
     const actorName = req.user?.name ?? 'Anonymous';
@@ -79,14 +82,16 @@ router.post('/configure', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {
-    res.status(500).json({ success: false, error: e instanceof Error ? e.message : 'Save failed', timestamp: new Date().toISOString() });
+    const msg = e instanceof Error ? e.message : 'Save failed';
+    const isValidation = msg.includes('is required') || msg.includes('must not contain') || msg.includes('blocked') || msg.includes('HTTPS required') || msg.includes('Invalid URL') || msg.includes('Unsupported protocol') || msg.includes('resolves to blocked') || msg.includes('could not be resolved');
+    res.status(isValidation ? 400 : 500).json({ success: false, error: msg, timestamp: new Date().toISOString() });
   }
 });
 
 // POST /integrations/test/:platform — test live connection using credentials in request body
 // The body must contain the platform credentials to test — we NEVER use previously saved values
 // so that entering wrong credentials always fails, even if correct ones are already saved.
-router.post('/test/:platform', async (req: Request, res: Response) => {
+router.post('/test/:platform', requireAuth, tenantContext, requirePermission('integrations.manage'), async (req: Request, res: Response) => {
   const platform  = String(req.params.platform) as PlatformKey;
   const actorId   = req.user?.sub  ?? 'anonymous';
   const actorName = req.user?.name ?? 'Anonymous';
