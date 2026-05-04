@@ -201,11 +201,13 @@ const TEMPLATES: EmailTemplate[] = [
       <pre style="color:#475569;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;margin:0;padding:0 0 0 8px;">{{remediationSteps}}</pre>
       <h3 style="color:#1e293b;font-size:15px;margin:16px 0 8px;">Estimated Timeline</h3>
       <p style="color:#475569;font-size:13px;">{{estimatedTimeline}}</p>
-      <div style="margin:24px 0 0;padding:16px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">
-        <p style="color:#475569;font-size:13px;margin:0;"><strong>Next Step:</strong> Reply to this email or update the IDVIZE platform to approve or request changes to this plan.</p>
+      <div style="margin:24px 0 0;text-align:center;">
+        <a href="{{approveUrl}}" style="display:inline-block;padding:12px 32px;background:#16a34a;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;margin:0 8px;">Approve</a>
+        <a href="{{rejectUrl}}" style="display:inline-block;padding:12px 32px;background:#dc2626;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;margin:0 8px;">Reject</a>
       </div>
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin:12px 0 0;">Or review in the IDVIZE platform. These links expire in 24 hours and can only be used once.</p>
     `),
-    textTemplate: 'SSO Remediation Plan\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nStatus: {{outcome}}\nRisk: {{riskLevel}}\n\nRemediation Steps:\n{{remediationSteps}}\n\nEstimated Timeline: {{estimatedTimeline}}',
+    textTemplate: 'SSO Remediation Plan\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nStatus: {{outcome}}\nRisk: {{riskLevel}}\n\nRemediation Steps:\n{{remediationSteps}}\n\nEstimated Timeline: {{estimatedTimeline}}\n\nApprove: {{approveUrl}}\nReject: {{rejectUrl}}',
   },
   {
     templateId: 'agent-execution-result',
@@ -236,6 +238,43 @@ const TEMPLATES: EmailTemplate[] = [
       </div>
     `),
     textTemplate: 'Agent Execution {{outcome}}\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nSession: {{sessionId}}\nSteps: {{completedSteps}}/{{totalSteps}}\nOutcome: {{outcome}}\n\nReview results in the IDVIZE platform.',
+  },
+  {
+    templateId: 'approval-granted-notification',
+    name: 'Approval Granted — Stakeholder Notification',
+    subject: 'IDVIZE — Remediation Plan Approved: {{applicationName}}',
+    description: 'Sent to stakeholders when an execution plan is fully approved.',
+    htmlTemplate: baseLayout(`
+      <h2 style="color:#1e293b;font-size:20px;margin:0 0 8px;">Remediation Plan Approved</h2>
+      <p style="color:#64748b;font-size:13px;margin:0 0 16px;">All required approvals have been granted</p>
+      <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:4px;margin:0 0 16px;">
+        <span style="color:#166534;font-size:13px;font-weight:600;">Approved</span>
+        <p style="color:#166534;font-size:13px;margin:4px 0 0;">The remediation plan for <strong>{{applicationName}}</strong> has been approved and is ready for execution.</p>
+      </div>
+      <table style="margin:16px 0;border-collapse:collapse;width:100%;">
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Application</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-weight:500;">{{applicationName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Control</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;">{{controlName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Agent</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;">{{agentName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Session</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-family:monospace;font-size:12px;">{{sessionId}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Approved By</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-weight:500;">{{approverName}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Risk Level</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;border-bottom:1px solid #e2e8f0;font-weight:600;">{{riskLevel}}</td></tr>
+        <tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Steps</td>
+            <td style="padding:8px 12px;color:#1e293b;font-size:13px;">{{stepsCount}} steps across {{systemsTouched}}</td></tr>
+      </table>
+      <h3 style="color:#1e293b;font-size:15px;margin:16px 0 8px;">Approvals</h3>
+      <pre style="color:#475569;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;margin:0;padding:0 0 0 8px;">{{approvalSummary}}</pre>
+      <div style="margin:24px 0 0;padding:16px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">
+        <p style="color:#475569;font-size:13px;margin:0;"><strong>Next Step:</strong> An authorized user can now execute this plan from the IDVIZE platform.</p>
+      </div>
+      <p style="color:#94a3b8;font-size:11px;margin:16px 0 0;">You are receiving this because you are a stakeholder for {{applicationName}}.</p>
+    `),
+    textTemplate: 'Remediation Plan Approved\n\nApplication: {{applicationName}}\nControl: {{controlName}}\nAgent: {{agentName}}\nSession: {{sessionId}}\nApproved By: {{approverName}}\nRisk: {{riskLevel}}\nSteps: {{stepsCount}}\n\nApprovals:\n{{approvalSummary}}\n\nNext Step: Execute the plan from the IDVIZE platform.',
   },
 ];
 

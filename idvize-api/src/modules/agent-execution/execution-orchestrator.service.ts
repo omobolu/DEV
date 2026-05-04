@@ -29,6 +29,10 @@ import { credentialEscrowService } from './credential-escrow.service';
 import { rollbackTracker } from './rollback-tracker.service';
 import { auditService } from '../security/audit/audit.service';
 import { emailService } from '../email/email.service';
+import { emailActionTokenService } from '../email/email-action-token.service';
+import { applicationService } from '../application/application.service';
+import { authRepository } from '../security/auth/auth.repository';
+import { CONTROLS_CATALOG } from '../control/control.catalog';
 import * as repo from './agent-execution.repository';
 import type {
   ExecutionSession,
@@ -214,10 +218,90 @@ class ExecutionOrchestratorService {
       await this.auditSessionEvent(tenantId, sessionId, approverId, approverName, 'agent.plan.approved', {
         approvalId,
       });
+
+      this.notifyStakeholders(tenantId, session, approverName).catch(err =>
+        console.error('[Orchestrator] Stakeholder notification failed:', (err as Error).message),
+      );
     }
 
     await repo.saveSession(session);
     return session;
+  }
+
+  /**
+   * Resolve an approval via a one-time email action token.
+   * No JWT user context — uses a predefined system identity for audit logging.
+   */
+  async resolveApprovalViaEmail(
+    tenantId: string,
+    sessionId: string,
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    comment?: string,
+  ): Promise<void> {
+    const session = await repo.getSession(tenantId, sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== 'pending_approval') {
+      throw new Error(`Session is no longer pending approval (current status: ${session.status})`);
+    }
+
+    const approval = (await executionApprovalService.getSessionApprovals(tenantId, sessionId))
+      .find(a => a.approvalId === approvalId);
+    if (!approval) throw new Error(`Approval ${approvalId} not found`);
+    if (approval.status !== 'pending') throw new Error(`This approval has already been ${approval.status}`);
+
+    const roleMap: Record<string, string[]> = {
+      app_owner: ['Manager', 'PlatformAdmin'],
+      iam_admin: ['Manager', 'PlatformAdmin'],
+      platform_admin: ['PlatformAdmin'],
+      security_admin: ['Manager', 'PlatformAdmin'],
+    };
+    const eligible = roleMap[approval.role] ?? ['PlatformAdmin'];
+
+    await executionApprovalService.resolve(
+      tenantId, approvalId, sessionId,
+      'email-action', 'Email Approver',
+      eligible, decision, comment,
+    );
+
+    session.approvals = await executionApprovalService.getSessionApprovals(tenantId, sessionId);
+
+    if (await executionApprovalService.hasExpiredApprovals(tenantId, sessionId)) {
+      session.status = 'expired';
+      session.updatedAt = new Date().toISOString();
+      session.errorMessage = 'One or more required approvals expired before resolution';
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+    } else if (await executionApprovalService.hasRejection(tenantId, sessionId)) {
+      session.status = 'cancelled';
+      session.updatedAt = new Date().toISOString();
+      session.errorMessage = `Approval rejected via email${comment ? `: ${comment}` : ''}`;
+      for (const handleId of session.credentialHandles) {
+        credentialEscrowService.destroyCredential(tenantId, handleId);
+      }
+    } else if (await executionApprovalService.isFullyApproved(tenantId, sessionId)) {
+      session.status = 'approved';
+      session.updatedAt = new Date().toISOString();
+
+      this.notifyStakeholders(tenantId, session, 'Email Approver').catch(err =>
+        console.error('[Orchestrator] Stakeholder notification failed:', (err as Error).message),
+      );
+    }
+
+    await repo.saveSession(session);
+
+    await auditService.log({
+      tenantId,
+      eventType: decision === 'approved' ? 'approval.granted' : 'approval.rejected',
+      actorId: 'email-action',
+      actorName: 'Email Approver',
+      targetType: 'execution_plan',
+      targetId: sessionId,
+      resource: 'agent_execution',
+      outcome: 'success',
+      metadata: { approvalId, sessionId, decision, channel: 'email', comment: comment ?? null },
+    });
   }
 
   /**
@@ -752,6 +836,20 @@ class ExecutionOrchestratorService {
     const controlId = session.plan.controlId;
     const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
 
+    const baseUrl = process.env.API_BASE_URL ?? 'http://localhost:3001';
+    const firstApproval = session.approvals[0];
+    let approveUrl = `${baseUrl}/agent-execution/email-action?token=unavailable`;
+    let rejectUrl = approveUrl;
+
+    if (firstApproval) {
+      const [approveToken, rejectToken] = await Promise.all([
+        emailActionTokenService.generateToken(tenantId, session.sessionId, firstApproval.approvalId, 'approved'),
+        emailActionTokenService.generateToken(tenantId, session.sessionId, firstApproval.approvalId, 'rejected'),
+      ]);
+      approveUrl = `${baseUrl}/agent-execution/email-action?token=${encodeURIComponent(approveToken)}`;
+      rejectUrl = `${baseUrl}/agent-execution/email-action?token=${encodeURIComponent(rejectToken)}`;
+    }
+
     await emailService.sendAgentNotification(tenantId, {
       agentId: `agent-${session.agentType}`,
       controlId,
@@ -771,8 +869,104 @@ class ExecutionOrchestratorService {
         riskLevel: session.plan.blastRadius.level,
         remediationSteps: session.plan.steps.map((s, i) => `${i + 1}. ${s.description}`).join('\n'),
         estimatedTimeline: session.plan.estimatedDuration ?? 'To be determined',
+        approveUrl,
+        rejectUrl,
       },
     }, actorId, actorName);
+  }
+
+  /**
+   * Notify stakeholders when a plan is fully approved.
+   * Stakeholders: app business owner, app engineer/admin (technicalSme),
+   * IAM engineers (Engineer role), IAM managers (Manager role).
+   */
+  private async notifyStakeholders(
+    tenantId: string,
+    session: ExecutionSession,
+    approverName: string,
+  ): Promise<void> {
+    if (!session.plan) return;
+    const appName = session.plan.applicationName;
+    const controlId = session.plan.controlId;
+    const catalogEntry = CONTROLS_CATALOG.find(c => c.controlId === controlId);
+    const agentLabel = session.agentType === 'sso' ? 'SSO Configuration' : session.agentType === 'mfa' ? 'MFA Enforcement' : session.agentType;
+
+    const recipients: { email: string; name?: string; role: string }[] = [];
+    const seen = new Set<string>();
+
+    const app = applicationService.getApplication(tenantId, session.plan.applicationId);
+    if (app?.ownerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.ownerEmail)) {
+      const key = app.ownerEmail.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        recipients.push({ email: app.ownerEmail, name: app.owner, role: 'Business Owner' });
+      }
+    }
+    if (app?.technicalSmeEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.technicalSmeEmail)) {
+      const key = app.technicalSmeEmail.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        recipients.push({ email: app.technicalSmeEmail, name: app.technicalSme, role: 'App Engineer/Admin' });
+      }
+    }
+
+    const engineers = authRepository.findByRole(tenantId, 'Engineer');
+    for (const eng of engineers) {
+      const key = eng.email.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        recipients.push({ email: eng.email, name: eng.displayName, role: 'IAM Engineer' });
+      }
+    }
+
+    const managers = authRepository.findByRole(tenantId, 'Manager');
+    for (const mgr of managers) {
+      const key = mgr.email.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        recipients.push({ email: mgr.email, name: mgr.displayName, role: 'IAM Manager' });
+      }
+    }
+
+    if (recipients.length === 0) return;
+
+    const approvalSummary = session.approvals.map(a =>
+      `${a.role}: ${a.status}${a.approverName ? ` by ${a.approverName}` : ''}${a.resolvedAt ? ` at ${a.resolvedAt}` : ''}`,
+    ).join('\n');
+
+    await emailService.sendAgentNotification(tenantId, {
+      agentId: `agent-${session.agentType}`,
+      controlId,
+      applicationId: session.plan.applicationId,
+      applicationName: appName,
+      notificationType: 'approval-granted-notification',
+      recipients: recipients.map(r => ({ email: r.email, name: r.name })),
+      additionalData: {
+        sessionId: session.sessionId,
+        agentName: `${agentLabel} Agent`,
+        approverName,
+        riskLevel: session.plan.blastRadius.level,
+        stepsCount: session.plan.steps.length,
+        systemsTouched: session.plan.systemsTouched.map(s => s.systemName).join(', '),
+        controlName: catalogEntry?.name ?? controlId,
+        approvalSummary,
+      },
+    }, 'system', 'IDVIZE System');
+
+    await auditService.log({
+      tenantId,
+      eventType: 'email.stakeholder.notification',
+      actorId: 'system',
+      actorName: 'IDVIZE System',
+      resource: 'agent_execution',
+      outcome: 'success',
+      metadata: {
+        sessionId: session.sessionId,
+        applicationName: appName,
+        recipientCount: recipients.length,
+        recipientRoles: recipients.map(r => r.role),
+      },
+    });
   }
 
   private async notifyExecutionCompleted(
