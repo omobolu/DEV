@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-
-const API = 'http://localhost:3001'
-const API_KEY = 'idvize-dev-key-change-me'
+import { apiFetch } from '@/lib/apiClient'
 
 type Status = 'connected' | 'failed' | 'not_configured' | 'mock'
 
@@ -57,11 +55,9 @@ export default function IntegrationsPage() {
   const [testResult, setTestResult] = useState<{ status: Status; message: string } | null>(null)
   const [saveMsg, setSaveMsg]     = useState<string | null>(null)
 
-  const headers = { 'Content-Type': 'application/json', 'x-api-key': API_KEY }
-
   const loadConfig = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/integrations/config`, { headers })
+      const res = await apiFetch('/integrations/config')
       const json = await res.json()
       if (json.success) {
         setStatuses(json.data.statuses)
@@ -87,8 +83,8 @@ export default function IntegrationsPage() {
   const handleSave = async () => {
     setSaving(true); setSaveMsg(null)
     try {
-      const res = await fetch(`${API}/integrations/configure`, {
-        method: 'POST', headers,
+      const res = await apiFetch('/integrations/configure', {
+        method: 'POST',
         body: JSON.stringify({ [active]: config[active] }),
       })
       const json = await res.json()
@@ -106,9 +102,8 @@ export default function IntegrationsPage() {
     setTesting(true); setTestResult(null)
     try {
       // Always send the current form values — never rely on previously saved credentials
-      const res = await fetch(`${API}/integrations/test/${active}`, {
+      const res = await apiFetch(`/integrations/test/${active}`, {
         method: 'POST',
-        headers,
         body: JSON.stringify({ [active]: config[active] }),
       })
       const json = await res.json()

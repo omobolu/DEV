@@ -17,6 +17,9 @@ const BEARER_AUTH_PREFIXES = [
   '/gaps',
   '/connectors',
   '/orchestrate',
+  '/agent-execution',
+  '/email',
+  '/iga',
 ];
 
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
@@ -28,7 +31,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
   const key = req.headers['x-api-key'] || req.query['api_key'];
   const expected = process.env.API_KEY;
 
-  if (!expected || key === expected) {
+  if (expected && key === expected) {
     next();
     return;
   }

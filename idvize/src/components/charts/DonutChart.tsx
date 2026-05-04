@@ -12,21 +12,22 @@ interface DonutChartProps {
   showLegend?: boolean
 }
 
+function CustomTooltip({ active, payload, ct }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: Segment }>; ct: { tooltipBg: string; tooltipBorder: string } }) {
+  if (!active || !payload?.length) return null
+  const { name, value } = payload[0]
+  return (
+    <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+         className="px-3 py-2 rounded-lg text-sm">
+      <p className="text-secondary font-medium">{name}</p>
+      <p className="text-heading font-bold">{value.toLocaleString()}</p>
+    </div>
+  )
+}
+
 export default function DonutChart({ data, centerLabel, centerValue, height = 260, showLegend = true }: DonutChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: Segment }> }) => {
-    if (!active || !payload?.length) return null
-    const { name, value } = payload[0]
-    return (
-      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
-           className="px-3 py-2 rounded-lg text-sm">
-        <p className="text-secondary font-medium">{name}</p>
-        <p className="text-heading font-bold">{value.toLocaleString()}</p>
-      </div>
-    )
-  }
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -57,7 +58,7 @@ export default function DonutChart({ data, centerLabel, centerValue, height = 26
             )}
           </text>
         )}
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip ct={ct} />} />
         {showLegend && (
           <Legend
             iconType="circle"

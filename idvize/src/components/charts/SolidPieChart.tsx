@@ -26,20 +26,21 @@ const renderCustomLabel = (props: {
   )
 }
 
+function CustomTooltip({ active, payload, ct }: { active?: boolean; payload?: Array<{ name: string; value: number }>; ct: { tooltipBg: string; tooltipBorder: string } }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+         className="px-3 py-2 rounded-lg text-sm">
+      <p className="text-secondary font-medium">{payload[0].name}</p>
+      <p className="text-heading font-bold">{payload[0].value}%</p>
+    </div>
+  )
+}
+
 export default function SolidPieChart({ data, height = 260, showLegend = true }: SolidPieChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
-    if (!active || !payload?.length) return null
-    return (
-      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
-           className="px-3 py-2 rounded-lg text-sm">
-        <p className="text-secondary font-medium">{payload[0].name}</p>
-        <p className="text-heading font-bold">{payload[0].value}%</p>
-      </div>
-    )
-  }
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -57,7 +58,7 @@ export default function SolidPieChart({ data, height = 260, showLegend = true }:
             <Cell key={i} fill={entry.fill} stroke="transparent" />
           ))}
         </Pie>
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip ct={ct} />} />
         {showLegend && (
           <Legend
             iconType="circle"

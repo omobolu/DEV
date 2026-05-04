@@ -4,13 +4,18 @@ import { StartBuildRequest, BuildState } from './build.types';
 import { buildStateMachine } from './state-machine/build.state-machine';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
+import { authzService } from '../security/authz/authz.service';
+import { auditService } from '../security/audit/audit.service';
 
 const router = Router();
 
 router.use(requireAuth, tenantContext);
 
 // POST /build/start — start a new build job
-router.post('/start', async (req: Request, res: Response) => {
+// Static middleware checks build.execute.guided; automated builds get an additional
+// build.execute.automated check inside the handler.
+router.post('/start', requirePermission('build.execute.guided'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { appId, controlGap, buildType, platform, mode, assignedTo, automated } = req.body as StartBuildRequest & { automated?: boolean };
 
@@ -20,6 +25,23 @@ router.post('/start', async (req: Request, res: Response) => {
   }
 
   if (automated) {
+    const decision = authzService.check(req.user!.sub, req.user!.tenantId, 'build.execute.automated');
+    await auditService.log({
+      eventType: decision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub,
+      actorName: req.user!.name,
+      permissionId: 'build.execute.automated',
+      resource: req.path,
+      outcome: decision.allowed ? 'success' : 'failure',
+      reason: decision.reason,
+      requestId: req.requestId,
+      tenantId: req.user!.tenantId,
+      metadata: { method: req.method, path: req.path, matchedPolicy: decision.matchedPolicy },
+    });
+    if (!decision.allowed) {
+      res.status(403).json({ success: false, error: `Access denied: ${decision.reason}`, permissionRequired: 'build.execute.automated', timestamp: new Date().toISOString() });
+      return;
+    }
     const job = await buildService.runAutomated(tenantId, { appId, controlGap, buildType, platform, mode: 'automated', assignedTo });
     res.status(201).json({ success: true, data: job, timestamp: new Date().toISOString() });
     return;
@@ -49,7 +71,7 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/advance — advance to next logical state
-router.post('/:id/advance', (req: Request, res: Response) => {
+router.post('/:id/advance', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { actor } = req.body as { actor?: string };
   const job = buildService.advance(tenantId, req.params.id as string, actor ?? 'user');
@@ -57,7 +79,7 @@ router.post('/:id/advance', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/transition — explicit state transition
-router.post('/:id/transition', (req: Request, res: Response) => {
+router.post('/:id/transition', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { targetState, actor, reason } = req.body as { targetState: BuildState; actor?: string; reason?: string };
   if (!targetState) {
@@ -69,7 +91,7 @@ router.post('/:id/transition', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/data — submit collected technical data
-router.post('/:id/data', (req: Request, res: Response) => {
+router.post('/:id/data', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { data, actor } = req.body as { data: Record<string, string | boolean>; actor?: string };
   if (!data || typeof data !== 'object') {
@@ -81,7 +103,7 @@ router.post('/:id/data', (req: Request, res: Response) => {
 });
 
 // POST /build/:id/artifacts — (re)generate build artifacts
-router.post('/:id/artifacts', (req: Request, res: Response) => {
+router.post('/:id/artifacts', requirePermission('build.execute.guided'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const job = buildService.generateArtifacts(tenantId, req.params.id as string);
   res.json({ success: true, data: { artifacts: job.artifacts, total: job.artifacts.length }, timestamp: new Date().toISOString() });

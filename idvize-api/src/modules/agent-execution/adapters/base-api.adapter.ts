@@ -18,6 +18,7 @@
  *   - No retry for 400, 401, 403, or mutation conflicts
  */
 
+import * as dns from 'dns';
 import { evidenceStoreService } from '../evidence-store.service';
 import type { SystemType, StepResult } from '../agent-execution.types';
 
@@ -110,6 +111,35 @@ export function validateBaseUrl(url: string, allowHttp = false): void {
 
   if (isBlockedHost(parsed.hostname)) {
     throw new Error('URL targets a blocked host (localhost, private IP, or cloud metadata endpoint)');
+  }
+}
+
+/**
+ * Async SSRF validation: resolves the hostname via DNS and checks the
+ * resulting IP against the blocklist. Use this for user-supplied URLs
+ * (integration config save/test) where DNS rebinding is a concern.
+ */
+export async function validateBaseUrlWithDns(url: string, allowHttp = false): Promise<void> {
+  validateBaseUrl(url, allowHttp);
+
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return; }
+
+  // Skip DNS check for IP literals (already checked by validateBaseUrl)
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || (hostname.includes(':') && /^[0-9a-f:]+$/i.test(hostname))) return;
+
+  try {
+    const result = await dns.promises.lookup(hostname, { all: true });
+    for (const entry of result) {
+      if (isBlockedHost(entry.address)) {
+        throw new Error(`URL hostname "${hostname}" resolves to blocked IP ${entry.address}`);
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('resolves to blocked IP')) throw e;
+    // DNS lookup failure — fail closed: reject URLs that cannot be resolved
+    throw new Error(`URL hostname "${hostname}" could not be resolved — cannot verify it is safe`);
   }
 }
 
@@ -362,7 +392,8 @@ export abstract class BaseApiAdapter {
       params.set('scope', config.scope);
     }
 
-    validateBaseUrl(config.tokenUrl, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
+    await validateBaseUrlWithDns(config.tokenUrl, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
+
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -393,7 +424,7 @@ export abstract class BaseApiAdapter {
    * Returns the parsed response or throws on non-retryable failure.
    */
   protected async apiCall(tenantId: string, options: ApiCallOptions): Promise<ApiCallResult> {
-    validateBaseUrl(options.url, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
+    await validateBaseUrlWithDns(options.url, process.env.NODE_ENV !== 'production' && process.env.SEED_MODE !== 'production');
 
     checkCircuit(tenantId, this.systemType);
 

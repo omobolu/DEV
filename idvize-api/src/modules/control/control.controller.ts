@@ -300,7 +300,7 @@ router.get('/app/:appId', (req: Request, res: Response) => {
 });
 
 // ── PATCH /controls/app/:appId/:controlId — update override ───────────────
-router.patch('/app/:appId/:controlId', (req: Request, res: Response) => {
+router.patch('/app/:appId/:controlId', requirePermission('controls.evaluate'), (req: Request, res: Response) => {
   const tenantId  = req.tenantId!;
   const appId     = req.params.appId     as string;
   const controlId = req.params.controlId as string;
@@ -334,7 +334,7 @@ router.patch('/app/:appId/:controlId', (req: Request, res: Response) => {
 });
 
 // ── POST /controls/evaluate ────────────────────────────────────────────────
-router.post('/evaluate', async (req: Request, res: Response) => {
+router.post('/evaluate', requirePermission('controls.evaluate'), async (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { appId, evaluateAll, forceRefresh } = req.body as {
     appId?: string; evaluateAll?: boolean; forceRefresh?: boolean;

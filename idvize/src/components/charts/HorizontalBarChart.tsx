@@ -10,23 +10,25 @@ interface HorizontalBarChartProps {
   colorByValue?: boolean
 }
 
+function CustomTooltip({ active, payload, unit: u, ct }: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number }>
+  unit?: string
+  ct: { tooltipBg: string; tooltipBorder: string }
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
+         className="px-3 py-2 rounded-lg text-sm">
+      <p className="text-heading font-bold">{payload[0].value.toLocaleString()}{u ?? ''}</p>
+    </div>
+  )
+}
+
 export default function HorizontalBarChart({ data, color = '#2563eb', height, unit, colorByValue }: HorizontalBarChartProps) {
   const { theme } = useTheme()
   const ct = getChartTheme(theme)
 
-  const CustomTooltip = ({ active, payload, unit: u }: {
-    active?: boolean
-    payload?: Array<{ name: string; value: number }>
-    unit?: string
-  }) => {
-    if (!active || !payload?.length) return null
-    return (
-      <div style={{ backgroundColor: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}` }}
-           className="px-3 py-2 rounded-lg text-sm">
-        <p className="text-heading font-bold">{payload[0].value.toLocaleString()}{u ?? ''}</p>
-      </div>
-    )
-  }
   const calcHeight = height ?? Math.max(200, data.length * 36 + 40)
   return (
     <ResponsiveContainer width="100%" height={calcHeight}>
@@ -47,7 +49,7 @@ export default function HorizontalBarChart({ data, color = '#2563eb', height, un
           tickLine={false}
           width={110}
         />
-        <Tooltip content={<CustomTooltip unit={unit} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+        <Tooltip content={<CustomTooltip unit={unit} ct={ct} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
         <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
           {data.map((entry, i) => {
             let fill = color

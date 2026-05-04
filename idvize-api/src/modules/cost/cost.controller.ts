@@ -1,8 +1,69 @@
 import { Router, Request, Response } from 'express';
 import { costService } from './cost.service';
 import { costIntelligenceAgent } from '../../agents/cost-intelligence.agent';
+import { Vendor, PersonCost } from './cost.types';
 import { requireAuth } from '../../middleware/requireAuth';
 import { tenantContext } from '../../middleware/tenantContext';
+import { requirePermission } from '../../middleware/requirePermission';
+import { authzService } from '../security/authz/authz.service';
+import { auditService } from '../security/audit/audit.service';
+
+interface PrecomputedDecisions {
+  optAllowed: boolean;
+  salAllowed: boolean;
+}
+
+/** Strip report fields the caller lacks permission to see (with audit logging).
+ *  When precomputed decisions are provided (e.g. already audit-logged upstream), skip redundant checks. */
+async function scopeReport(report: Record<string, unknown>, req: Request, precomputed?: PrecomputedDecisions): Promise<Record<string, unknown>> {
+  let optAllowed: boolean;
+  let salAllowed: boolean;
+
+  if (precomputed) {
+    optAllowed = precomputed.optAllowed;
+    salAllowed = precomputed.salAllowed;
+  } else {
+    const userId = req.user!.sub;
+    const tenantId = req.user!.tenantId;
+    const actorName = req.user!.name;
+
+    const optDecision = authzService.check(userId, tenantId, 'cost.view.optimization');
+    const salDecision = authzService.check(userId, tenantId, 'cost.view.salary_detail');
+    optAllowed = optDecision.allowed;
+    salAllowed = salDecision.allowed;
+
+    await Promise.all([
+      auditService.log({
+        eventType: optDecision.allowed ? 'authz.allow' : 'authz.deny',
+        actorId: userId, actorName, permissionId: 'cost.view.optimization',
+        resource: req.path, outcome: optDecision.allowed ? 'success' : 'failure',
+        reason: optDecision.reason, requestId: req.requestId, tenantId,
+        metadata: { scope: 'field-level', field: 'optimizationReport', matchedPolicy: optDecision.matchedPolicy },
+      }),
+      auditService.log({
+        eventType: salDecision.allowed ? 'authz.allow' : 'authz.deny',
+        actorId: userId, actorName, permissionId: 'cost.view.salary_detail',
+        resource: req.path, outcome: salDecision.allowed ? 'success' : 'failure',
+        reason: salDecision.reason, requestId: req.requestId, tenantId,
+        metadata: { scope: 'field-level', field: 'staffAugAnalysis', matchedPolicy: salDecision.matchedPolicy },
+      }),
+    ]);
+  }
+
+  const scoped = { ...report };
+  if (!optAllowed) delete scoped.optimizationReport;
+  if (!salAllowed) delete scoped.staffAugAnalysis;
+
+  // Also strip from nested baseReport (CostAiAnalysis wraps the report)
+  if (scoped.baseReport && typeof scoped.baseReport === 'object') {
+    const scopedBase = { ...(scoped.baseReport as Record<string, unknown>) };
+    if (!optAllowed) delete scopedBase.optimizationReport;
+    if (!salAllowed) delete scopedBase.staffAugAnalysis;
+    scoped.baseReport = scopedBase;
+  }
+
+  return scoped;
+}
 
 const router = Router();
 
@@ -12,56 +73,81 @@ router.use(requireAuth, tenantContext, (req, _res, next) => { costService.ensure
 // ── Agent ─────────────────────────────────────────────────────────────────────
 
 // POST /cost/analyze — run full Cost Intelligence Agent analysis
-router.post('/analyze', async (req: Request, res: Response) => {
+router.post('/analyze', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   const report = await costService.runCostAnalysis(req.tenantId!);
-  res.json({ success: true, data: report, timestamp: new Date().toISOString() });
+  const scoped = await scopeReport(report as unknown as Record<string, unknown>, req);
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // POST /cost/analyze/ai — Claude-powered deep analysis (tool-use + adaptive thinking)
-router.post('/analyze/ai', async (req: Request, res: Response) => {
+router.post('/analyze/ai', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
   console.log('[POST /cost/analyze/ai] Starting AI analysis...');
-  const result = await costIntelligenceAgent.runWithAI(req.tenantId!);
-  res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+  const optDecision = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.optimization');
+  const salDecision = authzService.check(req.user!.sub, req.user!.tenantId, 'cost.view.salary_detail');
+  await Promise.all([
+    auditService.log({
+      eventType: optDecision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub, actorName: req.user!.name, permissionId: 'cost.view.optimization',
+      resource: req.path, outcome: optDecision.allowed ? 'success' : 'failure',
+      reason: optDecision.reason, requestId: req.requestId, tenantId: req.user!.tenantId,
+      metadata: { scope: 'ai-tool-access', field: 'optimization', matchedPolicy: optDecision.matchedPolicy },
+    }),
+    auditService.log({
+      eventType: salDecision.allowed ? 'authz.allow' : 'authz.deny',
+      actorId: req.user!.sub, actorName: req.user!.name, permissionId: 'cost.view.salary_detail',
+      resource: req.path, outcome: salDecision.allowed ? 'success' : 'failure',
+      reason: salDecision.reason, requestId: req.requestId, tenantId: req.user!.tenantId,
+      metadata: { scope: 'ai-tool-access', field: 'staffAugAnalysis', matchedPolicy: salDecision.matchedPolicy },
+    }),
+  ]);
+  const result = await costIntelligenceAgent.runWithAI(req.tenantId!, {
+    optimization: !optDecision.allowed,
+    staffAug: !salDecision.allowed,
+  });
+  const scoped = await scopeReport(result as unknown as Record<string, unknown>, req, {
+    optAllowed: optDecision.allowed,
+    salAllowed: salDecision.allowed,
+  });
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/agent/status — agent status + last run metadata
-router.get('/agent/status', (req: Request, res: Response) => {
+router.get('/agent/status', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
   res.json({ success: true, data: costService.getAgentStatus(req.tenantId!), timestamp: new Date().toISOString() });
 });
 
 // GET /cost/report — last full report (without re-running)
-router.get('/report', (_req: Request, res: Response) => {
-  const report = costService.getLastReport();
+router.get('/report', requirePermission('cost.view.vendor_analysis'), async (req: Request, res: Response) => {
+  const report = costService.getLastReport(req.tenantId!);
   if (!report) {
     res.status(404).json({ success: false, error: 'No report generated yet. POST /cost/analyze first.', timestamp: new Date().toISOString() });
     return;
   }
-  res.json({ success: true, data: report, timestamp: new Date().toISOString() });
+  const scoped = await scopeReport(report as unknown as Record<string, unknown>, req);
+  res.json({ success: true, data: scoped, timestamp: new Date().toISOString() });
 });
 
 // ── Core Endpoints ────────────────────────────────────────────────────────────
 
 // GET /cost/summary — cost breakdown (people + tech + partners)
-router.get('/summary', (req: Request, res: Response) => {
-  costService.getCostSummary(req.tenantId!);
-  const { costAggregationEngine } = require('./engines/cost-aggregation.engine');
-  const summary = costAggregationEngine.compute();
+router.get('/summary', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
+  const summary = costService.getCostSummary(req.tenantId!);
   res.json({ success: true, data: summary, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/vendor-analysis — all vendor impact reports
-router.get('/vendor-analysis', (req: Request, res: Response) => {
+router.get('/vendor-analysis', requirePermission('cost.view.vendor_analysis'), (req: Request, res: Response) => {
   const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
   const type = req.query.type as string | undefined;
-  let impacts = vendorImpactEngine.analyzeAll();
-  if (type) impacts = impacts.filter((i: any) => i.vendorType === type);
+  let impacts = vendorImpactEngine.analyzeAll(req.tenantId!);
+  if (type) impacts = impacts.filter((i: { vendorType: string }) => i.vendorType === type);
   res.json({ success: true, data: { total: impacts.length, vendors: impacts }, timestamp: new Date().toISOString() });
 });
 
 // GET /cost/vendor-analysis/:vendorId — single vendor impact
-router.get('/vendor-analysis/:vendorId', (req: Request, res: Response) => {
+router.get('/vendor-analysis/:vendorId', requirePermission('cost.view.vendor_analysis'), (req: Request, res: Response) => {
   const { vendorImpactEngine } = require('./engines/vendor-impact.engine');
-  const impact = vendorImpactEngine.analyzeVendor(req.params.vendorId as string);
+  const impact = vendorImpactEngine.analyzeVendor(req.tenantId!, req.params.vendorId as string);
   if (!impact) {
     res.status(404).json({ success: false, error: 'Vendor not found', timestamp: new Date().toISOString() });
     return;
@@ -70,7 +156,7 @@ router.get('/vendor-analysis/:vendorId', (req: Request, res: Response) => {
 });
 
 // GET /cost/optimization — optimization opportunities
-router.get('/optimization', (req: Request, res: Response) => {
+router.get('/optimization', requirePermission('cost.view.optimization'), (req: Request, res: Response) => {
   const report = costService.getOptimizationReport(req.tenantId!);
   res.json({ success: true, data: report, timestamp: new Date().toISOString() });
 });
@@ -78,7 +164,7 @@ router.get('/optimization', (req: Request, res: Response) => {
 // ── Contracts ─────────────────────────────────────────────────────────────────
 
 // POST /contracts/upload — ingest a contract or SOW
-router.post('/contracts', (req: Request, res: Response) => {
+router.post('/contracts', requirePermission('vendors.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { vendorId, annualCost, description } = req.body;
   if (!vendorId || !annualCost || !description) {
@@ -90,7 +176,7 @@ router.post('/contracts', (req: Request, res: Response) => {
 });
 
 // GET /cost/contracts — list all contracts
-router.get('/contracts', (req: Request, res: Response) => {
+router.get('/contracts', requirePermission('cost.view.summary'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { vendorId } = req.query;
   const contracts = costService.listContracts(tenantId, vendorId as string | undefined);
@@ -100,7 +186,7 @@ router.get('/contracts', (req: Request, res: Response) => {
 // ── Vendors ───────────────────────────────────────────────────────────────────
 
 // POST /cost/vendors — create/update vendor
-router.post('/vendors', (req: Request, res: Response) => {
+router.post('/vendors', requirePermission('vendors.manage'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { name, type } = req.body;
   if (!name || !type) {
@@ -112,9 +198,9 @@ router.post('/vendors', (req: Request, res: Response) => {
 });
 
 // GET /cost/vendors — list vendors (optional ?type= filter)
-router.get('/vendors', (req: Request, res: Response) => {
+router.get('/vendors', requirePermission('vendors.view'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const type = req.query.type as any;
+  const type = req.query.type as Vendor['type'] | undefined;
   const vendors = costService.listVendors(tenantId, type);
   res.json({ success: true, data: { total: vendors.length, vendors }, timestamp: new Date().toISOString() });
 });
@@ -122,7 +208,7 @@ router.get('/vendors', (req: Request, res: Response) => {
 // ── People ────────────────────────────────────────────────────────────────────
 
 // POST /cost/people — add a person cost record
-router.post('/people', (req: Request, res: Response) => {
+router.post('/people', requirePermission('cost.manage.people'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
   const { name, role, employmentType, annualCost } = req.body;
   if (!name || !role || !employmentType || !annualCost) {
@@ -134,9 +220,9 @@ router.post('/people', (req: Request, res: Response) => {
 });
 
 // GET /cost/people — list people cost records
-router.get('/people', (req: Request, res: Response) => {
+router.get('/people', requirePermission('cost.view.salary_detail'), (req: Request, res: Response) => {
   const tenantId = req.tenantId!;
-  const type = req.query.type as any;
+  const type = req.query.type as PersonCost['employmentType'] | undefined;
   const people = costService.listPeople(tenantId, type);
   res.json({ success: true, data: { total: people.length, people }, timestamp: new Date().toISOString() });
 });
