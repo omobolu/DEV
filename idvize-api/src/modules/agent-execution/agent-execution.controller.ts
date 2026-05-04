@@ -80,6 +80,10 @@ router.post('/email-action', express.urlencoded({ extended: false }), async (req
   }
 });
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function actionFormPage(label: string, decision: string, token: string): string {
   const isApprove = decision === 'approved';
   const btnBg = isApprove ? '#16a34a' : '#dc2626';
@@ -105,7 +109,7 @@ textarea:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 2px rgba(129,1
 <body><div class="card"><div class="header">idvize <span style="color:#94a3b8;font-size:11px;margin-left:8px;">IAM Operating System</span></div>
 <div class="body">
 <div class="alert"><div class="alert-title">${label} Remediation Plan</div>
-<p class="alert-msg">You are about to ${decision === 'approved' ? 'approve' : 'reject'} this plan.</p></div>
+<p class="alert-msg">You are about to ${escapeHtml(decision === 'approved' ? 'approve' : 'reject')} this plan.</p></div>
 <form method="POST" action="/agent-execution/email-action">
 <input type="hidden" name="token" value="${escapedToken}">
 <label for="comment">Comment (optional)</label>
@@ -115,11 +119,13 @@ textarea:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 2px rgba(129,1
 }
 
 function actionResultPage(title: string, message: string, success: boolean): string {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
   const bg = success ? '#f0fdf4' : '#fef2f2';
   const border = success ? '#16a34a' : '#dc2626';
   const color = success ? '#166534' : '#991b1b';
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>IDVIZE — ${title}</title>
+<html><head><meta charset="utf-8"><title>IDVIZE — ${safeTitle}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>body{margin:0;padding:0;background:#f4f6f9;font-family:Inter,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}
 .card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;max-width:480px;width:100%;overflow:hidden;}
@@ -129,7 +135,7 @@ function actionResultPage(title: string, message: string, success: boolean): str
 .alert-title{color:${color};font-size:14px;font-weight:600;}
 .alert-msg{color:${color};font-size:13px;margin:4px 0 0;}</style></head>
 <body><div class="card"><div class="header">idvize <span style="color:#94a3b8;font-size:11px;margin-left:8px;">IAM Operating System</span></div>
-<div class="body"><div class="alert"><div class="alert-title">${title}</div><p class="alert-msg">${message}</p></div></div></div></body></html>`;
+<div class="body"><div class="alert"><div class="alert-title">${safeTitle}</div><p class="alert-msg">${safeMessage}</p></div></div></div></body></html>`;
 }
 
 // All routes below require authentication and tenant context
