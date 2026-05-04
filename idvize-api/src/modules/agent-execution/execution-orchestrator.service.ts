@@ -111,12 +111,15 @@ class ExecutionOrchestratorService {
       return session;
     }
 
-    // 3. Generate required approvals
-    const approvals = executionApprovalService.generateRequiredApprovals(plan);
-    await executionApprovalService.saveApprovals(tenantId, approvals);
+    // 3. Generate required approvals (respects tenant remediation settings)
+    const approvals = await executionApprovalService.generateRequiredApprovals(tenantId, plan);
+    if (approvals.length > 0) {
+      await executionApprovalService.saveApprovals(tenantId, approvals);
+    }
 
-    // 4. Build session
-    const session = this.buildSession(sessionId, tenantId, request.agentType, 'pending_approval', actorId);
+    // 4. Build session — skip approval gate if no approvals required
+    const initialStatus: ExecutionSessionStatus = approvals.length > 0 ? 'pending_approval' : 'approved';
+    const session = this.buildSession(sessionId, tenantId, request.agentType, initialStatus, actorId);
     session.plan = plan;
     session.approvals = approvals;
     await repo.saveSession(session);
@@ -147,10 +150,18 @@ class ExecutionOrchestratorService {
       approvalsRequired: approvals.length,
     });
 
-    // Fire email notification for plan created (best-effort — failure does not block session)
-    this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
-      console.warn(`[ExecutionOrchestrator] notifyPlanCreated failed for session ${sessionId}:`, (err as Error).message);
-    });
+    // Fire email notifications (best-effort — failure does not block session)
+    if (approvals.length > 0) {
+      // Approval required — send approval request email
+      this.notifyPlanCreated(tenantId, session, actorId, actorName, actorEmail ?? '').catch(err => {
+        console.warn(`[ExecutionOrchestrator] notifyPlanCreated failed for session ${sessionId}:`, (err as Error).message);
+      });
+    } else {
+      // No approvals needed — auto-approved, notify stakeholders immediately
+      this.notifyStakeholders(tenantId, session, actorName).catch(err =>
+        console.error('[Orchestrator] Stakeholder notification (auto-approved) failed:', (err as Error).message),
+      );
+    }
 
     return session;
   }
