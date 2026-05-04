@@ -208,7 +208,7 @@ class CredentialEscrowService {
     const key = getEncryptionKey();
     const decipher = createDecipheriv(ALGORITHM, key, encryptedValue.iv);
     decipher.setAuthTag(encryptedValue.authTag);
-    const plaintext = decipher.update(encryptedValue.ciphertext) + decipher.final('utf8');
+    const plaintext = Buffer.concat([decipher.update(encryptedValue.ciphertext), decipher.final()]).toString('utf8');
 
     // Mark as retrieved and destroy encrypted value
     handoff.status = 'retrieved';
