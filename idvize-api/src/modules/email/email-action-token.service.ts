@@ -58,7 +58,6 @@ class EmailActionTokenService {
       expiresIn: TOKEN_TTL_HOURS * 3600,
       issuer: 'idvize-email-action',
       audience: 'idvize-api',
-      jwtid: jti,
     });
   }
 
