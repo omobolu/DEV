@@ -46,7 +46,10 @@ class EmailActionTokenService {
     });
   }
 
-  async validateToken(token: string): Promise<EmailActionPayload> {
+  /**
+   * Verify a token without consuming it — used to render the comment form.
+   */
+  async peekToken(token: string): Promise<EmailActionPayload> {
     if (usedTokens.has(token)) {
       throw new Error('This action link has already been used');
     }
@@ -61,6 +64,14 @@ class EmailActionTokenService {
       throw new Error('Invalid action token type');
     }
 
+    return decoded;
+  }
+
+  /**
+   * Validate and consume a token — single use.
+   */
+  async validateToken(token: string): Promise<EmailActionPayload> {
+    const decoded = await this.peekToken(token);
     usedTokens.add(token);
     return decoded;
   }

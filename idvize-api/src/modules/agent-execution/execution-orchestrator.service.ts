@@ -237,6 +237,7 @@ class ExecutionOrchestratorService {
     sessionId: string,
     approvalId: string,
     decision: 'approved' | 'rejected',
+    comment?: string,
   ): Promise<void> {
     const session = await repo.getSession(tenantId, sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -260,7 +261,7 @@ class ExecutionOrchestratorService {
     await executionApprovalService.resolve(
       tenantId, approvalId, sessionId,
       'email-action', 'Email Approver',
-      eligible, decision,
+      eligible, decision, comment,
     );
 
     session.approvals = await executionApprovalService.getSessionApprovals(tenantId, sessionId);
@@ -275,7 +276,7 @@ class ExecutionOrchestratorService {
     } else if (await executionApprovalService.hasRejection(tenantId, sessionId)) {
       session.status = 'cancelled';
       session.updatedAt = new Date().toISOString();
-      session.errorMessage = `Approval rejected via email`;
+      session.errorMessage = `Approval rejected via email${comment ? `: ${comment}` : ''}`;
       for (const handleId of session.credentialHandles) {
         credentialEscrowService.destroyCredential(tenantId, handleId);
       }
@@ -299,7 +300,7 @@ class ExecutionOrchestratorService {
       targetId: sessionId,
       resource: 'agent_execution',
       outcome: 'success',
-      metadata: { approvalId, sessionId, decision, channel: 'email' },
+      metadata: { approvalId, sessionId, decision, channel: 'email', comment: comment ?? null },
     });
   }
 
