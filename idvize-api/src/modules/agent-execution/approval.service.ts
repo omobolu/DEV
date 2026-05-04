@@ -13,6 +13,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { auditService } from '../security/audit/audit.service';
+import { tenantService } from '../tenant/tenant.service';
 import * as repo from './agent-execution.repository';
 import type {
   ExecutionApproval,
@@ -37,12 +38,28 @@ class ExecutionApprovalService {
 
   /**
    * Determine which approvals are required for a given plan.
-   * Returns the approval records that must be resolved before execution.
+   * Reads the tenant's remediation workflow settings to decide which approval
+   * roles are enabled. Only generates approvals for roles the tenant requires.
+   *
+   * Tenant settings mapping:
+   *   requireAppOwnerApproval  → app_owner approval
+   *   requireIamManagerApproval → iam_admin approval
+   *   platform_admin is always generated for high/critical blast-radius plans
+   *     (not configurable — this is a safety control)
+   *
+   * If no approvals are required by settings AND none by blast-radius,
+   * returns an empty array so the session can skip the approval gate.
    */
-  generateRequiredApprovals(plan: ExecutionPlan): ExecutionApproval[] {
+  async generateRequiredApprovals(tenantId: string, plan: ExecutionPlan): Promise<ExecutionApproval[]> {
     const now = new Date();
     const requiredBy = new Date(now.getTime() + APPROVAL_EXPIRY_HOURS * 3600 * 1000).toISOString();
     const approvals: ExecutionApproval[] = [];
+
+    // Load tenant remediation settings (default to both required if not configured)
+    const tenant = await tenantService.getTenant(tenantId);
+    const remediationSettings = tenant?.settings?.remediation;
+    const requireAppOwner = remediationSettings?.requireAppOwnerApproval ?? true;
+    const requireIamManager = remediationSettings?.requireIamManagerApproval ?? true;
 
     const hasAppSideChanges = plan.steps.some(s =>
       s.targetSystem.systemType === 'app_connector',
@@ -58,20 +75,17 @@ class ExecutionApprovalService {
     );
     const isHighBlastRadius = plan.blastRadius.level === 'high' || plan.blastRadius.level === 'critical';
 
-    if (hasAppSideChanges) {
+    if (requireAppOwner && hasAppSideChanges) {
       approvals.push(this.createApproval(plan.sessionId, 'app_owner', requiredBy));
     }
 
-    if (hasEntraChanges || hasSailPointChanges || hasServiceNowChanges) {
+    if (requireIamManager && (hasEntraChanges || hasSailPointChanges || hasServiceNowChanges)) {
       approvals.push(this.createApproval(plan.sessionId, 'iam_admin', requiredBy));
     }
 
+    // platform_admin for high blast-radius is always required (safety control)
     if (isHighBlastRadius) {
       approvals.push(this.createApproval(plan.sessionId, 'platform_admin', requiredBy));
-    }
-
-    if (approvals.length === 0) {
-      approvals.push(this.createApproval(plan.sessionId, 'iam_admin', requiredBy));
     }
 
     return approvals;
