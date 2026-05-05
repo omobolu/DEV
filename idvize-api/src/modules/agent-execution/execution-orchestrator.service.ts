@@ -264,7 +264,7 @@ class ExecutionOrchestratorService {
     const roleMap: Record<string, string[]> = {
       app_owner: ['Manager', 'PlatformAdmin'],
       iam_admin: ['Manager', 'PlatformAdmin'],
-      platform_admin: ['PlatformAdmin'],
+      platform_admin: ['Manager', 'PlatformAdmin'],
       security_admin: ['Manager', 'PlatformAdmin'],
     };
     const eligible = roleMap[approval.role] ?? ['PlatformAdmin'];

@@ -30,7 +30,7 @@ const APPROVAL_EXPIRY_HOURS = 24;
 const ROLE_ELIGIBILITY: Record<ApprovalRole, string[]> = {
   app_owner: ['Manager', 'PlatformAdmin'],
   iam_admin: ['Manager', 'PlatformAdmin'],
-  platform_admin: ['PlatformAdmin'],
+  platform_admin: ['Manager', 'PlatformAdmin'],
   security_admin: ['Manager', 'PlatformAdmin'],
 };
 
